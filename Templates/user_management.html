@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - User Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
+
+        /* UTILITY */
+        .hidden { display: none !important; }
+
+        /* SIDEBAR NAVIGATION */
+        .sidebar {
+            width: 260px;
+            background-color: #f7f0e8;
+            border-right: 1px solid #e2d7ca;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 14px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
+        }
+
+        /* Sidebar Header (Logo & School Name) */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+            padding: 0 4px;
+        }
+
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .school-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c3e50;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+
+        .school-subtitle {
+            font-size: 9.5px;
+            color: #666666;
+            margin-top: 2px;
+            font-weight: 400;
+            text-transform: none;
+        }
+
+        /* Navigation Menu & Optimized Buttons */
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
+            border: 1px solid #d2d2d2;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 600;
+            color: #333333;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .nav-btn .icon {
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            flex-shrink: 0;
+        }
+
+        /* Button Hover & Active States */
+        .nav-btn:hover {
+            background: #ffffff;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
+        }
+
+        .nav-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
+            border-color: #53c5f1;
+            color: #0277bd;
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
+        }
+
+        /* Logout Button Accent */
+        .nav-btn.logout-btn {
+            margin-top: 14px;
+            color: #d9534f;
+            background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%);
+            border-color: #f5c6cb;
+            justify-content: center;
+        }
+
+        .nav-btn.logout-btn:hover {
+            background: #dc3545;
+            color: #ffffff;
+            border-color: #dc3545;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+
+        .sidebar-footer {
+            font-size: 10px;
+            color: #888888;
+            text-align: center;
+            margin-top: 12px;
+            font-style: italic;
+        }
+
+        /* MAIN WORKSPACE */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header {
+            background-color: #aae0f7; padding: 12px 28px; display: flex;
+            justify-content: space-between; align-items: center; border-bottom: 1px solid #94d2ee;
+        }
+        .header-title-box h1 { font-size: 22px; font-weight: 800; font-style: italic; color: #0d233a; }
+        .date-time-box { font-size: 11px; color: #2c3e50; margin-top: 2px; }
+        .user-profile-box { text-align: right; }
+        .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
+        .user-role { font-size: 11px; color: #333333; font-weight: 500; }
+
+        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+
+        /* CONTROL BAR & SEARCH */
+        .control-card {
+            background-color: #ffffff; border-radius: 12px; padding: 16px 22px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04); border: 1px solid #eef2f5;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+        }
+        .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 500px; }
+        .search-input-box {
+            display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5;
+            border-radius: 8px; padding: 6px 12px; width: 100%; transition: all 0.2s ease;
+        }
+        .search-input-box:focus-within { background: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2); }
+        .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
+        
+        .filter-controls { display: flex; align-items: center; gap: 10px; }
+        .filter-select, .date-picker {
+            padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px;
+            font-size: 12px; outline: none; background: #ffffff; color: #333; cursor: pointer;
+        }
+        
+        .icon-btn {
+            padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5;
+            border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px; color: #333; transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .icon-btn:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; }
+
+        /* DATA TABLE */
+        .table-card {
+            background-color: #ffffff; border-radius: 12px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04); border: 1px solid #eef2f5; flex: 1;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background-color: #53c5f1; color: #ffffff; font-size: 12px; font-weight: 700;
+            text-transform: uppercase; padding: 12px 14px; text-align: left; letter-spacing: 0.5px;
+        }
+        th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        td { padding: 12px 14px; font-size: 13px; color: #333333; border-bottom: 1px solid #f0f4f8; }
+        tr:hover td { background-color: #f8fcff; }
+
+        /* STATUS BADGES & ACTION BUTTONS */
+        .badge {
+            display: inline-block; padding: 4px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700; text-align: center;
+        }
+        .badge-approved { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+
+        .action-cell { display: flex; align-items: center; gap: 8px; }
+        .btn-action {
+            width: 32px; height: 32px; border-radius: 6px; border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px; transition: all 0.2s ease;
+        }
+        .btn-edit { background: #e3f2fd; color: #1976d2; }
+        .btn-edit:hover { background: #1976d2; color: #ffffff; transform: scale(1.08); }
+        .btn-approve { background: #e8f5e9; color: #2e7d32; }
+        .btn-approve:hover { background: #2e7d32; color: #ffffff; transform: scale(1.08); }
+        .btn-reject { background: #fff3e0; color: #e65100; }
+        .btn-reject:hover { background: #e65100; color: #ffffff; transform: scale(1.08); }
+        .btn-delete { background: #ffebee; color: #c62828; }
+        .btn-delete:hover { background: #c62828; color: #ffffff; transform: scale(1.08); }
+
+        .alert-bar {
+            padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px;
+        }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-info { background: #d1ecf1; color: #0c5460; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+
+        /* BLURRED BACKDROP OVERLAY */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        /* POP-UP BOX CARD */
+        .modal-box {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 28px 32px;
+            width: 380px;
+            max-width: 90%;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            position: relative;
+            animation: popIn 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0d233a;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 22px;
+            color: #888;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .close-btn:hover { color: #d9534f; }
+
+        .modal-form .input-group {
+            margin-bottom: 10px;
+        }
+
+        .modal-form label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #444;
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        .modal-form input, .modal-form select {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #f2f2f2;
+            border: 1.5px solid transparent;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .modal-form input:focus, .modal-form select:focus {
+            background-color: #ffffff;
+            border-color: #53c5f1;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2);
+        }
+
+        .modal-form input[readonly] {
+            background-color: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .btn-modal-cancel {
+            padding: 8px 18px;
+            background: #e0e0e0;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-modal-save {
+            padding: 8px 22px;
+            background: #53c5f1;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35);
+        }
+
+        .btn-modal-save:hover { background: #3bb2e0; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo" src="{{ url_for('static', filename='cpsc_logo.png') }}" alt="CPSC Seal" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span> Dashboard</a>
+                <a href="#" class="nav-btn"><span class="icon">📋</span> PR</a>
+                <a href="#" class="nav-btn"><span class="icon">📝</span> PO</a>
+                <a href="#" class="nav-btn"><span class="icon">🚚</span> Delivery</a>
+                <a href="#" class="nav-btn"><span class="icon">📦</span> Inventory</a>
+                <a href="#" class="nav-btn"><span class="icon">📤</span> Withdraw</a>
+                <a href="#" class="nav-btn"><span class="icon">🔄</span> Return</a>
+                <a href="#" class="nav-btn"><span class="icon">📊</span> Reports</a>
+                <a href="{{ url_for('admin_suppliers') }}" class="nav-btn"><span class="icon">🏬</span> Supplier</a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span> Products</a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn active"><span class="icon">👥</span> Users</a>
+            </div>
+        </div>
+
+        <div>
+            <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span> Log Out</a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="main-wrapper">
+        
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>User Management</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                <div class="user-name">{{ user.full_name }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            
+            <!-- Flash Notifications -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert-bar alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- SEARCH AND FILTER CONTROLS BAR -->
+            <div class="control-card">
+                <form method="GET" action="/admin/users" class="search-form" id="filter-form">
+                    <div class="search-input-box">
+                        <span style="margin-right: 8px;">🔍</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Search ID, Name, Username, Role, or Contact #" autocomplete="off">
+                    </div>
+                    <button type="submit" class="icon-btn">Search</button>
+                </form>
+
+                <div class="filter-controls">
+                    <!-- Refresh Button (Clears search & filters) -->
+                    <a href="/admin/users" class="icon-btn" title="Refresh List">🔄 Refresh</a>
+
+                    <!-- Filter Dropdown -->
+                    <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
+                        <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
+                        <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
+                        <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
+                        <option value="Last Year" {% if date_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
+                        <option value="Custom" {% if date_filter == 'Custom' %}selected{% endif %}>Custom Date</option>
+                    </select>
+
+                    <!-- Custom Date Input (Capped to max=today) -->
+                    <input type="date" id="custom-date-picker" name="custom_date" form="filter-form" 
+                           class="date-picker {% if date_filter != 'Custom' %}hidden{% endif %}" 
+                           value="{{ custom_date }}" onchange="document.getElementById('filter-form').submit()">
+                </div>
+            </div>
+
+            <!-- USERS TABLE -->
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User (ID)</th>
+                            <th>First Name</th>
+                            <th>M.I.</th>
+                            <th>Last Name</th>
+                            <th>User Name</th>
+                            <th>Role</th>
+                            <th>Contact #</th>
+                            <th>Approved</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if users %}
+                            {% for u in users %}
+                            <tr>
+                                <td><strong>USR-{{ "%03d"|format(u.user_id) }}</strong></td>
+                                <td>{{ u.first_name }}</td>
+                                <td>{{ u.middle_initial or '-' }}</td>
+                                <td>{{ u.last_name }}</td>
+                                <td>{{ u.username }}</td>
+                                <td>{{ u.role }}</td>
+                                <td>{{ u.contact_number or '-' }}</td>
+                                <td>
+                                    {% if u.is_approved == 1 %}
+                                        <span class="badge badge-approved">Yes</span>
+                                    {% else %}
+                                        <span class="badge badge-pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-cell">
+                                        <!-- Edit Button (Opens Popup Modal) -->
+                                        <button type="button" class="btn-action btn-edit" title="Edit User Information"
+                                                data-user-id="{{ u.user_id }}"
+                                                data-first-name="{{ u.first_name }}"
+                                                data-middle-initial="{{ u.middle_initial or '' }}"
+                                                data-last-name="{{ u.last_name }}"
+                                                data-username="{{ u.username }}"
+                                                data-role="{{ u.role }}"
+                                                data-contact="{{ u.contact_number or '' }}"
+                                                onclick="openEditModal(this)">
+                                            ✏️
+                                        </button>
+
+                                        <!-- Approve Action Button -->
+                                        <form method="POST" action="/admin/users/approve/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
+                                            <button type="submit" class="btn-action btn-approve" title="Approve Account">✔</button>
+                                        </form>
+
+                                        <!-- Reject Action Button -->
+                                        <form method="POST" action="/admin/users/reject/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
+                                            <button type="submit" class="btn-action btn-reject" title="Reject / Set Pending">👎</button>
+                                        </form>
+
+                                        <!-- Delete Action Button -->
+                                        <form method="POST" action="/admin/users/delete/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}" onsubmit="return confirm('Permanently delete user {{ u.username }}?')">
+                                            <button type="submit" class="btn-action btn-delete" title="Delete User">✖</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" style="text-align: center; color: #888; padding: 25px;">
+                                    No matching users found.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- EDIT USER MODAL POPUP -->
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Edit User Details</h3>
+                <button type="button" class="close-btn" onclick="closeEditModal()">✖</button>
+            </div>
+
+            <form id="edit-form" method="POST" class="modal-form">
+                <div class="input-group">
+                    <label>User ID:</label>
+                    <input type="text" id="edit-user-id" readonly>
+                </div>
+
+                <div class="input-group">
+                    <label>User Name:</label>
+                    <input type="text" id="edit-username" name="username" required autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>First Name:</label>
+                    <input type="text" id="edit-first-name" name="first_name" required autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>Middle Initial:</label>
+                    <input type="text" id="edit-mi" name="middle_initial" maxlength="2" autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>Last Name:</label>
+                    <input type="text" id="edit-last-name" name="last_name" required autocomplete="off">
+                </div>
+
+                <div class="input-group">
+                    <label>User Role:</label>
+                    <select id="edit-role" name="role">
+                        <option value="Staff">Staff</option>
+                        <option value="Admin">Admin</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Contact Number:</label>
+                    <input type="text" id="edit-contact" name="contact_number" 
+                    pattern= "^09[0-9]{9}$"
+                    maxlength="11" 
+                    placeholder="09XXXXXXXXX"
+                    title= "must be a valid 11""must be a valid 11-digit Philippine mobile number starting with 09"
+                    autocomplete="off">
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Live Date and Time
+        function updateClock() {
+            const now = new Date();
+            const dateOptions = { month: 'long', day: 'numeric', year: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            document.getElementById('live-clock').innerText = 
+                `${now.toLocaleDateString('en-US', dateOptions)} | ${now.toLocaleTimeString('en-US', timeOptions)}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Prevent Future Date Selection
+        const datePicker = document.getElementById('custom-date-picker');
+        const todayStr = new Date().toISOString().split('T')[0];
+        datePicker.setAttribute('max', todayStr);
+
+        function toggleCustomDate(val) {
+            if (val === 'Custom') {
+                datePicker.classList.remove('hidden');
+            } else {
+                datePicker.classList.add('hidden');
+                document.getElementById('filter-form').submit();
+            }
+        }
+
+        // Modal Handlers
+        function openEditModal(button) {
+            const id = button.dataset.userId;
+            const firstName = button.dataset.firstName || '';
+            const mi = button.dataset.middleInitial || '';
+            const lastName = button.dataset.lastName || '';
+            const username = button.dataset.username || '';
+            const role = button.dataset.role || 'Staff';
+            const contact = button.dataset.contact || '';
+
+            document.getElementById('edit-form').action = "/admin/users/update/" + id + "?search={{ search }}&date_filter={{ date_filter }}";
+
+            document.getElementById('edit-user-id').value = "USR-" + String(id).padStart(3, '0');
+            document.getElementById('edit-first-name').value = firstName;
+            document.getElementById('edit-mi').value = mi;
+            document.getElementById('edit-last-name').value = lastName;
+            document.getElementById('edit-username').value = username;
+            document.getElementById('edit-role').value = role;
+            document.getElementById('edit-contact').value = contact;
+
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

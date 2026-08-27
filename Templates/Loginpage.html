@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Access Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* BASE BODY CONTAINER */
+        body {
+            background-color: #d6f1fe;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("{{ url_for('static', filename='cpsc_bg.jpg') }}"), 
+                              url('https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1920&q=80');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: blur(6px);
+            opacity: 0.35;
+            z-index: -1;
+            transform: scale(1.05);
+        }
+
+        /* Main Container Card */
+        .container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.18);
+            width: 780px;
+            max-width: 95%;
+            min-height: 520px;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+            transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            backdrop-filter: blur(5px);
+        }
+
+        .container.signup-mode {
+            flex-direction: row-reverse;
+        }
+
+        /* FORM AREA & ANIMATIONS */
+        .form-section {
+            flex: 1.1;
+            padding: 35px 45px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-container {
+            width: 100%;
+            max-width: 320px;
+            opacity: 1;
+            transform: translateX(0);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .form-container.fade-out {
+            opacity: 0;
+            transform: translateX(-25px);
+            pointer-events: none;
+        }
+
+        .form-container.fade-out-right {
+            opacity: 0;
+            transform: translateX(25px);
+            pointer-events: none;
+        }
+
+        .form-container h2 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #000000;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .form-container p.subtitle {
+            font-size: 13px;
+            color: #666666;
+            text-align: center;
+            margin-bottom: 18px;
+        }
+
+        /* INPUT TEXTBOX HOVER & FOCUS STATES */
+        .input-group {
+            margin-bottom: 12px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #333333;
+            font-weight: 500;
+            margin-bottom: 4px;
+            transition: color 0.2s ease;
+        }
+
+        .input-box {
+            width: 100%;
+            background-color: #f0f0f0;
+            border: 1.5px solid transparent;
+            border-radius: 4px;
+            padding: 9px 12px;
+            font-size: 13px;
+            color: #333;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+
+        .input-box:hover {
+            background-color: #e8e8e8;
+            border-color: #d0d0d0;
+        }
+
+        .input-box:focus {
+            background-color: #ffffff;
+            border-color: #53c5f1;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+        }
+
+        .input-group:focus-within label {
+            color: #0277bd;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: #f0f0f0;
+            border: 1.5px solid transparent;
+            border-radius: 4px;
+            padding: 0 10px;
+            transition: all 0.25s ease;
+        }
+
+        .input-wrapper:hover {
+            background-color: #e8e8e8;
+            border-color: #d0d0d0;
+        }
+
+        .input-wrapper:focus-within {
+            background-color: #ffffff;
+            border-color: #53c5f1;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+        }
+
+        .input-wrapper svg {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 9px 0;
+            border: none;
+            background: transparent;
+            outline: none;
+            font-size: 13px;
+            color: #333;
+        }
+
+        .forgot-pass {
+            display: block;
+            text-align: center;
+            font-size: 12px;
+            color: #555555;
+            text-decoration: none;
+            margin-top: 6px;
+            margin-bottom: 16px;
+            transition: color 0.2s ease;
+        }
+
+        .forgot-pass:hover {
+            color: #0277bd;
+            text-decoration: underline;
+        }
+
+        /* BUTTON HOVER & CLICK FEEDBACK */
+        .btn-primary {
+            width: 140px;
+            padding: 10px;
+            background-color: #53c5f1;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(83, 197, 241, 0.35);
+            display: block;
+            margin: 15px auto 0 auto;
+            transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .btn-primary:hover {
+            background-color: #3bb2e0;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(83, 197, 241, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 6px rgba(83, 197, 241, 0.4);
+        }
+
+        /* Blue Side Banner */
+        .info-section {
+            flex: 0.9;
+            background-color: #53c5f1;
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #ffffff;
+            text-align: center;
+            transition: background-color 0.4s ease;
+        }
+
+        .logo-img {
+            width: 90px;
+            height: 90px;
+            margin-bottom: 18px;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+        }
+
+        .logo-img:hover {
+            transform: scale(1.06);
+        }
+
+        .info-section h2 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .info-section p {
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 250px;
+            margin-bottom: 25px;
+            opacity: 0.95;
+        }
+
+        .btn-outline {
+            padding: 9px 34px;
+            background-color: #ffffff;
+            color: #333333;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            transition: all 0.25s ease;
+        }
+
+        .btn-outline:hover {
+            background-color: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-outline:active {
+            transform: translateY(0);
+        }
+
+        /* Notifications */
+        .alert-message, .alert-success {
+            font-size: 12px;
+            margin-bottom: 12px;
+            text-align: center;
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: 100%;
+            max-width: 320px;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .alert-message {
+            color: #d9534f;
+            background: #fdf7f7;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-card" class="container">
+        
+        <!-- Form Section -->
+        <div class="form-section">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="{% if category == 'success' %}alert-success{% else %}alert-message{% endif %}">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- SIGN IN FORM -->
+            <div id="signin-form" class="form-container">
+                <h2>Sign In</h2>
+                <p class="subtitle">Use your Account</p>
+
+                <form method="POST" action="/login">
+                    <div class="input-group">
+                        <label>User Name:</label>
+                        <div class="input-wrapper">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="8" r="4" fill="#ff9800"/>
+                                <path d="M4 20c0-4 4-7 8-7s8 3 8 7" stroke="#2196f3" stroke-width="2" fill="none"/>
+                            </svg>
+                            <input type="text" name="username" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password:</label>
+                        <div class="input-wrapper">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <rect x="5" y="10" width="14" height="10" rx="2" fill="#00bcd4"/>
+                                <path d="M8 10V7a4 4 0 118 0v3" stroke="#00bcd4" stroke-width="2" fill="none"/>
+                            </svg>
+                            <input type="password" name="password" required>
+                        </div>
+                    </div>
+
+                    <a href="{{ url_for('forgot_password') }}" class="forgot-pass">Forgot Password?</a>
+
+                    <button type="submit" class="btn-primary">Sign In</button>
+                </form>
+            </div>
+
+            <!-- CREATE A USER / SIGN UP FORM -->
+            <div id="signup-form" class="form-container hidden">
+                <h2>Create a User</h2>
+                <p class="subtitle">Enter your details below</p>
+
+                <form method="POST" action="/register">
+                    <div class="input-group">
+                        <label>User Name:</label>
+                        <input type="text" name="username" class="input-box" required autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Password:</label>
+                        <input type="password" name="password" class="input-box" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>First Name:</label>
+                        <input type="text" name="first_name" class="input-box" required autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Middle Initial:</label>
+                        <input type="text" name="middle_initial" class="input-box" maxlength="2" required autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Last Name:</label>
+                        <input type="text" name="last_name" class="input-box" required autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label>Contact Number:</label>
+                        <input type="tel" 
+                               name="contact_number" 
+                               class="input-box" 
+                               pattern="^09[0-9]{9}$" 
+                               maxlength="11" 
+                               placeholder="09351234567" 
+                               title="Must be a valid 11-digit Philippine mobile number starting with 09" 
+                               required 
+                               autocomplete="off">
+                    </div>
+
+                    <div class="input-group">
+                        <label>User Role:</label>
+                        <select name="role" class="input-box">
+                            <option value="Staff" selected>Staff</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Sign Up</button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- Info / Blue Banner Section -->
+        <div class="info-section">
+            <img class="logo-img" 
+                 src="{{ url_for('static', filename='cpsc_logo.png') }}" 
+                 alt="CPSC Logo" 
+                 onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+            
+            <h2 id="banner-title">Hello, Friend</h2>
+            <p id="banner-text">Enter your Personal Informations To Create A User</p>
+            
+            <button id="toggle-btn" class="btn-outline" onclick="toggleForm()">Sign Up</button>
+        </div>
+
+    </div>
+
+    <!-- SMOOTH TAB SWITCHING SCRIPT -->
+    <script>
+        function toggleForm() {
+            const card = document.getElementById('main-card');
+            const signin = document.getElementById('signin-form');
+            const signup = document.getElementById('signup-form');
+            const title = document.getElementById('banner-title');
+            const text = document.getElementById('banner-text');
+            const btn = document.getElementById('toggle-btn');
+
+            if (signin.classList.contains('hidden')) {
+                signup.classList.add('fade-out-right');
+
+                setTimeout(() => {
+                    signup.classList.add('hidden');
+                    signup.classList.remove('fade-out-right');
+
+                    card.classList.remove('signup-mode');
+                    signin.classList.add('fade-out');
+                    signin.classList.remove('hidden');
+
+                    title.innerText = 'Hello, Friend';
+                    text.innerText = 'Enter your Personal Informations To Create A User';
+                    btn.innerText = 'Sign Up';
+
+                    setTimeout(() => {
+                        signin.classList.remove('fade-out');
+                    }, 50);
+                }, 200);
+
+            } else {
+                signin.classList.add('fade-out');
+
+                setTimeout(() => {
+                    signin.classList.add('hidden');
+                    signin.classList.remove('fade-out');
+
+                    card.classList.add('signup-mode');
+                    signup.classList.add('fade-out-right');
+                    signup.classList.remove('hidden');
+
+                    title.innerText = 'Hello, Friend';
+                    text.innerText = 'Already has a user? please Log in using your created user.';
+                    btn.innerText = 'Sign In';
+
+                    setTimeout(() => {
+                        signup.classList.remove('fade-out-right');
+                    }, 50);
+                }, 200);
+            }
+        }
+    </script>
+</body>
+</html>

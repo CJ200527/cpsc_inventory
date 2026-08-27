@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Product Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
+        .hidden { display: none !important; }
+        .sidebar {
+            width: 260px; background-color: #f7f0e8; border-right: 1px solid #e2d7ca;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 16px 14px; overflow-y: auto; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.03);
+        }
+        .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding: 0 4px; }
+        .sidebar-logo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+        .school-title { font-size: 11px; font-weight: 700; color: #2c3e50; line-height: 1.25; text-transform: uppercase; }
+        .school-subtitle { font-size: 9.5px; color: #666666; margin-top: 2px; font-weight: 400; text-transform: none; }
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
+        .nav-btn {
+            display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
+            border: 1px solid #d2d2d2; border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+            font-size: 13px; font-weight: 600; color: #333333; text-decoration: none; cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25,0.8,0.25,1); user-select: none; box-sizing: border-box;
+        }
+        .nav-btn .icon { font-size: 17px; display: flex; align-items: center; justify-content: center; width: 22px; flex-shrink: 0; }
+        .nav-btn:hover { background: #ffffff; border-color: #53c5f1; color: #0277bd; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        .nav-btn:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .nav-btn.active { background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%); border-color: #53c5f1; color: #0277bd; box-shadow: inset 0 1px 2px rgba(255,255,255,0.8), 0 2px 6px rgba(83,197,241,0.3); }
+        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
+        .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; border-color: #dc3545; box-shadow: 0 4px 10px rgba(220,53,69,0.3); }
+        .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header { background-color: #aae0f7; padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #94d2ee; }
+        .header-title-box h1 { font-size: 22px; font-weight: 800; font-style: italic; color: #0d233a; }
+        .date-time-box { font-size: 11px; color: #2c3e50; margin-top: 2px; }
+        .user-profile-box { text-align: right; }
+        .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
+        .user-role { font-size: 11px; color: #333333; font-weight: 500; }
+        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+        .control-card { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 500px; }
+        .search-input-box { display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5; border-radius: 8px; padding: 6px 12px; width: 100%; transition: all 0.2s ease; }
+        .search-input-box:focus-within { background: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83,197,241,0.2); }
+        .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
+        .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; color: #333; transition: all 0.2s ease; text-decoration: none; }
+        .icon-btn:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; }
+        .filter-controls { display: flex; align-items: center; gap: 10px; }
+        .filter-select, .date-picker { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; color: #333; cursor: pointer; }
+        .btn-add-primary { padding: 9px 18px; background: #53c5f1; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83,197,241,0.35); transition: all 0.2s ease; }
+        .btn-add-primary:hover { background: #3bb2e0; transform: translateY(-1px); }
+        .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #53c5f1; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; letter-spacing: 0.5px; }
+        th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        td { padding: 12px 14px; font-size: 13px; color: #333333; border-bottom: 1px solid #f0f4f8; }
+        tr:hover td { background-color: #f8fcff; }
+        .price-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+        .action-cell { display: flex; align-items: center; gap: 8px; }
+        .btn-action { width: 32px; height: 32px; border-radius: 6px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all 0.2s ease; }
+        .btn-edit { background: #e3f2fd; color: #1976d2; }
+        .btn-edit:hover { background: #1976d2; color: #ffffff; transform: scale(1.08); }
+        .btn-delete { background: #ffebee; color: #c62828; }
+        .btn-delete:hover { background: #c62828; color: #ffffff; transform: scale(1.08); }
+        .alert-bar { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px; }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.35); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .modal-box { background: #ffffff; border-radius: 12px; padding: 26px 30px; width: 500px; max-width: 92%; box-shadow: 0 15px 35px rgba(0,0,0,0.2); position: relative; animation: popIn 0.25s cubic-bezier(0.25,0.8,0.25,1); max-height: 90vh; overflow-y: auto; }
+        @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-header h3 { font-size: 19px; font-weight: 700; color: #0d233a; }
+        .close-btn { background: none; border: none; font-size: 22px; color: #888; cursor: pointer; }
+        .close-btn:hover { color: #d9534f; }
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .modal-form .input-group { margin-bottom: 10px; }
+        .modal-form label { font-size: 11px; font-weight: 600; color: #444; display: block; margin-bottom: 3px; }
+        .modal-form input, .modal-form select, .modal-form textarea { width: 100%; padding: 8px 12px; background-color: #f2f2f2; border: 1.5px solid transparent; border-radius: 6px; font-size: 13px; outline: none; transition: all 0.2s ease; }
+        .modal-form textarea { resize: vertical; min-height: 55px; }
+        .modal-form input:focus, .modal-form select:focus, .modal-form textarea:focus { background-color: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83,197,241,0.2); }
+        .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-modal-save:hover { background: #3bb2e0; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo" src="{{ url_for('static', filename='cpsc_logo.png') }}" alt="CPSC Seal" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div><div class="school-title">Camiguin Polytechnic State College</div><div class="school-subtitle">Balbagon, Mambajao, Camiguin</div></div>
+            </div>
+            <div class="nav-menu">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span> Dashboard</a>
+                <a href="#" class="nav-btn"><span class="icon">📋</span> PR</a>
+                <a href="#" class="nav-btn"><span class="icon">📝</span> PO</a>
+                <a href="#" class="nav-btn"><span class="icon">🚚</span> Delivery</a>
+                <a href="#" class="nav-btn"><span class="icon">📦</span> Inventory</a>
+                <a href="#" class="nav-btn"><span class="icon">📤</span> Withdraw</a>
+                <a href="#" class="nav-btn"><span class="icon">🔄</span> Return</a>
+                <a href="#" class="nav-btn"><span class="icon">📊</span> Reports</a>
+                <a href="{{ url_for('admin_suppliers') }}" class="nav-btn"><span class="icon">🏬</span> Supplier</a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn active"><span class="icon">🏷️</span> Products</a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span> Users</a>
+            </div>
+        </div>
+        <div><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span> Log Out</a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
+    </div>
+    <div class="main-wrapper">
+        <div class="top-header">
+            <div class="header-title-box"><h1>Product Catalog</h1><div class="date-time-box" id="live-clock">Loading Date & Time...</div></div>
+            <div class="user-profile-box"><div class="user-name">{{ user.full_name }}</div><div class="user-role">{{ user.role }}</div></div>
+        </div>
+        <div class="dashboard-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}{% for category, message in messages %}<div class="alert-bar alert-{{ category }}">{{ message }}</div>{% endfor %}{% endif %}
+            {% endwith %}
+            <div class="control-card">
+                <form method="GET" action="{{ url_for('admin_products') }}" class="search-form" id="filter-form">
+                    <div class="search-input-box"><span style="margin-right:8px;">🔍</span><input type="text" name="search" value="{{ search }}" placeholder="Search Product, Category, Supplier, Price..." autocomplete="off"></div>
+                    <button type="submit" class="icon-btn">Search</button>
+                </form>
+                <div class="filter-controls">
+                    <a href="{{ url_for('admin_products') }}" class="icon-btn" title="Refresh List">🔄 Refresh</a>
+                    <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
+                        <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
+                        <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
+                        <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
+                        <option value="Last Year" {% if date_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
+                        <option value="Custom" {% if date_filter == 'Custom' %}selected{% endif %}>Custom Date</option>
+                    </select>
+                    <input type="date" id="custom-date-picker" name="custom_date" form="filter-form" class="date-picker {% if date_filter != 'Custom' %}hidden{% endif %}" value="{{ custom_date }}" onchange="document.getElementById('filter-form').submit()">
+                    <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Add Product</button>
+                </div>
+            </div>
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product ID</th>
+                            <th>Product Name</th>
+                            <th>Supplier</th>
+                            <th>Category</th>
+                            <th>Unit / Size</th>
+                            <th>Specification</th>
+                            <th>Price</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if products %}
+                            {% for p in products %}
+                            <tr>
+                                <td><strong>PRD-{{ "%03d"|format(p.product_id) }}</strong></td>
+                                <td><strong>{{ p.product_name }}</strong></td>
+                                <td>{{ p.supplier_name or '—' }}</td>
+                                <td>{{ p.category or '-' }}</td>
+                                <td>{{ p.unit }}{% if p.size %} ({{ p.size }}){% endif %}</td>
+                                <td>{{ p.details or '-' }}</td>
+                                <td><span class="price-badge">₱{{ "%.2f"|format(p.price or 0) }}</span></td>
+                                <td>
+                                    <div class="action-cell">
+                                        <button type="button" class="btn-action btn-edit" title="Edit Product"
+                                                data-id="{{ p.product_id }}" data-supplier="{{ p.supplier_id }}" data-name="{{ p.product_name }}" data-category="{{ p.category or '' }}" data-details="{{ p.details or '' }}" data-unit="{{ p.unit or '' }}" data-size="{{ p.size or '' }}" data-price="{{ p.price or 0 }}"
+                                                onclick="openEditModal(this)">✏️</button>
+                                        <form method="POST" action="{{ url_for('admin_delete_product', target_id=p.product_id) }}?search={{ search }}&date_filter={{ date_filter }}" onsubmit="return confirm('Delete product {{ p.product_name }}?')">
+                                            <button type="submit" class="btn-action btn-delete" title="Delete Product">✖</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="8" style="text-align:center;color:#888;padding:25px;">No matching products found. Add a supplier first if needed!</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <!-- ADD MODAL -->
+    <div id="add-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header"><h3>Add New Product</h3><button type="button" class="close-btn" onclick="closeAddModal()">✖</button></div>
+            <form method="POST" action="{{ url_for('admin_add_product') }}" class="modal-form" id="add-product-form" onsubmit="return validateProductForm(this)">
+                <div class="input-group">
+                    <label>Supplier *:</label>
+                    <select name="supplier_id" required>
+                        <option value="" disabled selected>Select Supplier</option>
+                        {% for sup in suppliers_list %}
+                        <option value="{{ sup.id }}">{{ sup.supplier_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group"><label>Product Name *:</label><input type="text" name="product_name" required autocomplete="off"></div>
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Category *:</label>
+                        <input type="text" name="category" list="categoryList" placeholder="Select or type category" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Unit *:</label>
+                        <input type="text" name="unit" list="unitList" placeholder="Select or type unit" required autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Size *:</label>
+                        <input type="text" name="size" list="sizeList" placeholder="Select or type size" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Price (₱) *:</label>
+                        <input type="number" name="price" step="0.01" min="0" placeholder="0.00" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Specification *:</label>
+                    <textarea name="details" placeholder="Enter specification (e.g., 70gsm, Heavy Duty, Standard)" required rows="2"></textarea>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Add Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- EDIT MODAL -->
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header"><h3>Edit Product</h3><button type="button" class="close-btn" onclick="closeEditModal()">✖</button></div>
+            <form id="edit-form" method="POST" class="modal-form">
+                <div class="input-group"><label>Product ID:</label><input type="text" id="edit-id-display" readonly></div>
+                <div class="input-group">
+                    <label>Supplier *:</label>
+                    <select id="edit-supplier" name="supplier_id" required>
+                        {% for sup in suppliers_list %}
+                        <option value="{{ sup.id }}">{{ sup.supplier_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="input-group"><label>Product Name *:</label><input type="text" id="edit-name" name="product_name" required autocomplete="off"></div>
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Category *:</label>
+                        <input type="text" id="edit-category" name="category" list="categoryList" placeholder="Select or type category" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Unit *:</label>
+                        <input type="text" id="edit-unit" name="unit" list="unitList" placeholder="Select or type unit" required autocomplete="off">
+                    </div>
+                </div>
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Size *:</label>
+                        <input type="text" id="edit-size" name="size" list="sizeList" placeholder="Select or type size" required autocomplete="off">
+                    </div>
+                    <div class="input-group"><label>Price (₱) *:</label><input type="number" id="edit-price" name="price" step="0.01" min="0" required></div>
+                </div>
+                <div class="input-group">
+                    <label>Specification *:</label>
+                    <textarea id="edit-details" name="details" placeholder="Enter specification (e.g., 70gsm, Heavy Duty, Standard)" required rows="2"></textarea>
+                </div>
+                <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button><button type="submit" class="btn-modal-save">Save Changes</button></div>
+            </form>
+        </div>
+    </div>
+    <datalist id="categoryList">
+        <option value="Office Supplies"><option value="Laboratory"><option value="Equipment"><option value="Cleaning"><option value="Food"><option value="IT Supplies"><option value="Others">
+    </datalist>
+    <datalist id="unitList">
+        <option value="pcs"><option value="box"><option value="ream"><option value="kg"><option value="liter"><option value="pack"><option value="unit"><option value="set">
+    </datalist>
+    <datalist id="sizeList">
+        <option value="Small"><option value="Medium"><option value="Large"><option value="Extra Large"><option value="Standard"><option value="A4"><option value="A3"><option value="Letter"><option value="Legal"><option value="500ml"><option value="1L">
+    </datalist>
+    <script>
+        function updateClock(){ const n=new Date(); document.getElementById('live-clock').innerText=`${n.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} | ${n.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`; }
+        setInterval(updateClock,1000); updateClock();
+        const dp=document.getElementById('custom-date-picker'); if(dp){ dp.setAttribute('max', new Date().toISOString().split('T')[0]); }
+        function toggleCustomDate(v){ const d=document.getElementById('custom-date-picker'); if(v==='Custom') d.classList.remove('hidden'); else { d.classList.add('hidden'); document.getElementById('filter-form').submit(); } }
+        function openAddModal(){ document.getElementById('add-modal').classList.remove('hidden'); }
+        function closeAddModal(){ document.getElementById('add-modal').classList.add('hidden'); }
+        function validateProductForm(f){
+            if(!f.supplier_id.value){ alert('Please select a supplier.'); return false; }
+            const price=parseFloat(f.price.value); if(isNaN(price)||price<0){ alert('Price must be 0 or more.'); f.price.focus(); return false; }
+            return true;
+        }
+        function openEditModal(btn){
+            document.getElementById('edit-form').action = "/admin/products/update/" + btn.dataset.id + "?search={{ search }}&date_filter={{ date_filter }}";
+            document.getElementById('edit-id-display').value = "PRD-" + String(btn.dataset.id).padStart(3,'0');
+            document.getElementById('edit-supplier').value = btn.dataset.supplier;
+            document.getElementById('edit-name').value = btn.dataset.name || '';
+            document.getElementById('edit-category').value = btn.dataset.category || 'Others';
+            document.getElementById('edit-unit').value = btn.dataset.unit || 'pcs';
+            document.getElementById('edit-size').value = btn.dataset.size || 'Standard';
+            document.getElementById('edit-price').value = btn.dataset.price || 0;
+            document.getElementById('edit-details').value = btn.dataset.details || 'Standard';
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+        function closeEditModal(){ document.getElementById('edit-modal').classList.add('hidden'); }
+        document.getElementById('edit-form').addEventListener('submit', function(e){
+            const p=parseFloat(document.getElementById('edit-price').value); if(isNaN(p)||p<0){ e.preventDefault(); alert('Price must be 0 or more.'); }
+        });
+        document.getElementById('add-modal').addEventListener('click', function(e){ if(e.target===this) closeAddModal(); });
+        document.getElementById('edit-modal').addEventListener('click', function(e){ if(e.target===this) closeEditModal(); });
+    </script>
+</body>
+</html>

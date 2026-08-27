@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Modern Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background-color: #eaf3f8;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* ==========================================
+           1. SIDEBAR NAVIGATION
+           ========================================== */
+        .sidebar {
+            width: 260px;
+            background-color: #f7f0e8;
+            border-right: 1px solid #e2d7ca;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 14px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
+        }
+
+        /* Sidebar Header (Logo & School Name) */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+            padding: 0 4px;
+        }
+
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .school-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c3e50;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+
+        .school-subtitle {
+            font-size: 9.5px;
+            color: #666666;
+            margin-top: 2px;
+            font-weight: 400;
+            text-transform: none;
+        }
+
+        /* Navigation Menu & Optimized Buttons */
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
+            border: 1px solid #d2d2d2;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 600;
+            color: #333333;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            user-select: none;
+        }
+
+        .nav-btn .icon {
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+        }
+
+        /* Button Hover & Active States */
+        .nav-btn:hover {
+            background: #ffffff;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
+        }
+
+        .nav-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
+            border-color: #53c5f1;
+            color: #0277bd;
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
+        }
+
+        /* Logout Button Accent */
+        .nav-btn.logout-btn {
+            margin-top: 14px;
+            color: #d9534f;
+            background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%);
+            border-color: #f5c6cb;
+            justify-content: center;
+        }
+
+        .nav-btn.logout-btn:hover {
+            background: #dc3545;
+            color: #ffffff;
+            border-color: #dc3545;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+
+        .sidebar-footer {
+            font-size: 10px;
+            color: #888888;
+            text-align: center;
+            margin-top: 12px;
+            font-style: italic;
+        }
+
+        /* ==========================================
+           2. MAIN WORKSPACE & TOP HEADER
+           ========================================== */
+        .main-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .top-header {
+            background-color: #aae0f7;
+            padding: 12px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #94d2ee;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            flex-shrink: 0;
+        }
+
+        .header-title-box h1 {
+            font-size: 22px;
+            font-weight: 800;
+            font-style: italic;
+            color: #0d233a;
+            letter-spacing: -0.3px;
+        }
+
+        .header-title-box .date-time-box {
+            font-size: 11px;
+            color: #2c3e50;
+            margin-top: 2px;
+            font-weight: 500;
+        }
+
+        .user-profile-box {
+            text-align: right;
+        }
+
+        .user-profile-box .user-name {
+            font-size: 14px;
+            font-weight: 700;
+            font-style: italic;
+            color: #0d233a;
+        }
+
+        .user-profile-box .user-role {
+            font-size: 11px;
+            color: #333333;
+            font-weight: 500;
+        }
+
+        /* ==========================================
+           3. DASHBOARD CONTENT GRID
+           ========================================== */
+        .dashboard-container {
+            padding: 22px 28px;
+            overflow-y: auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Top 4 Stat Cards Row */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+
+        .metric-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 18px 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 125px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+        }
+
+        .metric-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            text-align: center;
+            color: #333333;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-body {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            margin-top: 8px;
+        }
+
+        .metric-icon-box {
+            font-size: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-style: italic;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        /* Action Controls Header Bar */
+        .action-bar-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 14px 22px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .action-bar-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0d233a;
+        }
+
+        .action-bar-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+            border: 1px solid #d0d0d0;
+            border-radius: 8px;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #333333;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            background: #ffffff;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-1px);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #555555;
+            font-weight: 500;
+        }
+
+        .filter-select {
+            padding: 6px 12px;
+            border: 1px solid #cccccc;
+            border-radius: 6px;
+            font-size: 12px;
+            outline: none;
+            background-color: #ffffff;
+            cursor: pointer;
+        }
+
+        .icon-circle-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid #cccccc;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .icon-circle-btn:hover {
+            background-color: #e1f3fe;
+            border-color: #53c5f1;
+            transform: rotate(45deg);
+        }
+
+        /* Bottom Charts Section */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .chart-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 22px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f5;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chart-card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0d233a;
+            margin-bottom: 20px;
+        }
+
+        .chart-placeholder {
+            width: 100%;
+            height: 200px;
+            border: 2px dashed #e0e8f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #a0aec0;
+            font-size: 13px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==========================================
+       LEFT SIDEBAR NAVIGATION
+       ========================================== -->
+    <div class="sidebar">
+        <div>
+            <!-- Header Seal & Name -->
+            <div class="sidebar-header">
+                <img class="sidebar-logo" 
+                     src="{{ url_for('static', filename='cpsc_logo.png') }}" 
+                     alt="CPSC Seal"
+                     onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+
+            <!-- Navigation Buttons -->
+            <div class="nav-menu">
+                <a href="/admin_dashboard" class="nav-btn active">
+                    <span class="icon">💻</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">📋</span>
+                    <span>PR</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">📝</span>
+                    <span>PO</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">🚚</span>
+                    <span>Delivery</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">📦</span>
+                    <span>Inventory</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">📤</span>
+                    <span>Withdraw</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">🔄</span>
+                    <span>Return</span>
+                </a>
+                <a href="#" class="nav-btn">
+                    <span class="icon">📊</span>
+                    <span>Reports</span>
+                </a>
+                <a href="{{ url_for('admin_suppliers') }}" class="nav-btn">
+                    <span class="icon">🏬</span>
+                    <span>Supplier</span>
+                </a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn">
+                    <span class="icon">🏷️</span>
+                    <span>Products</span>
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn">
+                    <span class="icon">👥</span>
+                    <span>Users</span>
+                </a>
+            </div>
+        </div>
+
+        <div>
+            <a href="/logout" class="nav-btn logout-btn">
+                <span class="icon">🚩</span>
+                <span>Log Out</span>
+            </a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+       MAIN WORKSPACE AREA
+       ========================================== -->
+    <div class="main-wrapper">
+        
+        <!-- Top Navigation Bar -->
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>CPSC Production Inventory Management</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                <div class="user-name">{{ full_name }}</div>
+                <div class="user-role">{{ role }}</div>
+            </div>
+        </div>
+
+        <!-- Dashboard Content Grid -->
+        <div class="dashboard-container">
+            
+            <!-- Row 1: Top 4 Metric Stat Cards -->
+            <div class="cards-grid">
+                <div class="metric-card">
+                    <div class="metric-title">TOTAL PRODUCTS</div>
+                    <div class="metric-body">
+                        <div class="metric-icon-box">📦</div>
+                        <div class="metric-value">0</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">IN STOCK</div>
+                    <div class="metric-body">
+                        <div class="metric-icon-box">✅</div>
+                        <div class="metric-value">0</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">OUT OF STOCK</div>
+                    <div class="metric-body">
+                        <div class="metric-icon-box">❌</div>
+                        <div class="metric-value">0</div>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-title">TOTAL ASSET VALUE</div>
+                    <div class="metric-body">
+                        <div class="metric-icon-box">💰</div>
+                        <div class="metric-value">₱0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: Controls & Actions Header -->
+            <div class="action-bar-card">
+                <div class="action-bar-title">System Statistics on Withdrawals</div>
+                
+                <div class="action-bar-controls">
+                    <button class="action-btn">
+                        <span>📥</span> Import Inventory
+                    </button>
+                    <button class="action-btn">
+                        <span>📊</span> Comparative Report
+                    </button>
+
+                    <div class="filter-group">
+                        <label>Filters:</label>
+                        <select class="filter-select">
+                            <option>All Time</option>
+                            <option>This Month</option>
+                            <option>This Year</option>
+                        </select>
+                    </div>
+
+                    <button class="icon-circle-btn" title="Refresh Data">🔄</button>
+                </div>
+            </div>
+
+            <!-- Row 3: Bottom Charts Containers Placeholders -->
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Monthly Withdrawals</h3>
+                    <div class="chart-placeholder">
+                        [ Monthly Withdrawals Chart Placeholder ]
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3>Top Withdrawn Products</h3>
+                    <div class="chart-placeholder">
+                        [ Top Withdrawn Products Chart Placeholder ]
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Live Date and Time Script -->
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const dateOptions = { month: 'long', day: 'numeric', year: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            
+            const dateStr = now.toLocaleDateString('en-US', dateOptions);
+            const timeStr = now.toLocaleTimeString('en-US', timeOptions);
+            
+            document.getElementById('live-clock').innerText = `${dateStr} | ${timeStr}`;
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+</html>

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Supplier Management</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
+
+        .hidden { display: none !important; }
+
+        /* SIDEBAR NAVIGATION */
+        .sidebar {
+            width: 260px;
+            background-color: #f7f0e8;
+            border-right: 1px solid #e2d7ca;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 16px 14px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
+        }
+
+        /* Sidebar Header (Logo & School Name) */
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 22px;
+            padding: 0 4px;
+        }
+
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .school-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #2c3e50;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+
+        .school-subtitle {
+            font-size: 9.5px;
+            color: #666666;
+            margin-top: 2px;
+            font-weight: 400;
+            text-transform: none;
+        }
+
+        /* Navigation Menu & Optimized Buttons */
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 10px 16px;
+            background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
+            border: 1px solid #d2d2d2;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 600;
+            color: #333333;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        .nav-btn .icon {
+            font-size: 17px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            flex-shrink: 0;
+        }
+
+        /* Button Hover & Active States */
+        .nav-btn:hover {
+            background: #ffffff;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
+        }
+
+        .nav-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
+            border-color: #53c5f1;
+            color: #0277bd;
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
+        }
+
+        /* Logout Button Accent */
+        .nav-btn.logout-btn {
+            margin-top: 14px;
+            color: #d9534f;
+            background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%);
+            border-color: #f5c6cb;
+            justify-content: center;
+        }
+
+        .nav-btn.logout-btn:hover {
+            background: #dc3545;
+            color: #ffffff;
+            border-color: #dc3545;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+
+        .sidebar-footer {
+            font-size: 10px;
+            color: #888888;
+            text-align: center;
+            margin-top: 12px;
+            font-style: italic;
+        }
+
+        /* MAIN WORKSPACE */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header {
+            background-color: #aae0f7; padding: 12px 28px; display: flex;
+            justify-content: space-between; align-items: center; border-bottom: 1px solid #94d2ee;
+        }
+        .header-title-box h1 { font-size: 22px; font-weight: 800; font-style: italic; color: #0d233a; }
+        .date-time-box { font-size: 11px; color: #2c3e50; margin-top: 2px; }
+        .user-profile-box { text-align: right; }
+        .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
+        .user-role { font-size: 11px; color: #333333; font-weight: 500; }
+
+        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+
+        /* CONTROL BAR */
+        .control-card {
+            background-color: #ffffff; border-radius: 12px; padding: 16px 22px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04); border: 1px solid #eef2f5;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+        }
+        .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 500px; }
+        .search-input-box {
+            display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5;
+            border-radius: 8px; padding: 6px 12px; width: 100%; transition: all 0.2s ease;
+        }
+        .search-input-box:focus-within { background: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2); }
+        .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
+
+        .icon-btn {
+            padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5;
+            border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+            display: flex; align-items: center; gap: 6px; color: #333; transition: all 0.2s ease;
+            text-decoration: none;
+        }
+        .icon-btn:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; }
+
+        .filter-controls { display: flex; align-items: center; gap: 10px; }
+        .filter-select, .date-picker {
+            padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px;
+            font-size: 12px; outline: none; background: #ffffff; color: #333; cursor: pointer;
+        }
+
+        .btn-add-primary {
+            padding: 9px 18px; background: #53c5f1; color: #ffffff; border: none;
+            border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35); transition: all 0.2s ease;
+        }
+        .btn-add-primary:hover { background: #3bb2e0; transform: translateY(-1px); }
+
+        /* DATA TABLE */
+        .table-card {
+            background-color: #ffffff; border-radius: 12px; padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04); border: 1px solid #eef2f5; flex: 1;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background-color: #53c5f1; color: #ffffff; font-size: 12px; font-weight: 700;
+            text-transform: uppercase; padding: 12px 14px; text-align: left; letter-spacing: 0.5px;
+        }
+        th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        td { padding: 12px 14px; font-size: 13px; color: #333333; border-bottom: 1px solid #f0f4f8; }
+        tr:hover td { background-color: #f8fcff; }
+
+        /* ACTION BUTTONS */
+        .action-cell { display: flex; align-items: center; gap: 8px; }
+        .btn-action {
+            width: 32px; height: 32px; border-radius: 6px; border: none;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px; transition: all 0.2s ease;
+        }
+        .btn-edit { background: #e3f2fd; color: #1976d2; }
+        .btn-edit:hover { background: #1976d2; color: #ffffff; transform: scale(1.08); }
+        .btn-delete { background: #ffebee; color: #c62828; }
+        .btn-delete:hover { background: #c62828; color: #ffffff; transform: scale(1.08); }
+
+        .alert-bar {
+            padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px;
+        }
+        .alert-success { background: #d4edda; color: #155724; }
+        .alert-error { background: #f8d7da; color: #721c24; }
+
+        /* MODAL POPUPS */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px);
+            display: flex; justify-content: center; align-items: center; z-index: 9999;
+        }
+        .modal-box {
+            background: #ffffff; border-radius: 12px; padding: 26px 30px;
+            width: 480px; max-width: 92%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            position: relative; animation: popIn 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+            max-height: 90vh; overflow-y: auto;
+        }
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-header h3 { font-size: 19px; font-weight: 700; color: #0d233a; }
+        .close-btn { background: none; border: none; font-size: 22px; color: #888; cursor: pointer; }
+        .close-btn:hover { color: #d9534f; }
+
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .modal-form .input-group { margin-bottom: 10px; }
+        .modal-form label { font-size: 11px; font-weight: 600; color: #444; display: block; margin-bottom: 3px; }
+        .modal-form input {
+            width: 100%; padding: 8px 12px; background-color: #f2f2f2;
+            border: 1.5px solid transparent; border-radius: 6px; font-size: 13px; outline: none;
+        }
+        .modal-form input:focus { background-color: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2); }
+        .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
+
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-modal-save:hover { background: #3bb2e0; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo" src="{{ url_for('static', filename='cpsc_logo.png') }}" alt="CPSC Seal" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span> Dashboard</a>
+                <a href="#" class="nav-btn"><span class="icon">📋</span> PR</a>
+                <a href="#" class="nav-btn"><span class="icon">📝</span> PO</a>
+                <a href="#" class="nav-btn"><span class="icon">🚚</span> Delivery</a>
+                <a href="#" class="nav-btn"><span class="icon">📦</span> Inventory</a>
+                <a href="#" class="nav-btn"><span class="icon">📤</span> Withdraw</a>
+                <a href="#" class="nav-btn"><span class="icon">🔄</span> Return</a>
+                <a href="#" class="nav-btn"><span class="icon">📊</span> Reports</a>
+                <a href="/admin/suppliers" class="nav-btn active"><span class="icon">🏬</span> Supplier</a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span> Products</a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span> Users</a>
+            </div>
+        </div>
+
+        <div>
+            <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span> Log Out</a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="main-wrapper">
+        
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>Supplier Directory</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                <div class="user-name">{{ user.full_name }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert-bar alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <!-- SEARCH, FILTER AND ADD SUPPLIER BAR (mirrors user_management) -->
+            <div class="control-card">
+                <form method="GET" action="/admin/suppliers" class="search-form" id="filter-form">
+                    <div class="search-input-box">
+                        <span style="margin-right: 8px;">🔍</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Search Company Name, Contact Person, Phone, Email, City..." autocomplete="off">
+                    </div>
+                    <button type="submit" class="icon-btn">Search</button>
+                </form>
+
+                <div class="filter-controls">
+                    <a href="/admin/suppliers" class="icon-btn" title="Refresh List">🔄 Refresh</a>
+                    <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
+                        <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
+                        <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
+                        <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
+                        <option value="Last Year" {% if date_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
+                        <option value="Custom" {% if date_filter == 'Custom' %}selected{% endif %}>Custom Date</option>
+                    </select>
+                    <input type="date" id="custom-date-picker" name="custom_date" form="filter-form"
+                           class="date-picker {% if date_filter != 'Custom' %}hidden{% endif %}"
+                           value="{{ custom_date }}" onchange="document.getElementById('filter-form').submit()">
+                    <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Add New Supplier</button>
+                </div>
+            </div>
+
+            <!-- SUPPLIERS TABLE -->
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Supplier ID</th>
+                            <th>Company Name</th>
+                            <th>Contact Person</th>
+                            <th>Contact Number</th>
+                            <th>Email</th>
+                            <th>Location / Address</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if suppliers %}
+                            {% for s in suppliers %}
+                            <tr>
+                                <td><strong>SUP-{{ "%03d"|format(s.supplier_id) }}</strong></td>
+                                <td><strong>{{ s.supplier_name }}</strong></td>
+                                <td>{{ s.contact_person or '-' }}</td>
+                                <td>{{ s.contact_number or '-' }}</td>
+                                <td>{{ s.email or '-' }}</td>
+                                <td>
+                                    {{ s.municipality or s.city or '-' }}{% if s.city and s.municipality %}, {{ s.city }}{% endif %}
+                                </td>
+                                <td>
+                                    <div class="action-cell">
+                                        <!-- Edit Supplier Button -->
+                                        <button type="button" class="btn-action btn-edit" title="Edit Supplier"
+                                                data-id="{{ s.supplier_id }}"
+                                                data-name="{{ s.supplier_name }}"
+                                                data-person="{{ s.contact_person or '' }}"
+                                                data-phone="{{ s.contact_number or '' }}"
+                                                data-email="{{ s.email or '' }}"
+                                                data-street="{{ s.street or '' }}"
+                                                data-barangay="{{ s.barangay or '' }}"
+                                                data-municipality="{{ s.municipality or '' }}"
+                                                data-city="{{ s.city or '' }}"
+                                                data-country="{{ s.country or 'Philippines' }}"
+                                                onclick="openEditModal(this)">
+                                            ✏️
+                                        </button>
+
+                                        <!-- Delete Supplier Button -->
+                                        <form method="POST" action="/admin/suppliers/delete/{{ s.supplier_id }}?search={{ search }}" onsubmit="return confirm('Delete supplier {{ s.supplier_name }}?')">
+                                            <button type="submit" class="btn-action btn-delete" title="Delete Supplier">✖</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; color: #888; padding: 25px;">
+                                    No matching suppliers found.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ADD SUPPLIER MODAL POPUP -->
+    <div id="add-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Add New Supplier</h3>
+                <button type="button" class="close-btn" onclick="closeAddModal()">✖</button>
+            </div>
+
+            <form method="POST" action="/admin/suppliers/add" class="modal-form" id="add-supplier-form" onsubmit="return validateSupplierForm(this)">
+                <div class="input-group">
+                    <label>Company Name *:</label>
+                    <input type="text" name="supplier_name" required autocomplete="off">
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Contact Person *:</label>
+                        <input type="text" name="contact_person" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Contact Number *:</label>
+                        <input type="tel" name="contact_number" required pattern="09[0-9]{9}" maxlength="11" inputmode="numeric" placeholder="09XXXXXXXXX" title="11-digit PH mobile starting with 09" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Email Address *:</label>
+                    <input type="email" name="email" required autocomplete="off">
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Street *:</label>
+                        <input type="text" name="street" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Barangay *:</label>
+                        <input type="text" name="barangay" required autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Municipality *:</label>
+                        <input type="text" name="municipality" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>City / Province *:</label>
+                        <input type="text" name="city" required autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Country *:</label>
+                    <input type="text" name="country" value="Philippines" required>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Add Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT SUPPLIER MODAL POPUP -->
+    <div id="edit-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Edit Supplier Details</h3>
+                <button type="button" class="close-btn" onclick="closeEditModal()">✖</button>
+            </div>
+
+            <form id="edit-form" method="POST" class="modal-form">
+                <div class="input-group">
+                    <label>Supplier ID:</label>
+                    <input type="text" id="edit-id-display" readonly>
+                </div>
+
+                <div class="input-group">
+                    <label>Company Name *:</label>
+                    <input type="text" id="edit-supplier-name" name="supplier_name" required autocomplete="off">
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Contact Person *:</label>
+                        <input type="text" id="edit-contact-person" name="contact_person" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Contact Number *:</label>
+                        <input type="tel" id="edit-contact-number" name="contact_number" required pattern="09[0-9]{9}" maxlength="11" inputmode="numeric" placeholder="09XXXXXXXXX" title="11-digit PH mobile starting with 09" autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,11)">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Email Address *:</label>
+                    <input type="email" id="edit-email" name="email" required autocomplete="off">
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Street *:</label>
+                        <input type="text" id="edit-street" name="street" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>Barangay *:</label>
+                        <input type="text" id="edit-barangay" name="barangay" required autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="input-group">
+                        <label>Municipality *:</label>
+                        <input type="text" id="edit-municipality" name="municipality" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label>City / Province *:</label>
+                        <input type="text" id="edit-city" name="city" required autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Country *:</label>
+                    <input type="text" id="edit-country" name="country" required>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Live Date & Time
+        function updateClock() {
+            const now = new Date();
+            const dateOptions = { month: 'long', day: 'numeric', year: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            document.getElementById('live-clock').innerText = 
+                `${now.toLocaleDateString('en-US', dateOptions)} | ${now.toLocaleTimeString('en-US', timeOptions)}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Date filter logic (same as user_management)
+        const datePicker = document.getElementById('custom-date-picker');
+        if (datePicker) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            datePicker.setAttribute('max', todayStr);
+        }
+        function toggleCustomDate(val) {
+            const dp = document.getElementById('custom-date-picker');
+            if (val === 'Custom') dp.classList.remove('hidden');
+            else { dp.classList.add('hidden'); document.getElementById('filter-form').submit(); }
+        }
+
+        // Add Modal
+        function openAddModal() { document.getElementById('add-modal').classList.remove('hidden'); }
+        function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+
+        function validateSupplierForm(form) {
+            const phone = form.contact_number.value.trim();
+            if (!/^09\d{9}$/.test(phone)) {
+                alert("Contact number must start with 09 and be exactly 11 digits (e.g., 09123456789).");
+                form.contact_number.focus();
+                return false;
+            }
+            return true;
+        }
+
+        // Edit Modal (uses data-attributes to avoid quote breakage)
+        function openEditModal(btn) {
+            const id = btn.dataset.id;
+            document.getElementById('edit-form').action = "/admin/suppliers/update/" + id + "?search={{ search }}&date_filter={{ date_filter }}&custom_date={{ custom_date }}";
+            document.getElementById('edit-id-display').value = "SUP-" + String(id).padStart(3, '0');
+            document.getElementById('edit-supplier-name').value = btn.dataset.name || '';
+            document.getElementById('edit-contact-person').value = btn.dataset.person || '';
+            document.getElementById('edit-contact-number').value = btn.dataset.phone || '';
+            document.getElementById('edit-email').value = btn.dataset.email || '';
+            document.getElementById('edit-street').value = btn.dataset.street || '';
+            document.getElementById('edit-barangay').value = btn.dataset.barangay || '';
+            document.getElementById('edit-municipality').value = btn.dataset.municipality || '';
+            document.getElementById('edit-city').value = btn.dataset.city || '';
+            document.getElementById('edit-country').value = btn.dataset.country || 'Philippines';
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+        document.getElementById('edit-form').addEventListener('submit', function(e) {
+            const phone = document.getElementById('edit-contact-number').value.trim();
+            if (!/^09\d{9}$/.test(phone)) {
+                e.preventDefault();
+                alert("Contact number must start with 09 and be exactly 11 digits (e.g., 09123456789).");
+                document.getElementById('edit-contact-number').focus();
+            }
+        });
+    </script>
+</body>
+</html>
