@@ -51,6 +51,7 @@ CREATE TABLE IF NOT EXISTS Products (
     details TEXT,
     unit VARCHAR(20) NOT NULL,
     size VARCHAR(20),
+    price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
     quantity INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (supplier_id) REFERENCES Supplier(id)

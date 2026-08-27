@@ -34,6 +34,21 @@ from crud_products import (
     update_product,
     delete_product,
 )
+from crud_pr import (
+    create_purchase_request,
+    get_all_purchase_requests,
+    get_pr_details,
+    update_pr_status
+)
+
+# --- IMPORTS FOR PO MODULE ---
+from crud_po import (
+    create_po_from_pr,
+    get_approved_prs_without_po,
+    get_all_purchase_orders,
+    get_po_details,
+    update_po_status
+)
 
 # Initialize Flask Application
 app = Flask(__name__)
@@ -435,6 +450,307 @@ def admin_delete_product(target_id):
     except Exception as err:
         flash(f"Delete failed: {err}", "error")
     return redirect(url_for("admin_products", search=request.args.get("search","")))
+# --- ROUTE: Purchase Request Management (Role-Separated View) ---
+@app.route("/pr")
+def pr_management():
+    if "user_id" not in session:
+        flash("Please log in to access Purchase Requests.", "error")
+        return redirect(url_for("login"))
+
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    date_filter = request.args.get("date_filter", "All")
+    custom_date = request.args.get("custom_date", "")
+
+    user_role = session.get("role")
+    # Staff users view only their own submitted requests; Admins view all institutional requests
+    user_id_scope = None if user_role == "Admin" else session.get("user_id")
+
+    try:
+        requests_list = get_all_purchase_requests(
+            search_query=search,
+            status_filter=status_filter,
+            date_filter=date_filter,
+            custom_date=custom_date,
+            user_id=user_id_scope
+        )
+        products_list = get_all_products()
+    except Exception as err:
+        print(f"[pr_management] DB error: {err}")
+        flash("Database error loading Purchase Requests.", "error")
+        requests_list = []
+        products_list = []
+
+    # Choose template based on active role to guarantee sidebar navigation consistency
+    template_file = "admin_pr_management.html" if user_role == "Admin" else "staff_pr_management.html"
+
+    return render_template(
+        template_file,
+        user=session,
+        requests=requests_list,
+        products=products_list,
+        search=search,
+        status_filter=status_filter,
+        date_filter=date_filter,
+        custom_date=custom_date
+    )
+
+# --- ACTION ROUTE: Submit New PR (Supports Multiple Line Items) ---
+@app.route("/pr/add", methods=["POST"])
+def add_pr_action():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session.get("user_id")
+    product_ids = request.form.getlist("product_id[]")
+    supplier_ids = request.form.getlist("supplier_id[]")
+    item_names = request.form.getlist("item_name[]")
+    categories = request.form.getlist("category[]")
+    units = request.form.getlist("unit[]")
+    sizes = request.form.getlist("size[]")
+    details_list = request.form.getlist("details[]")
+    prices = request.form.getlist("price[]")
+    quantities = request.form.getlist("quantity[]")
+
+    if not product_ids:
+        flash("Please add at least one item to your purchase request.", "error")
+        return redirect(url_for("pr_management"))
+
+    def _safe(lst, idx, default=""):
+        return lst[idx].strip() if idx < len(lst) and lst[idx] is not None else default
+
+    # Build item payloads - skip empty/unselected rows safely
+    items_payload = []
+    for i, pid_raw in enumerate(product_ids):
+        try:
+            pid_str = pid_raw.strip() if pid_raw else ""
+            sid_str = _safe(supplier_ids, i)
+            iname = _safe(item_names, i)
+            price_str = _safe(prices, i)
+            qty_str = _safe(quantities, i)
+            # Skip rows where dropdown not selected or required fields empty
+            if not pid_str or not sid_str or not iname or not price_str or not qty_str:
+                continue
+            items_payload.append({
+                "product_id": int(pid_str),
+                "supplier_id": int(sid_str),
+                "item_name": iname,
+                "category": _safe(categories, i),
+                "unit": _safe(units, i, "pcs"),
+                "size": _safe(sizes, i),
+                "details": _safe(details_list, i),
+                "price": float(price_str),
+                "quantity": int(qty_str)
+            })
+        except (ValueError, IndexError, AttributeError):
+            continue
+
+    if not items_payload:
+        flash("Invalid item details submitted.", "error")
+        return redirect(url_for("pr_management"))
+
+    success, result = create_purchase_request(user_id, items_payload)
+    if success:
+        flash(f"Purchase Request {result} submitted successfully!", "success")
+    else:
+        flash(f"Failed to submit PR: {result}", "error")
+
+    return redirect(url_for("pr_management"))
+
+# --- ACTION ROUTE: View Single PR Details (JSON Response for Modal) ---
+@app.route("/pr/details/<int:pr_id>")
+def get_pr_details_api(pr_id):
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    header, items = get_pr_details(pr_id)
+    if not header:
+        return {"error": "Purchase request not found"}, 404
+    # Safe serialization: datetime -> string, Decimal -> float
+    try:
+        raw_date = header.get("date_requested")
+        if raw_date:
+            # Handle both datetime object and string
+            header["date_requested"] = raw_date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw_date, "strftime") else str(raw_date)
+        else:
+            header["date_requested"] = ""
+    except Exception:
+        header["date_requested"] = str(header.get("date_requested", ""))
+    try:
+        header["total_price"] = float(header.get("total_price") or 0)
+    except Exception:
+        header["total_price"] = 0.0
+    for item in items:
+        try:
+            item["price"] = float(item.get("price") or 0)
+        except Exception:
+            item["price"] = 0.0
+        try:
+            item["total_price"] = float(item.get("total_price") or 0)
+        except Exception:
+            item["total_price"] = 0.0
+    return {"header": header, "items": items}
+
+# --- ACTION ROUTE: Approve PR (Admin Only) ---
+@app.route("/admin/pr/approve/<int:pr_id>", methods=["POST"])
+def approve_pr_action(pr_id):
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("pr_management"))
+
+    if update_pr_status(pr_id, "Approved"):
+        flash(f"Purchase Request PR-{'%03d' % pr_id} approved!", "success")
+    else:
+        flash("Failed to approve Purchase Request.", "error")
+
+    return redirect(url_for("pr_management"))
+
+# --- ACTION ROUTE: Reject PR (Admin Only) ---
+@app.route("/admin/pr/reject/<int:pr_id>", methods=["POST"])
+def reject_pr_action(pr_id):
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("pr_management"))
+
+    if update_pr_status(pr_id, "Rejected"):
+        flash(f"Purchase Request PR-{'%03d' % pr_id} rejected.", "info")
+    else:
+        flash("Failed to update Purchase Request.", "error")
+
+    return redirect(url_for("pr_management"))
+
+# --- ROUTE: Purchase Order Management (Role-Separated) ---
+@app.route("/po")
+def po_management():
+    if "user_id" not in session:
+        flash("Please log in to access Purchase Orders.", "error")
+        return redirect(url_for("login"))
+
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+
+    user_role = session.get("role")
+    user_id_scope = None if user_role == "Admin" else session.get("user_id")
+
+    try:
+        orders_list = get_all_purchase_orders(
+            search_query=search,
+            status_filter=status_filter,
+            user_id=user_id_scope
+        )
+        approved_prs = get_approved_prs_without_po() if user_role == "Admin" else []
+    except Exception as err:
+        print(f"[po_management] DB error: {err}")
+        flash("Database error loading Purchase Orders.", "error")
+        orders_list = []
+        approved_prs = []
+
+    template_file = "admin_po_management.html" if user_role == "Admin" else "staff_po_management.html"
+
+    return render_template(
+        template_file,
+        user=session,
+        orders=orders_list,
+        approved_prs=approved_prs,
+        search=search,
+        status_filter=status_filter
+    )
+
+# --- ACTION ROUTE: Generate PO from Approved PR (Admin Only) - with editable Actual PO prices ---
+@app.route("/admin/po/generate", methods=["POST"])
+def generate_po_action():
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("po_management"))
+
+    pr_id = request.form.get("pr_id")
+    if not pr_id:
+        flash("Please select an approved Purchase Request.", "error")
+        return redirect(url_for("po_management"))
+
+    # Read adjusted items (if form included editable price table)
+    product_ids = request.form.getlist("product_id[]")
+    supplier_ids = request.form.getlist("supplier_id[]")
+    item_names = request.form.getlist("item_name[]")
+    categories = request.form.getlist("category[]")
+    units = request.form.getlist("unit[]")
+    sizes = request.form.getlist("size[]")
+    details_list = request.form.getlist("details[]")
+    quantities = request.form.getlist("quantity[]")
+    # Support both unit_price[] and price[] naming
+    unit_prices = request.form.getlist("unit_price[]") or request.form.getlist("price[]")
+
+    adjusted_items = []
+    if product_ids:
+        def _safe(lst, idx, default=""):
+            return lst[idx].strip() if idx < len(lst) and lst[idx] is not None else default
+        for i in range(len(product_ids)):
+            try:
+                pid_str = product_ids[i].strip() if product_ids[i] else ""
+                if not pid_str:
+                    continue
+                # Skip rows where required fields empty
+                qty_str = _safe(quantities, i)
+                price_str = _safe(unit_prices, i)
+                if not qty_str or not price_str:
+                    continue
+                adjusted_items.append({
+                    "product_id": int(pid_str),
+                    "supplier_id": int(_safe(supplier_ids, i) or 1),
+                    "item_name": _safe(item_names, i),
+                    "category": _safe(categories, i),
+                    "unit": _safe(units, i, "pcs"),
+                    "size": _safe(sizes, i),
+                    "details": _safe(details_list, i),
+                    "quantity": int(qty_str),
+                    "unit_price": float(price_str)
+                })
+            except (ValueError, IndexError, AttributeError):
+                continue
+
+    success, result = create_po_from_pr(int(pr_id), session.get("user_id"), adjusted_items if adjusted_items else None)
+    if success:
+        flash(f"Purchase Order {result} generated successfully with updated vendor pricing!", "success")
+    else:
+        flash(f"Failed to generate PO: {result}", "error")
+
+    return redirect(url_for("po_management"))
+
+# --- ACTION ROUTE: Get PO Details API (JSON for Modal) ---
+@app.route("/po/details/<int:po_id>")
+def get_po_details_api(po_id):
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+
+    header, items = get_po_details(po_id)
+    if not header:
+        return {"error": "Purchase order not found"}, 404
+
+    header["date_issued"] = header["date_issued"].strftime("%Y-%m-%d %H:%M:%S") if header["date_issued"] else ""
+    header["total_amount"] = float(header["total_amount"])
+
+    for item in items:
+        item["unit_price"] = float(item["unit_price"])
+        item["total_price"] = float(item["total_price"])
+        item["ordered_quantity"] = int(item["ordered_quantity"])
+        item["received_quantity"] = int(item["received_quantity"])
+
+    return {"header": header, "items": items}
+
+# --- ACTION ROUTE: Update PO Status (Admin Only) ---
+@app.route("/admin/po/status/<int:po_id>", methods=["POST"])
+def update_po_status_action(po_id):
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("po_management"))
+
+    new_status = request.form.get("status")
+    if new_status in ["Issued", "Partially Delivered", "Completed", "Cancelled"]:
+        if update_po_status(po_id, new_status):
+            flash(f"Purchase Order status updated to '{new_status}'.", "success")
+        else:
+            flash("Failed to update Purchase Order status.", "error")
+
+    return redirect(url_for("po_management"))
 
 
 if __name__ == "__main__":
