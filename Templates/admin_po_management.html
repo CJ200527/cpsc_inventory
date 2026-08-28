@@ -57,6 +57,8 @@
         /* BADGES & BUTTONS */
         .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
         .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-pendingpoapproval { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-approved { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .badge-issued { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         .badge-partially { background-color: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
         .badge-completed { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -155,10 +157,11 @@
                 <div class="filter-controls">
                     <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
-                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Pending PO Approval" {% if status_filter == 'Pending PO Approval' %}selected{% endif %}>Pending PO Approval</option>
+                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
                         <option value="Issued" {% if status_filter == 'Issued' %}selected{% endif %}>Issued</option>
-                        <option value="Partially Delivered" {% if status_filter == 'Partially Delivered' %}selected{% endif %}>Partially Delivered</option>
-                        <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+                        <option value="Delivered" {% if status_filter == 'Delivered' %}selected{% endif %}>Delivered</option>
+                        <option value="Cancelled" {% if status_filter == 'Cancelled' %}selected{% endif %}>Cancelled</option>
                     </select>
 
                     <a href="/po" class="icon-btn">🔄 Refresh</a>
@@ -191,13 +194,14 @@
                                 <td><span class="price-badge">₱ {{ "%.2f"|format(o.total_amount or 0) }}</span></td>
                                 <td><span class="badge badge-{{ o.status|lower|replace(' ', '') }}">{{ o.status }}</span></td>
                                 <td>
-                                    <div style="display:flex; gap:6px;">
+                                    <div style="display:flex; gap:6px; align-items:center;">
                                         <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ o.po_id }})">👁️</button>
-                                        {% if o.status == 'Pending' %}
-                                            <form method="POST" action="/admin/po/status/{{ o.po_id }}" style="display:inline;">
-                                                <input type="hidden" name="status" value="Issued">
-                                                <button type="submit" class="btn-action btn-issue" title="Mark as Issued to Supplier">Issue</button>
+                                        {% if o.status == 'Pending PO Approval' %}
+                                            <form method="POST" action="{{ url_for('approve_po_action', po_id=o.po_id) }}" style="display:inline;">
+                                                <button type="submit" class="btn-action btn-approve" title="Approve PO" style="background:#d4edda;color:#155724;border:1px solid #c3e6cb;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;">Approve PO</button>
                                             </form>
+                                        {% elif o.status == 'Approved' %}
+                                            <a href="#" class="btn-action" style="background:#e3f2fd;color:#1976d2;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;" title="Proceed to Delivery/IAR (Approved only)">Delivery/IAR</a>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -213,7 +217,7 @@
     </div>
 
     <!-- GENERATE PO MODAL - Presentable with Search + Dropdown -->
-    <div id="generate-modal" class="modal-overlay hidden">
+    <div id="generate-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">
                 <div>
@@ -275,7 +279,7 @@
     </div>
 
     <!-- VIEW PO DETAILS MODAL -->
-    <div id="view-modal" class="modal-overlay hidden">
+    <div id="view-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">
                 <h3 id="view-po-number">PO Details</h3>
@@ -399,7 +403,7 @@
             prSel.addEventListener('focus', function(){ this.style.backgroundColor='#ffffff'; this.style.borderColor='#53c5f1'; this.style.boxShadow='0 0 0 3px rgba(83,197,241,0.2)'; });
             prSel.addEventListener('blur', function(){ this.style.backgroundColor='#f2f2f2'; this.style.borderColor='transparent'; this.style.boxShadow='none'; });
         }
-        document.getElementById('generate-modal')?.addEventListener('click', function(e){ if(e.target===this) closeGenerateModal(); });
+        // Static backdrop: no backdrop click close
 
         function openViewModal(poId) {
             const content = document.getElementById('view-modal-content');

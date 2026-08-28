@@ -1,9 +1,4 @@
-import sys
-import os
-try:
-    from db import get_db_connection
-except ImportError:
-    from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection
+from db import get_db_connection
 
 from datetime import datetime
 

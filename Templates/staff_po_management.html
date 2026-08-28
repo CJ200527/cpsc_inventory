@@ -42,6 +42,46 @@
         .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
         .filter-select { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; }
         .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
+        /* ===== BUTTON STYLING: Main Generate PO Button ===== */
+        .btn-add-primary { 
+            padding: 9px 18px; 
+            background: #53c5f1; 
+            color: #ffffff; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35); 
+            transition: all 0.2s ease;
+        }
+        .btn-add-primary:hover {
+            background: #3ba9d4;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(83, 197, 241, 0.4);
+        }
+
+        /* ===== BUTTON STYLING: Modal Generate PO Button ===== */
+        .btn-modal-save { 
+            padding: 9px 22px; 
+            background: #53c5f1; 
+            color: #ffffff; 
+            border: none; 
+            border-radius: 8px; 
+            font-size: 13px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35); 
+            transition: all 0.2s ease;
+        }
+        .btn-modal-save:hover {
+            background: #3ba9d4;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(83, 197, 241, 0.4);
+        }
+        /* ===== END BUTTON STYLING ===== */
+
+     
 
         /* DATA TABLE */
         .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; }
@@ -55,6 +95,8 @@
         /* BADGES */
         .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
         .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-pendingpoapproval { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-approved { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .badge-issued { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         .badge-partially { background-color: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }
         .badge-completed { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -133,12 +175,14 @@
                 <div class="filter-controls">
                     <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
-                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Pending PO Approval" {% if status_filter == 'Pending PO Approval' %}selected{% endif %}>Pending PO Approval</option>
+                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
                         <option value="Issued" {% if status_filter == 'Issued' %}selected{% endif %}>Issued</option>
-                        <option value="Partially Delivered" {% if status_filter == 'Partially Delivered' %}selected{% endif %}>Partially Delivered</option>
-                        <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+                        <option value="Delivered" {% if status_filter == 'Delivered' %}selected{% endif %}>Delivered</option>
+                        <option value="Cancelled" {% if status_filter == 'Cancelled' %}selected{% endif %}>Cancelled</option>
                     </select>
                     <a href="/po" class="icon-btn">🔄 Refresh</a>
+                    <button type="button" class="btn-add-primary" onclick="openGenerateModal()">+ Generate PO</button>
                 </div>
             </div>
 
@@ -167,7 +211,12 @@
                                 <td><span class="price-badge">₱ {{ "%.2f"|format(o.total_amount or 0) }}</span></td>
                                 <td><span class="badge badge-{{ o.status|lower|replace(' ', '') }}">{{ o.status }}</span></td>
                                 <td>
-                                    <button type="button" class="btn-view" title="View Items & Receiving Progress" onclick="openViewModal({{ o.po_id }})">👁️</button>
+                                    <div style="display:flex; gap:6px; align-items:center;">
+                                        <button type="button" class="btn-view" title="View Items & Receiving Progress" onclick="openViewModal({{ o.po_id }})">👁️</button>
+                                        {% if o.status == 'Approved' %}
+                                            <span class="badge badge-approved" style="font-size:10px;">Delivery Ready</span>
+                                        {% endif %}
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -180,8 +229,59 @@
         </div>
     </div>
 
+    <!-- GENERATE PO MODAL - Staff & Admin both can generate (Pending PO Approval) -->
+    <div id="generate-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3>Generate PO from Approved PR</h3>
+                    <p style="font-size:11px;color:#666;margin-top:4px;">Search by PR number or requester, then pick from dropdown — price editable</p>
+                </div>
+                <button type="button" class="close-btn" onclick="closeGenerateModal()">✖</button>
+            </div>
+            <form method="POST" action="/po/generate" id="generate-po-form">
+                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:14px;margin-bottom:14px;">
+                    <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:6px;">Search Approved PR</label>
+                    <div class="search-input-box" style="background:#ffffff;max-width:100%;">
+                        <span style="margin-right:8px;">🔍</span>
+                        <input type="text" id="pr-search-input" placeholder="Type PR number, requester name or amount..." autocomplete="off" oninput="filterPROptions()">
+                    </div>
+                    <div style="font-size:11px;color:#888;margin-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <span id="pr-filter-count">{{ approved_prs|length }} approved PR(s) available</span>
+                        <span style="color:#0277bd;">Tip: type to filter, dropdown stays selectable</span>
+                    </div>
+                </div>
+                <div class="input-group" style="margin-bottom:10px;">
+                    <label style="font-size:11px;font-weight:600;color:#444;display:block;margin-bottom:4px;">Select Approved Purchase Request *</label>
+                    <select name="pr_id" id="pr-select" required onchange="loadPRItemsForPO(this.value)" style="width:100%;padding:10px 12px;background-color:#f2f2f2;border:1.5px solid transparent;border-radius:6px;font-size:13px;outline:none;transition:all 0.2s ease;">
+                        <option value="" disabled selected>— Choose an Approved PR —</option>
+                        {% for pr in approved_prs %}
+                        <option value="{{ pr.pr_id }}">{{ pr.pr_number }} — {{ pr.Firstname }} {{ pr.Lastname }} — ₱ {{ "%.2f"|format(pr.total_price) }} — {{ pr.date_requested.strftime('%Y-%m-%d') if pr.date_requested else '' }}</option>
+                        {% else %}
+                        <option disabled>No approved PRs without PO</option>
+                        {% endfor %}
+                    </select>
+                    <div id="no-pr-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;">No matching PRs found — try another search.</div>
+                </div>
+                <div id="pr-preview" class="hidden" style="background:#ffffff;border:1px solid #e2f0fb;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;margin-bottom:12px;"></div>
+                <div id="po-items-preview" class="hidden">
+                    <p style="font-size:12px; font-weight:600; color:#0d233a; margin-bottom:8px;">Review & Adjust Actual PO Vendor Unit Prices:</p>
+                    <table class="item-table">
+                        <thead><tr><th>Item Name</th><th>Qty</th><th>PR Est. Price</th><th>Actual PO Price (₱) *</th><th>Subtotal (₱)</th></tr></thead>
+                        <tbody id="po-items-tbody"></tbody>
+                    </table>
+                    <div style="text-align:right; font-weight:700; font-size:14px; margin-top:8px;">PO Total: <span id="po-grand-total" class="price-badge">₱ 0.00</span></div>
+                </div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeGenerateModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Generate PO</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- VIEW PO DETAILS MODAL -->
-    <div id="view-modal" class="modal-overlay hidden">
+    <div id="view-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">
                 <h3 id="view-po-number">PO Details</h3>
@@ -201,6 +301,52 @@
                 `${now.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})} | ${now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true})}`;
         }
         setInterval(updateClock, 1000); updateClock();
+
+        function openGenerateModal() {
+            const inp=document.getElementById('pr-search-input'); if(inp) inp.value='';
+            const sel=document.getElementById('pr-select'); if(sel){ sel.selectedIndex=0; for(let i=0;i<sel.options.length;i++){ sel.options[i].hidden=false; sel.options[i].style.display=''; }}
+            const pv=document.getElementById('pr-preview'); if(pv){ pv.classList.add('hidden'); pv.innerHTML=''; }
+            const poPrev=document.getElementById('po-items-preview'); if(poPrev) poPrev.classList.add('hidden');
+            const tb=document.getElementById('po-items-tbody'); if(tb) tb.innerHTML='';
+            const gt=document.getElementById('po-grand-total'); if(gt) gt.innerText='₱ 0.00';
+            const cnt=document.getElementById('pr-filter-count'); if(cnt) cnt.innerText='{{ approved_prs|length }} approved PR(s) available';
+            const nr=document.getElementById('no-pr-results'); if(nr) nr.classList.add('hidden');
+            document.getElementById('generate-modal').classList.remove('hidden');
+            setTimeout(()=>document.getElementById('pr-search-input')?.focus(),100);
+        }
+        function closeGenerateModal(){ document.getElementById('generate-modal').classList.add('hidden'); }
+        function filterPROptions(){
+            const q=(document.getElementById('pr-search-input').value||'').toLowerCase().trim();
+            const sel=document.getElementById('pr-select'); let vis=0;
+            for(let i=1;i<sel.options.length;i++){ const txt=(sel.options[i].textContent||'').toLowerCase(); const m=!q||txt.includes(q); sel.options[i].hidden=!m; sel.options[i].style.display=m?'':'none'; if(m)vis++; }
+            const cnt=document.getElementById('pr-filter-count'); if(cnt) cnt.innerText=vis+' matched'+(q?' for "'+q+'"':' — '+ (sel.options.length-1)+' total');
+            const nr=document.getElementById('no-pr-results'); if(nr) nr.classList.toggle('hidden', vis>0 || !q);
+            if(sel.selectedIndex>0 && sel.options[sel.selectedIndex].hidden){ sel.selectedIndex=0; const pv=document.getElementById('pr-preview'); if(pv){ pv.classList.add('hidden'); pv.innerHTML=''; }}
+        }
+        function loadPRItemsForPO(prId){
+            if(!prId) return;
+            const box=document.getElementById('po-items-preview'); const tbody=document.getElementById('po-items-tbody');
+            tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">Loading items...</td></tr>'; box.classList.remove('hidden');
+            fetch('/pr/details/'+prId).then(r=>r.json()).then(data=>{
+                if(data.error||!data.items){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">Failed to load items.</td></tr>'; return; }
+                tbody.innerHTML='';
+                data.items.forEach((item,idx)=>{
+                    const tr=document.createElement('tr');
+                    tr.innerHTML=`<td><strong>${item.item_name}</strong><input type="hidden" name="product_id[]" value="${item.product_id}"><input type="hidden" name="supplier_id[]" value="${item.supplier_id||1}"><input type="hidden" name="item_name[]" value="${item.item_name}"><input type="hidden" name="category[]" value="${item.category||''}"><input type="hidden" name="unit[]" value="${item.unit||''}"><input type="hidden" name="size[]" value="${item.size||''}"><input type="hidden" name="details[]" value="${item.details||''}"></td><td><strong>${item.quantity}</strong> ${item.unit||''}<input type="hidden" name="quantity[]" value="${item.quantity}"></td><td style="color:#777;">₱ ${item.price.toFixed(2)}</td><td><input type="number" step="0.01" name="unit_price[]" id="po-price-${idx}" value="${item.price.toFixed(2)}" style="width:110px;background:#f2f2f2;border:1.5px solid transparent;border-radius:6px;padding:6px;" oninput="calcPOTowTotal(${idx}, ${item.quantity})" required></td><td><input type="text" id="po-subtotal-${idx}" value="${(item.price*item.quantity).toFixed(2)}" style="width:100px;background:#e9ecef;border:1px solid #d0dbe5;border-radius:4px;padding:6px;" readonly></td>`;
+                    tbody.appendChild(tr);
+                });
+                recalcPOGrandTotal();
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:red;">Error loading PR details.</td></tr>'; });
+        }
+        function calcPOTowTotal(idx, fixedQty){ const price=parseFloat(document.getElementById(`po-price-${idx}`).value)||0; document.getElementById(`po-subtotal-${idx}`).value=(fixedQty*price).toFixed(2); recalcPOGrandTotal(); }
+        function recalcPOGrandTotal(){ let g=0; document.querySelectorAll('[id^="po-subtotal-"]').forEach(i=>{ g+=parseFloat(i.value)||0; }); const el=document.getElementById('po-grand-total'); if(el) el.innerText='₱ '+g.toFixed(2); }
+        document.getElementById('pr-select')?.addEventListener('change', function(){
+            const opt=this.options[this.selectedIndex]; const pv=document.getElementById('pr-preview');
+            if(opt&&opt.value){ pv.innerHTML=`<strong>Selected:</strong> ${opt.textContent}<br><span style="color:#2e7d32;font-size:11px;">✓ Ready — items loaded below, adjust actual PO prices</span>`; pv.classList.remove('hidden'); } else { pv.classList.add('hidden'); pv.innerHTML=''; }
+        });
+        const prSel=document.getElementById('pr-select');
+        if(prSel){ prSel.addEventListener('focus', function(){ this.style.backgroundColor='#ffffff'; this.style.borderColor='#53c5f1'; this.style.boxShadow='0 0 0 3px rgba(83,197,241,0.2)'; }); prSel.addEventListener('blur', function(){ this.style.backgroundColor='#f2f2f2'; this.style.borderColor='transparent'; this.style.boxShadow='none'; }); }
+        // Static backdrop: only close via .btn-close / Cancel (no backdrop click)
 
         function openViewModal(poId) {
             const content = document.getElementById('view-modal-content');

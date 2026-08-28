@@ -1,4 +1,4 @@
-from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection
+from db import get_db_connection
 
 # --- 1. CREATE: Register New User ---
 def register_user(first_name, middle_initial, last_name, username, password, role="Staff", contact_number=""):

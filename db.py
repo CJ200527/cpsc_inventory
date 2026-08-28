@@ -15,7 +15,6 @@ def get_db_connection():
         )
         return conn
     except mysql.connector.Error as err:
-        # Unknown database -> create it then reconnect
         if err.errno == 1049:
             tmp = mysql.connector.connect(host="localhost", user="root", password="")
             cur = tmp.cursor()

@@ -1,9 +1,4 @@
-import sys
-import os
-try:
-    from db import get_db_connection
-except ImportError:
-    from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection
+from db import get_db_connection
 
 from datetime import datetime
 
@@ -89,7 +84,7 @@ def create_po_from_pr(pr_id, created_by_user_id, adjusted_items=None):
         # C. Insert into purchase_orders - correct columns: pr_id, supplier_id, user_id, po_number, total_price, status
         sql_po = """
         INSERT INTO purchase_orders (pr_id, supplier_id, user_id, po_number, total_price, status)
-        VALUES (%s, %s, %s, %s, %s, 'Issued');
+        VALUES (%s, %s, %s, %s, %s, 'Pending PO Approval');
         """
         # Use actual PO total if adjusted, otherwise PR estimate
         total_to_insert = po_total if (adjusted_items and len(adjusted_items)>0) else pr_header['total_price']
@@ -304,12 +299,12 @@ def get_po_details(po_id):
 
 # --- 5. UPDATE: Update PO Status ---
 def update_po_status(po_id, new_status):
-    """Updates status of a PO. Allowed: Issued, Delivered, Cancelled."""
-    # Normalize legacy statuses to actual ENUM
-    mapping = {"Pending": "Issued", "Partially Delivered": "Delivered", "Completed": "Delivered"}
+    """Updates status of a PO. Allowed: Pending PO Approval, Approved, Issued, Delivered, Cancelled, etc."""
+    # Normalize legacy statuses
+    mapping = {"Pending": "Pending PO Approval", "Partially Delivered": "Delivered", "Completed": "Delivered"}
     if new_status in mapping:
         new_status = mapping[new_status]
-    if new_status not in ["Issued", "Delivered", "Cancelled"]:
+    if new_status not in ["Pending PO Approval", "Approved", "Issued", "Delivered", "Cancelled", "Completed", "Partial", "Partially Delivered", "Pending"]:
         return False
     conn = None
     cursor = None

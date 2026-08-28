@@ -1,7 +1,4 @@
-try:
-    from db import get_db_connection
-except ImportError:
-    from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection
+from db import get_db_connection
 
 
 def get_all_products_filtered(search_query="", date_filter="All", custom_date=""):

@@ -10,6 +10,8 @@ USER_MANAGEMENT_DIR = os.path.join(BASE_DIR, "CRUD_Operations", "User_Authentica
 if USER_MANAGEMENT_DIR not in sys.path:
     sys.path.insert(0, USER_MANAGEMENT_DIR)
 
+from db import get_db_connection
+
 from crud_users import (
     register_user,
     login_user,
@@ -50,6 +52,9 @@ from crud_po import (
     get_po_details,
     update_po_status
 )
+
+# --- IMPORTS FOR IAR MODULE ---
+from crud_iar import create_iar_record, get_iar_by_po
 
 # Initialize Flask Application
 app = Flask(__name__)
@@ -638,7 +643,7 @@ def po_management():
             status_filter=status_filter,
             user_id=user_id_scope
         )
-        approved_prs = get_approved_prs_without_po() if user_role == "Admin" else []
+        approved_prs = get_approved_prs_without_po()
     except Exception as err:
         print(f"[po_management] DB error: {err}")
         flash("Database error loading Purchase Orders.", "error")
@@ -656,11 +661,12 @@ def po_management():
         status_filter=status_filter
     )
 
-# --- ACTION ROUTE: Generate PO from Approved PR (Admin Only) - with editable Actual PO prices ---
+# --- ACTION ROUTE: Generate PO from Approved PR (Staff & Admin) - with editable Actual PO prices ---
 @app.route("/admin/po/generate", methods=["POST"])
+@app.route("/po/generate", methods=["POST"])
 def generate_po_action():
-    if session.get("role") != "Admin":
-        flash("Admin permission required.", "error")
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Login required to generate PO.", "error")
         return redirect(url_for("po_management"))
 
     pr_id = request.form.get("pr_id")
@@ -714,6 +720,26 @@ def generate_po_action():
     else:
         flash(f"Failed to generate PO: {result}", "error")
 
+    return redirect(url_for("po_management"))
+
+# --- Admin-Only PO Approval: Pending PO Approval -> Approved ---
+@app.route("/po/approve/<int:po_id>", methods=["POST"])
+def approve_po_action(po_id):
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("po_management"))
+    # Verify current status is Pending PO Approval
+    header, _ = get_po_details(po_id)
+    if not header:
+        flash("Purchase Order not found.", "error")
+        return redirect(url_for("po_management"))
+    if header.get("status") != "Pending PO Approval":
+        flash("Only POs with status 'Pending PO Approval' can be approved.", "error")
+        return redirect(url_for("po_management"))
+    if update_po_status(po_id, "Approved"):
+        flash(f"Purchase Order {header.get('po_number')} approved!", "success")
+    else:
+        flash("Failed to approve Purchase Order.", "error")
     return redirect(url_for("po_management"))
 
 # --- ACTION ROUTE: Get PO Details API (JSON for Modal) ---
@@ -775,15 +801,10 @@ def create_iar_action():
         return redirect(url_for("po_management"))
 
     # Fetch PO to get pr_id and supplier_id
-    try:
-        from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection as _get_conn
-    except ImportError:
-        from db import get_db_connection as _get_conn
-
     conn = None
     cursor = None
     try:
-        conn = _get_conn()
+        conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT pr_id, supplier_id FROM purchase_orders WHERE po_id=%s", (int(po_id),))
         po_row = cursor.fetchone()
@@ -868,6 +889,239 @@ def create_iar_action():
         if conn:
             try: conn.close()
             except: pass
+            
+            
+# ===================================================================
+# DELIVERY / IAR MODULE
+# ===================================================================
+
+# -------------------------------------------------------------------
+# 1. Delivery Dashboard Route
+# -------------------------------------------------------------------
+@app.route('/delivery')
+def delivery_dashboard():
+    if 'user_id' not in session:
+        flash('Please log in first.', 'error')
+        return redirect(url_for('login'))
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT po.po_id, po.pr_id, po.supplier_id, po.user_id, po.status, po.date_ordered,
+                   s.supplier_name, u.username AS creator_name
+            FROM purchase_orders po
+            JOIN Supplier s ON po.supplier_id = s.id
+            JOIN Users u ON po.user_id = u.id
+            WHERE po.status = 'Approved'
+            ORDER BY po.date_ordered DESC
+        """)
+        pending_deliveries = cursor.fetchall()
+        for po in pending_deliveries:
+            cursor.execute("""
+                SELECT poi.*, p.product_name AS item_name, p.category, p.details, p.unit, p.size, poi.price
+                FROM po_items poi
+                LEFT JOIN Products p ON poi.product_id = p.product_id
+                WHERE poi.po_id = %s
+            """, (po['po_id'],))
+            po['po_items'] = cursor.fetchall()
+
+        cursor.execute("""
+            SELECT d.*, s.supplier_name, u.username AS receiver_name,
+                   app_u.username AS approver_name
+            FROM deliveries d
+            JOIN Supplier s ON d.supplier_id = s.id
+            JOIN Users u ON d.user_id = u.id
+            LEFT JOIN Users app_u ON d.approved_by = app_u.id
+            ORDER BY d.delivery_date DESC
+        """)
+        delivery_logs = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if session.get('role') == 'Admin':
+            template = 'admin_delivery_dashboard.html'
+        else:
+            template = 'staff_delivery_dashboard.html'
+
+        return render_template(template,
+                             pending_deliveries=pending_deliveries,
+                             delivery_logs=delivery_logs)
+    except Exception as err:
+        print(f"[delivery_dashboard] Error: {err}")
+        flash("Error loading delivery dashboard.", "error")
+        return redirect(url_for("po_management"))
+
+
+# -------------------------------------------------------------------
+# 2. Create Delivery & IAR Entry (Staff or Admin)
+# -------------------------------------------------------------------
+@app.route('/delivery/create/<int:po_id>', methods=['POST'])
+def create_delivery(po_id):
+    if 'user_id' not in session:
+        flash('Please log in first.', 'error')
+        return redirect(url_for('login'))
+
+    delivery_number = request.form.get('delivery_number', '').strip()
+    iar_number = request.form.get('iar_number', '').strip()
+    pr_id = request.form.get('pr_id', '').strip()
+    supplier_id = request.form.get('supplier_id', '').strip()
+    inspected_by = request.form.get('inspected_by', '').strip()
+    supply_officer = request.form.get('supply_officer', '').strip()
+    remarks = request.form.get('remarks', '').strip()
+    is_partial = 1 if request.form.get('is_partial') == '1' else 0
+
+    if not all([delivery_number, iar_number, pr_id, supplier_id]):
+        flash("All required fields must be filled.", "error")
+        return redirect(url_for('delivery_dashboard'))
+
+    product_ids = request.form.getlist('product_id[]')
+    item_names = request.form.getlist('item_name[]')
+    categories = request.form.getlist('category[]')
+    details_list = request.form.getlist('details[]')
+    units = request.form.getlist('unit[]')
+    sizes = request.form.getlist('size[]')
+    ordered_qtys = request.form.getlist('ordered_quantity[]')
+    received_qtys = request.form.getlist('received_quantity[]')
+    prices = request.form.getlist('price[]')
+
+    if not product_ids:
+        flash("No items found in delivery.", "error")
+        return redirect(url_for('delivery_dashboard'))
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            INSERT INTO deliveries (
+                po_id, pr_id, user_id, supplier_id, delivery_number, iar_number,
+                remarks, inspected_by, supply_officer, is_partial, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending')
+        """, (
+            po_id, int(pr_id), session.get('user_id'), int(supplier_id),
+            delivery_number, iar_number, remarks, inspected_by,
+            supply_officer, is_partial
+        ))
+
+        delivery_id = cursor.lastrowid
+
+        for i in range(len(product_ids)):
+            try:
+                p_id = int(product_ids[i])
+                ord_q = int(ordered_qtys[i]) if i < len(ordered_qtys) and ordered_qtys[i] else 0
+                rec_q = int(received_qtys[i]) if i < len(received_qtys) and received_qtys[i] else 0
+                prc = float(prices[i]) if i < len(prices) and prices[i] else 0
+
+                if p_id == 0 or rec_q <= 0:
+                    continue
+
+                total_price = rec_q * prc
+                cursor.execute("""
+                    INSERT INTO delivery_items (
+                        delivery_id, po_id, pr_id, user_id, supplier_id, product_id,
+                        item_name, category, details, unit, size, ordered_quantity,
+                        received_quantity, price, total_price
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    delivery_id, po_id, int(pr_id), session.get('user_id'), int(supplier_id), p_id,
+                    item_names[i] if i < len(item_names) else '',
+                    categories[i] if i < len(categories) else '',
+                    details_list[i] if i < len(details_list) else '',
+                    units[i] if i < len(units) else 'pcs',
+                    sizes[i] if i < len(sizes) else '',
+                    ord_q, rec_q, prc, total_price
+                ))
+            except (ValueError, IndexError) as e:
+                print(f"[create_delivery] Item error: {e}")
+                continue
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Delivery/IAR record submitted successfully! Pending Admin approval.', 'success')
+
+    except Exception as e:
+        print(f"[create_delivery] Error: {e}")
+        flash(f'Error submitting delivery record: {str(e)}', 'error')
+        return redirect(url_for('delivery_dashboard'))
+
+    return redirect(url_for('delivery_dashboard'))
+
+
+# -------------------------------------------------------------------
+# 3. Approve Delivery & Update Inventory Stock (Admin Only)
+# -------------------------------------------------------------------
+@app.route('/delivery/approve/<int:delivery_id>', methods=['POST'])
+def approve_delivery(delivery_id):
+    if 'user_id' not in session:
+        flash('Please log in first.', 'error')
+        return redirect(url_for('login'))
+
+    if session.get('role') != 'Admin':
+        flash('Permission denied. Admin authorization required.', 'error')
+        return redirect(url_for('delivery_dashboard'))
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute("""
+            SELECT product_id, received_quantity
+            FROM delivery_items
+            WHERE delivery_id = %s
+        """, (delivery_id,))
+        items = cursor.fetchall()
+
+        if not items:
+            flash('No items found in this delivery.', 'error')
+            cursor.close()
+            conn.close()
+            return redirect(url_for('delivery_dashboard'))
+
+        for item in items:
+            cursor.execute("""
+                UPDATE Products
+                SET current_stock = current_stock + %s
+                WHERE product_id = %s
+            """, (item['received_quantity'], item['product_id']))
+
+        cursor.execute("""
+            UPDATE deliveries
+            SET status = 'Received', approved_by = %s
+            WHERE delivery_id = %s
+        """, (session.get('user_id'), delivery_id))
+
+        cursor.execute("SELECT po_id FROM deliveries WHERE delivery_id = %s", (delivery_id,))
+        deliv = cursor.fetchone()
+        if deliv:
+            po_id = deliv['po_id']
+            cursor.execute("""
+                SELECT COALESCE(SUM(quantity), 0) AS ordered,
+                       COALESCE(SUM(received_quantity), 0) AS received
+                FROM po_items
+                WHERE po_id = %s
+            """, (po_id,))
+            po_status = cursor.fetchone()
+
+            if po_status and po_status['received'] >= po_status['ordered']:
+                cursor.execute("UPDATE purchase_orders SET status = 'Completed' WHERE po_id = %s", (po_id,))
+            else:
+                cursor.execute("UPDATE purchase_orders SET status = 'Partial' WHERE po_id = %s", (po_id,))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Delivery approved! Product stock levels have been updated.', 'success')
+
+    except Exception as e:
+        print(f"[approve_delivery] Error: {e}")
+        flash(f'Error approving delivery: {str(e)}', 'error')
+
+    return redirect(url_for('delivery_dashboard'))
 
 if __name__ == "__main__":
     # Keep the app stable on Windows without the Flask reloader crash

@@ -186,7 +186,7 @@
         </div>
     </div>
     <!-- ADD MODAL -->
-    <div id="add-modal" class="modal-overlay hidden">
+    <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header"><h3>Add New Product</h3><button type="button" class="close-btn" onclick="closeAddModal()">✖</button></div>
             <form method="POST" action="{{ url_for('admin_add_product') }}" class="modal-form" id="add-product-form" onsubmit="return validateProductForm(this)">
@@ -232,7 +232,7 @@
         </div>
     </div>
     <!-- EDIT MODAL -->
-    <div id="edit-modal" class="modal-overlay hidden">
+    <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header"><h3>Edit Product</h3><button type="button" class="close-btn" onclick="closeEditModal()">✖</button></div>
             <form id="edit-form" method="POST" class="modal-form">
@@ -308,8 +308,7 @@
         document.getElementById('edit-form').addEventListener('submit', function(e){
             const p=parseFloat(document.getElementById('edit-price').value); if(isNaN(p)||p<0){ e.preventDefault(); alert('Price must be 0 or more.'); }
         });
-        document.getElementById('add-modal').addEventListener('click', function(e){ if(e.target===this) closeAddModal(); });
-        document.getElementById('edit-modal').addEventListener('click', function(e){ if(e.target===this) closeEditModal(); });
+        // Static backdrop: only close via .btn-close / Cancel (no backdrop click)
     </script>
 </body>
 </html>
