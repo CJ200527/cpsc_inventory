@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+from datetime import datetime
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 
@@ -752,6 +753,121 @@ def update_po_status_action(po_id):
 
     return redirect(url_for("po_management"))
 
+
+@app.route("/iar/create", methods=["POST"])
+def create_iar_action():
+    """Integrated IAR into deliveries: saves iar_number/inspected_by/supply_officer/is_partial directly to deliveries and updates stock."""
+    if not session.get("user_id"):
+        flash("Please log in first.", "error")
+        return redirect(url_for("login"))
+
+    po_id = request.form.get("po_id")
+    iar_number = request.form.get("iar_number", "").strip()
+    iar_date = request.form.get("iar_date")
+    inspected_by = request.form.get("inspected_by", "").strip()
+    supply_officer = request.form.get("supply_officer", "").strip()
+    remarks = request.form.get("remarks", "").strip()
+    is_partial = 1 if request.form.get("is_partial") == "1" else 0
+    delivery_number = request.form.get("delivery_number", "").strip() or f"DEL-{iar_number}" if iar_number else f"DEL-{po_id}-{int(datetime.now().timestamp())}"
+
+    if not (po_id and iar_number and iar_date and inspected_by and supply_officer):
+        flash("Please fill in all required IAR fields.", "error")
+        return redirect(url_for("po_management"))
+
+    # Fetch PO to get pr_id and supplier_id
+    try:
+        from CRUD_Operations.User_Authentication_and_Management.db import get_db_connection as _get_conn
+    except ImportError:
+        from db import get_db_connection as _get_conn
+
+    conn = None
+    cursor = None
+    try:
+        conn = _get_conn()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT pr_id, supplier_id FROM purchase_orders WHERE po_id=%s", (int(po_id),))
+        po_row = cursor.fetchone()
+        if not po_row:
+            flash("Purchase Order not found.", "error")
+            return redirect(url_for("po_management"))
+        pr_id = po_row['pr_id']
+        supplier_id = po_row['supplier_id']
+        user_id = session.get("user_id")
+
+        # 1. Insert into deliveries with IAR fields
+        cursor.execute("""
+            INSERT INTO deliveries (delivery_number, iar_number, po_id, pr_id, supplier_id, user_id, inspected_by, supply_officer, is_partial, remarks, status, delivery_date)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Received', %s)
+        """, (delivery_number, iar_number, int(po_id), int(pr_id), int(supplier_id), int(user_id), inspected_by, supply_officer, is_partial, remarks, iar_date))
+        delivery_id = cursor.lastrowid
+
+        # 2. Insert items into delivery_items & update stock
+        product_ids = request.form.getlist("product_id[]")
+        received_qtys = request.form.getlist("received_quantity[]")
+        unit_prices = request.form.getlist("unit_price[]")
+
+        for i in range(len(product_ids)):
+            try:
+                p_id = int(product_ids[i].strip()) if product_ids[i].strip() else 0
+                if p_id == 0:
+                    continue
+                r_qty = int(received_qtys[i].strip()) if i < len(received_qtys) and received_qtys[i].strip() else 0
+                u_price = float(unit_prices[i].strip()) if i < len(unit_prices) and unit_prices[i].strip() else 0
+                if r_qty <= 0:
+                    continue
+                # Fetch product details for item_name etc and ordered quantity
+                cursor.execute("SELECT product_name, category, unit, size, details FROM Products WHERE product_id=%s", (p_id,))
+                prod = cursor.fetchone()
+                if not prod:
+                    continue
+                cursor.execute("SELECT quantity, price FROM po_items WHERE po_id=%s AND product_id=%s LIMIT 1", (int(po_id), p_id))
+                po_item = cursor.fetchone()
+                ordered_qty = int(po_item['quantity']) if po_item else r_qty
+                # Use unit_price from form as price
+                total_price = r_qty * u_price
+                cursor.execute("""
+                    INSERT INTO delivery_items (delivery_id, po_id, pr_id, user_id, supplier_id, product_id, item_name, ordered_quantity, received_quantity, category, details, unit, size, price, total_price)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (delivery_id, int(po_id), int(pr_id), int(user_id), int(supplier_id), p_id, prod['product_name'], ordered_qty, r_qty, prod.get('category',''), prod.get('details',''), prod.get('unit','pcs'), prod.get('size',''), u_price, total_price))
+                # Stock ingestion: current_stock = current_stock + received_quantity
+                cursor.execute("UPDATE products SET current_stock = current_stock + %s WHERE product_id = %s", (r_qty, p_id))
+                try:
+                    cursor.execute("UPDATE products SET quantity = current_stock WHERE product_id = %s", (p_id,))
+                except Exception:
+                    pass
+            except (ValueError, IndexError, AttributeError):
+                continue
+
+        # Optionally update PO status if fully received
+        try:
+            cursor.execute("SELECT COALESCE(SUM(quantity),0) AS ordered FROM po_items WHERE po_id=%s", (int(po_id),))
+            ordered_total = int((cursor.fetchone() or {}).get('ordered', 0) or 0)
+            cursor.execute("SELECT COALESCE(SUM(received_quantity),0) AS received FROM delivery_items WHERE po_id=%s", (int(po_id),))
+            received_total = int((cursor.fetchone() or {}).get('received', 0) or 0)
+            if ordered_total > 0 and received_total >= ordered_total:
+                cursor.execute("UPDATE purchase_orders SET status='Delivered' WHERE po_id=%s", (int(po_id),))
+            elif received_total > 0:
+                cursor.execute("UPDATE purchase_orders SET status='Partial' WHERE po_id=%s", (int(po_id),))
+        except Exception:
+            pass
+
+        conn.commit()
+        flash(f"IAR {iar_number} submitted successfully! Stock has been credited.", "success")
+        return redirect(url_for("po_management"))
+    except Exception as err:
+        if conn:
+            try: conn.rollback()
+            except: pass
+        print(f"[create_iar_action deliveries] DB error: {err}")
+        flash(f"Failed to create IAR/Delivery: {err}", "error")
+        return redirect(url_for("po_management"))
+    finally:
+        if cursor:
+            try: cursor.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass
 
 if __name__ == "__main__":
     # Keep the app stable on Windows without the Flask reloader crash
