@@ -118,7 +118,7 @@
                     <span class="icon">📝</span>
                     <span>PO</span>
                 </a>
-                <a href="#" class="nav-btn">
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn">
                     <span class="icon">🚚</span>
                     <span>Delivery</span>
                 </a>
@@ -227,7 +227,7 @@
                                 <td><strong>{{ r.pr_number }}</strong></td>
                                 <td>{{ r.Firstname }} {{ r.Lastname }} ({{ r.username }})</td>
                                 <td>{{ r.date_requested }}</td>
-                                <td><span class="price-badge">₱ {{ "%.2f"|format(r.total_price or 0) }}</span></td>
+                                <td><span class="price-badge">₱ {{ "{:,.2f}".format(r.total_price or 0) }}</span></td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td>
                                     <div class="action-cell">
@@ -362,20 +362,21 @@
             calcSubtotal(rowId);
         }
 
+        function fmtPeso(n){ return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
         function calcSubtotal(rowId) {
             const price = parseFloat(document.getElementById(`price-${rowId}`).value) || 0;
             const qty = parseInt(document.getElementById(`qty-${rowId}`).value) || 0;
-            document.getElementById(`subtotal-${rowId}`).value = (price * qty).toFixed(2);
+            document.getElementById(`subtotal-${rowId}`).value = fmtPeso(price * qty);
             let grandTotal = 0;
-            document.querySelectorAll('[id^="subtotal-"]').forEach(input => grandTotal += parseFloat(input.value) || 0);
-            document.getElementById('grand-total-display').innerText = '₱ ' + grandTotal.toFixed(2);
+            document.querySelectorAll('[id^="subtotal-"]').forEach(input => { let v = input.value.replace(/,/g,''); grandTotal += parseFloat(v) || 0; });
+            document.getElementById('grand-total-display').innerText = '₱ ' + fmtPeso(grandTotal);
         }
 
         function removeRow(btn) {
             btn.closest('tr').remove();
             let grandTotal = 0;
-            document.querySelectorAll('[id^="subtotal-"]').forEach(input => grandTotal += parseFloat(input.value) || 0);
-            document.getElementById('grand-total-display').innerText = '₱ ' + grandTotal.toFixed(2);
+            document.querySelectorAll('[id^="subtotal-"]').forEach(input => { let v = input.value.replace(/,/g,''); grandTotal += parseFloat(v) || 0; });
+            document.getElementById('grand-total-display').innerText = '₱ ' + fmtPeso(grandTotal);
         }
 
         function openViewModal(prId) {
@@ -393,9 +394,9 @@
                     html += `<p><strong>Status:</strong> ${data.header.status}</p><br>`;
                     html += `<table class="item-table"><thead><tr><th>Supplier</th><th>Item</th><th>Category</th><th>Unit / Size</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead><tbody>`;
                     data.items.forEach(i => {
-                        html += `<tr><td>${i.supplier_name || '-'}</td><td>${i.item_name}</td><td>${i.category || '-'}</td><td>${i.unit} ${i.size ? '('+i.size+')' : ''}</td><td>${i.quantity}</td><td>₱ ${i.price.toFixed(2)}</td><td>₱ ${i.total_price.toFixed(2)}</td></tr>`;
+                        html += `<tr><td>${i.supplier_name || '-'}</td><td>${i.item_name}</td><td>${i.category || '-'}</td><td>${i.unit} ${i.size ? '('+i.size+')' : ''}</td><td>${i.quantity}</td><td>₱ ${fmtPeso(i.price)}</td><td>₱ ${fmtPeso(i.total_price)}</td></tr>`;
                     });
-                    html += `</tbody></table><p style="text-align:right; font-weight:700;">Grand Total: ₱ ${data.header.total_price.toFixed(2)}</p>`;
+                    html += `</tbody></table><p style="text-align:right; font-weight:700;">Grand Total: ₱ ${fmtPeso(data.header.total_price)}</p>`;
                     content.innerHTML = html;
                 });
         }

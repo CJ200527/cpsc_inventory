@@ -188,8 +188,8 @@ def get_approved_prs_without_po():
 # --- 3. READ: Fetch Purchase Orders with Search & Filters ---
 def get_all_purchase_orders(search_query="", status_filter="All", user_id=None):
     """
-    Fetches PO records joined with Users, Supplier, and PR tables.
-    Aliases date_ordered->date_issued and total_price->total_amount for App.py JSON compatibility.
+    Fetches PO records joined with Users, Supplier, PR tables and latest Delivery receiver.
+    Adds pr_creator, po_creator (Requested By), received_by, and delivery progress.
     """
     conn = None
     cursor = None
@@ -198,12 +198,26 @@ def get_all_purchase_orders(search_query="", status_filter="All", user_id=None):
         cursor = conn.cursor(dictionary=True)
 
         sql = """
-        SELECT po.po_id, po.po_number, po.date_ordered AS date_issued, po.date_ordered, po.status, po.total_price AS total_amount, po.total_price, 0 AS has_delivery,
-               pr.pr_number, u.Firstname, u.Lastname, u.username, s.supplier_name
+        SELECT po.po_id, po.po_number, po.date_ordered AS date_issued, po.date_ordered, po.status, po.total_price AS total_amount, po.total_price,
+               pr.pr_number, 
+               u.Firstname, u.Lastname, u.username,
+               pr_u.Firstname AS pr_Firstname, pr_u.Lastname AS pr_Lastname, pr_u.username AS pr_username,
+               s.supplier_name,
+               ld.delivery_id AS last_delivery_id, ld.delivery_number AS last_delivery_number, ld.status AS last_delivery_status,
+               ru.Firstname AS recv_Firstname, ru.Lastname AS recv_Lastname, ru.username AS recv_username,
+               CASE WHEN ld.delivery_id IS NOT NULL THEN 1 ELSE 0 END AS has_delivery
         FROM purchase_orders po
         JOIN Users u ON po.user_id = u.id
         JOIN purchase_requests pr ON po.pr_id = pr.pr_id
+        JOIN Users pr_u ON pr.user_id = pr_u.id
         LEFT JOIN Supplier s ON po.supplier_id = s.id
+        LEFT JOIN (
+            SELECT d.po_id, MAX(d.delivery_id) AS max_delivery_id
+            FROM deliveries d
+            GROUP BY d.po_id
+        ) latest ON latest.po_id = po.po_id
+        LEFT JOIN deliveries ld ON ld.delivery_id = latest.max_delivery_id
+        LEFT JOIN Users ru ON ld.user_id = ru.id
         WHERE 1=1
         """
         params = []
@@ -223,9 +237,13 @@ def get_all_purchase_orders(search_query="", status_filter="All", user_id=None):
                 pr.pr_number LIKE %s OR 
                 s.supplier_name LIKE %s OR
                 u.Firstname LIKE %s OR 
-                u.Lastname LIKE %s
+                u.Lastname LIKE %s OR
+                pr_u.Firstname LIKE %s OR
+                pr_u.Lastname LIKE %s OR
+                ru.Firstname LIKE %s OR
+                ru.Lastname LIKE %s
             )"""
-            params.extend([pattern] * 5)
+            params.extend([pattern] * 9)
 
         sql += " ORDER BY po.po_id DESC;"
 
@@ -246,22 +264,24 @@ def get_all_purchase_orders(search_query="", status_filter="All", user_id=None):
 
 # --- 4. READ: Fetch Single PO Details with Items ---
 def get_po_details(po_id):
-    """Fetches PO header and items - aliases columns for App.py JSON compatibility."""
+    """Fetches PO header and items — received_quantity now reflects SUM of APPROVED deliveries (status='Received')."""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        # Header - alias date_ordered->date_issued, total_price->total_amount, contact_number->phone_number
+        # Header with PR creator and latest delivery receiver for completeness
         sql_header = """
         SELECT po.po_id, po.po_number, po.pr_id, po.supplier_id, po.user_id,
                po.date_ordered AS date_issued, po.date_ordered, po.status, po.total_price AS total_amount, po.total_price,
-               pr.pr_number, u.Firstname, u.Lastname, u.username,
+               pr.pr_number, pr_u.Firstname AS pr_Firstname, pr_u.Lastname AS pr_Lastname,
+               u.Firstname, u.Lastname, u.username,
                s.supplier_name, s.contact_person, s.contact_number AS phone_number, s.contact_number, s.email
         FROM purchase_orders po
         JOIN Users u ON po.user_id = u.id
         JOIN purchase_requests pr ON po.pr_id = pr.pr_id
+        JOIN Users pr_u ON pr.user_id = pr_u.id
         LEFT JOIN Supplier s ON po.supplier_id = s.id
         WHERE po.po_id = %s;
         """
@@ -271,16 +291,25 @@ def get_po_details(po_id):
         if not header:
             return None, []
 
-        # Items - alias price->unit_price, quantity->ordered_quantity, add received_quantity=0 for compatibility
+        # Items — delivered qty is SUM of approved delivery_items for this PO/product
         sql_items = """
         SELECT poi.po_item_id, poi.po_id, poi.pr_id, poi.product_id, poi.item_name, poi.category, poi.unit, poi.details, poi.size,
-               poi.price AS unit_price, poi.price, poi.quantity AS ordered_quantity, poi.quantity, 0 AS received_quantity, poi.total_price,
+               poi.price AS unit_price, poi.price, poi.quantity AS ordered_quantity, poi.quantity,
+               COALESCE(agg.received_qty, 0) AS received_quantity,
+               poi.total_price,
                p.product_name, p.unit AS p_unit, p.category AS p_category
         FROM po_items poi
         LEFT JOIN Products p ON poi.product_id = p.product_id
+        LEFT JOIN (
+            SELECT di.product_id, SUM(di.received_quantity) AS received_qty
+            FROM delivery_items di
+            JOIN deliveries d ON di.delivery_id = d.delivery_id
+            WHERE di.po_id = %s AND d.status = 'Received'
+            GROUP BY di.product_id
+        ) agg ON agg.product_id = poi.product_id
         WHERE poi.po_id = %s;
         """
-        cursor.execute(sql_items, (po_id,))
+        cursor.execute(sql_items, (po_id, po_id))
         items = cursor.fetchall()
 
         return header, items

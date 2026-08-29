@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Staff Delivery & IAR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
+        .hidden { display: none !important; }
+        .sidebar { width: 260px; background-color: #f7f0e8; border-right: 1px solid #e2d7ca; display: flex; flex-direction: column; justify-content: space-between; padding: 16px 14px; overflow-y: auto; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03); }
+        .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding: 0 4px; }
+        .sidebar-logo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+        .school-title { font-size: 11px; font-weight: 700; color: #2c3e50; line-height: 1.25; text-transform: uppercase; }
+        .school-subtitle { font-size: 9.5px; color: #666666; margin-top: 2px; font-weight: 400; }
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
+        .nav-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 16px; background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%); border: 1px solid #d2d2d2; border-radius: 10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; color: #333333; text-decoration: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); user-select: none; }
+        .nav-btn .icon { font-size: 17px; display: flex; align-items: center; justify-content: center; width: 22px; }
+        .nav-btn:hover { background: #ffffff; border-color: #53c5f1; color: #0277bd; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25); }
+        .nav-btn.active { background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%); border-color: #53c5f1; color: #0277bd; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3); }
+        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
+        .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; }
+        .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .top-header { background-color: #aae0f7; padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #94d2ee; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); flex-shrink: 0; }
+        .header-title-box h1 { font-size: 22px; font-weight: 800; font-style: italic; color: #0d233a; }
+        .header-title-box .date-time-box { font-size: 11px; color: #2c3e50; margin-top: 2px; font-weight: 500; }
+        .user-profile-box { text-align: right; }
+        .user-profile-box .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
+        .user-profile-box .user-role { font-size: 11px; color: #0277bd; font-weight: 600; }
+        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+        .control-card { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 480px; }
+        .search-input-box { display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5; border-radius: 8px; padding: 6px 12px; width: 100%; }
+        .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
+        .filter-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .filter-select { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; }
+        .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
+        .btn-add-primary { padding: 9px 18px; background: #53c5f1; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35); transition: all 0.2s ease; }
+        .btn-add-primary:hover { background: #3ba9d4; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(83, 197, 241, 0.4); }
+        .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 980px; }
+        th { background-color: #53c5f1; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; white-space: nowrap; }
+        th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+        th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+        td { padding: 11px 14px; font-size: 12.5px; color: #333333; border-bottom: 1px solid #f0f4f8; white-space: nowrap; }
+        tr:hover td { background-color: #f8fcff; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+        .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+        .badge-received { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .badge-partial { background-color: #e2e3ff; color: #383d8a; border: 1px solid #c5cae9; }
+        .btn-action { padding: 5px 10px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .btn-view { background: #e1f3fe; color: #0277bd; }
+        .btn-complete { background: #fff8e1; color: #6d4c00; border: 1px solid #ffe082; }
+        .alert-bar { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 2px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .modal-box { background: #ffffff; border-radius: 12px; padding: 26px 30px; width: 840px; max-width: 95%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2); max-height: 92vh; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .modal-header h3 { font-size: 18px; font-weight: 700; color: #0d233a; }
+        .close-btn { background: none; border: none; font-size: 22px; color: #888; cursor: pointer; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+        .form-grid .full { grid-column: span 2; }
+        .form-group label { font-size: 11px; font-weight: 600; color: #0d233a; display: block; margin-bottom: 4px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1.5px solid #d0dbe5; border-radius: 6px; font-size: 12px; outline: none; background: #f8fcff; }
+        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 14px; min-width: unset; }
+        .item-table th { background: #eaf3f8; color: #0d233a; font-size: 11px; padding: 8px; }
+        .item-table td { padding: 8px; border-bottom: 1px solid #eef2f5; font-size: 12px; white-space: normal; }
+        .readonly-cell { background: #f0f4f8; color: #555; font-weight: 500; }
+        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83,197,241,0.35); }
+        .helper-text { font-size: 11px; color: #666; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo" src="{{ url_for('static', filename='cpsc_logo.png') }}" alt="CPSC Seal" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+            <div class="nav-menu">
+                <a href="/staff_dashboard" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
+                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn active"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="#" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
+                <a href="#" class="nav-btn"><span class="icon">📤</span><span>Request Withdraw</span></a>
+                <a href="#" class="nav-btn"><span class="icon">🔄</span><span>Return Item</span></a>
+            </div>
+        </div>
+        <div>
+            <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>Delivery & IAR — Receiving</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                <div class="user-name">{{ user.full_name }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert-bar alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div class="control-card">
+                <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
+                    <div class="search-input-box">
+                        <span style="margin-right:8px;">🔍</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Search Delivery #, IAR #, PO #, Supplier..." autocomplete="off">
+                    </div>
+                    <button type="submit" class="icon-btn">Search</button>
+                </form>
+                <div class="filter-controls">
+                    <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
+                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
+                    </select>
+                    <select name="date_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                        <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
+                        <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
+                        <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
+                    </select>
+                    <a href="{{ url_for('delivery_dashboard') }}" class="icon-btn">🔄 Refresh</a>
+                    <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive Delivery / IAR</button>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Delivery #</th>
+                            <th>IAR #</th>
+                            <th>Ref PO # / PR #</th>
+                            <th>Supplier</th>
+                            <th>Delivery Date</th>
+                            <th>Status</th>
+                            <th>Partial?</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if deliveries %}
+                            {% for d in deliveries %}
+                            <tr>
+                                <td><strong>{{ d.delivery_number }}</strong></td>
+                                <td>{{ d.iar_number or '-' }}</td>
+                                <td>{{ d.po_number }}<br><small style="color:#666;">{{ d.pr_number }}</small></td>
+                                <td>{{ d.supplier_name or 'N/A' }}</td>
+                                <td>{{ d.delivery_date.strftime('%Y-%m-%d') if d.delivery_date else '' }}</td>
+                                <td><span class="badge badge-{{ d.status|lower }}">{{ d.status }}</span></td>
+                                <td>{% if d.is_partial %}<span class="badge badge-partial">Partial ({{ d.po_status }})</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
+                                <td>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})">👁️ View</button>
+                                        {% if d.show_complete == 1 %}
+                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.po_remaining }} still remaining for this PO)" onclick="openCompleteModal({{ d.delivery_id }})">➕ Complete</button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="8" style="text-align:center; color:#888; padding:25px;">No deliveries. Click "+ Receive Delivery" to start from an Approved PO.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="helper-text" style="text-align:center;color:#666;">Eligible POs: ONLY Approved/Issued without prior deliveries. Completed POs disappear from selection. Use <strong>Complete</strong> on a partial delivery row to add remaining quantity — it shows REMAINING (not original ordered).</div>
+        </div>
+    </div>
+
+    <!-- RECEIVE MODAL -->
+    <div id="receive-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3>Receive Delivery & Submit IAR</h3>
+                    <p style="font-size:11px;color:#666;margin-top:4px;">Search Approved PO, then enter Received Qty manually (empty by default). Partial auto-detected if any received ≠ ordered. Received &gt; ordered is blocked.</p>
+                </div>
+                <button type="button" class="close-btn" onclick="closeReceiveModal()">✖</button>
+            </div>
+
+            <form method="POST" action="{{ url_for('create_delivery_action') }}" id="receive-form" onsubmit="return validateReceiveForm()">
+                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:12px;margin-bottom:12px;">
+                    <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:6px;">Search Approved PO (only Approved/Issued without deliveries)</label>
+                    <div class="search-input-box" style="background:#ffffff;max-width:100%;">
+                        <span style="margin-right:8px;">🔍</span>
+                        <input type="text" id="receive-po-search" placeholder="Type PO #, PR #, Supplier..." autocomplete="off" oninput="filterReceivePOs()">
+                    </div>
+                    <div style="font-size:11px;color:#888;margin-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                        <span id="receive-po-count">{{ deliverable_pos|length }} Approved PO(s) available</span>
+                        <span style="color:#0277bd;">Type to filter — dropdown stays selectable</span>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group full">
+                        <label>Select Purchase Order *</label>
+                        <select name="po_id" id="po-select" required onchange="loadPOForDelivery(this.value)" style="width:100%;padding:10px 12px;background:#f2f2f2;border:1.5px solid transparent;border-radius:6px;font-size:13px;">
+                            <option value="" disabled selected>— Choose PO —</option>
+                            {% for po in deliverable_pos %}
+                            <option value="{{ po.po_id }}">{{ po.po_number }} — {{ po.pr_number }} — {{ po.supplier_name or 'N/A' }} — {{ po.status }}</option>
+                            {% else %}
+                            <option disabled>No eligible Approved POs (completed/partial removed)</option>
+                            {% endfor %}
+                        </select>
+                        <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;">No matching POs — try another search.</div>
+                        <div id="po-meta" class="hidden" style="margin-top:8px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;"></div>
+                    </div>
+                    <div class="form-group"><label>Delivery Number *</label><input type="text" name="delivery_number" placeholder="DEL-2026-001" required></div>
+                    <div class="form-group"><label>IAR Number *</label><input type="text" name="iar_number" placeholder="IAR-2026-001" required></div>
+                    <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" placeholder="Inspector name" required></div>
+                    <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" placeholder="Supply officer name" required></div>
+                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" required></div>
+                    <div class="form-group"><label>Remarks</label><input type="text" name="remarks" placeholder="Optional"></div>
+                </div>
+
+                <div id="delivery-items-wrap" class="hidden">
+                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin:12px 0 6px;">Items — fill Received Qty (empty = must type). Max = Ordered.</p>
+                    <table class="item-table">
+                        <thead><tr><th>Item / Specs</th><th>Category</th><th>Unit</th><th>Unit Price</th><th>Ordered</th><th>Received *</th></tr></thead>
+                        <tbody id="delivery-items-tbody"></tbody>
+                    </table>
+                    <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:6px;padding:8px 10px;font-size:11px;color:#2e7d32;">Partial is <strong>automatic</strong> if any received ≠ ordered. Submit → <strong>Pending</strong> (stock not credited until Admin approves).</div>
+                </div>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeReceiveModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Submit Delivery (Pending)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- COMPLETE REMAINING MODAL -->
+    <div id="complete-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3>Complete Remaining Delivery</h3>
+                    <p style="font-size:11px;color:#666;margin-top:4px;">Shows <strong>REMAINING</strong> (ordered − already received) — enter how many just arrived. Received &gt; remaining is blocked.</p>
+                </div>
+                <button type="button" class="close-btn" onclick="closeCompleteModal()">✖</button>
+            </div>
+            <form method="POST" id="complete-form" onsubmit="return validateCompleteForm()">
+                <div id="complete-po-meta" style="margin-bottom:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PO remaining...</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Delivery Number * (new)</label><input type="text" name="delivery_number" placeholder="DEL-2026-002" required></div>
+                    <div class="form-group"><label>IAR Number * (new)</label><input type="text" name="iar_number" placeholder="IAR-2026-002" required></div>
+                    <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" required></div>
+                    <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" required></div>
+                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" required></div>
+                    <div class="form-group"><label>Remarks</label><input type="text" name="remarks" placeholder="Completion of remaining"></div>
+                </div>
+                <table class="item-table">
+                    <thead><tr><th>Item</th><th>Remaining (Ordered−Received)</th><th>Unit Price</th><th>Complete Qty *</th></tr></thead>
+                    <tbody id="complete-items-tbody"></tbody>
+                </table>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeCompleteModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save" style="background:#ef6c00;">Submit Completion (Pending)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div id="view-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="view-delivery-title">Delivery Details</h3>
+                <button type="button" class="close-btn" onclick="closeViewModal()">✖</button>
+            </div>
+            <div id="view-modal-content" style="font-size:12px;color:#333;">Loading...</div>
+            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+        </div>
+    </div>
+
+    <script>
+        function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+        function updateClock(){ const now=new Date(); document.getElementById('live-clock').innerText=`${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} | ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`; }
+        setInterval(updateClock,1000); updateClock();
+
+        function openReceiveModal(){
+            document.getElementById('receive-modal').classList.remove('hidden');
+            const d=document.querySelector('#receive-modal input[name="delivery_date"]'); if(d && !d.value) d.valueAsDate=new Date();
+            const sel=document.getElementById('po-select'); if(sel) { sel.selectedIndex=0; for(let i=0;i<sel.options.length;i++){ sel.options[i].hidden=false; sel.options[i].style.display=''; } }
+            document.getElementById('receive-po-search').value='';
+            const cnt=document.getElementById('receive-po-count'); if(cnt) cnt.innerText='{{ deliverable_pos|length }} Approved PO(s) available';
+            document.getElementById('receive-no-results').classList.add('hidden');
+            const meta=document.getElementById('po-meta'); if(meta){meta.classList.add('hidden'); meta.innerHTML='';}
+            const wrap=document.getElementById('delivery-items-wrap'); if(wrap) wrap.classList.add('hidden');
+            const tbody=document.getElementById('delivery-items-tbody'); if(tbody) tbody.innerHTML='';
+        }
+        function closeReceiveModal(){ document.getElementById('receive-modal').classList.add('hidden'); }
+
+        function filterReceivePOs(){
+            const q=(document.getElementById('receive-po-search').value||'').toLowerCase().trim();
+            const sel=document.getElementById('po-select');
+            let vis=0;
+            for(let i=1;i<sel.options.length;i++){
+                const txt=(sel.options[i].textContent||'').toLowerCase();
+                const m=!q||txt.includes(q);
+                sel.options[i].hidden=!m; sel.options[i].style.display=m?'':'none';
+                if(m) vis++;
+            }
+            const cnt=document.getElementById('receive-po-count');
+            if(cnt) cnt.innerText=vis+' matched'+(q? ' for "'+q+'"':' — '+ (sel.options.length-1)+' total');
+            document.getElementById('receive-no-results').classList.toggle('hidden', vis>0 || !q);
+            if(sel.selectedIndex>0 && sel.options[sel.selectedIndex].hidden){ sel.selectedIndex=0; const wrap=document.getElementById('delivery-items-wrap'); if(wrap) wrap.classList.add('hidden'); }
+        }
+
+        function loadPOForDelivery(poId){
+            if(!poId) return;
+            const meta=document.getElementById('po-meta');
+            const wrap=document.getElementById('delivery-items-wrap');
+            const tbody=document.getElementById('delivery-items-tbody');
+            tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:12px;color:#888;">Loading PO items…</td></tr>';
+            wrap.classList.remove('hidden');
+            fetch('/po/details/'+poId).then(r=>r.json()).then(data=>{
+                if(data.error){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">'+data.error+'</td></tr>'; return; }
+                meta.innerHTML=`<strong>PO:</strong> ${data.header.po_number} | <strong>PR:</strong> ${data.header.pr_number} | <strong>Supplier:</strong> ${data.header.supplier_name||'N/A'} | <strong>Status:</strong> ${data.header.status}`;
+                meta.classList.remove('hidden');
+                tbody.innerHTML='';
+                data.items.forEach(item=>{
+                    const tr=document.createElement('tr');
+                    tr.innerHTML=`
+                        <td class="readonly-cell"><strong>${item.item_name}</strong><br><small>${item.details||''} ${item.size? '('+item.size+')':''}</small><input type="hidden" name="product_id[]" value="${item.product_id}"></td>
+                        <td class="readonly-cell">${item.category||'-'}</td>
+                        <td class="readonly-cell">${item.unit||'pcs'}</td>
+                        <td class="readonly-cell">₱ ${Number(item.unit_price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="readonly-cell" style="font-weight:700;">${item.ordered_quantity}</td>
+                        <td><input type="number" name="received_quantity[]" min="0" max="${item.ordered_quantity}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #53c5f1;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${item.ordered_quantity}){this.setCustomValidity('Cannot exceed ordered '+${item.ordered_quantity}); this.reportValidity();}else{this.setCustomValidity('');}"></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">Failed to load PO items.</td></tr>'; });
+        }
+
+        function validateReceiveForm(){
+            const inputs=document.querySelectorAll('#delivery-items-tbody input[name="received_quantity[]"]');
+            let hasVal=false; let err='';
+            inputs.forEach(inp=>{
+                const v=inp.value.trim();
+                if(v!==''){ hasVal=true; const n=parseInt(v||0); const mx=parseInt(inp.getAttribute('max')||0); if(n>mx) err=`Received ${n} exceeds ordered ${mx}.`;}
+            });
+            if(!hasVal){ alert('Please enter at least one received quantity.'); return false; }
+            if(err){ alert(err); return false; }
+            return true;
+        }
+
+        let currentCompleteDeliveryId=null;
+        function openCompleteModal(deliveryId){
+            currentCompleteDeliveryId=deliveryId;
+            document.getElementById('complete-modal').classList.remove('hidden');
+            const form=document.getElementById('complete-form'); form.action='/delivery/complete/'+deliveryId;
+            const dateInput=form.querySelector('input[name="delivery_date"]'); if(dateInput) dateInput.valueAsDate=new Date();
+            // Clear prior
+            document.getElementById('complete-items-tbody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:12px;color:#888;">Loading remaining quantities…</td></tr>';
+            document.getElementById('complete-po-meta').innerHTML='Loading…';
+            fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(d=>{
+                if(d.error){ document.getElementById('complete-po-meta').innerHTML=d.error; return; }
+                const poId=d.header.po_id;
+                // Now fetch remaining for that PO
+                fetch('/delivery/remaining/'+poId).then(r=>r.json()).then(rem=>{
+                    const header=rem.header;
+                    const remaining=rem.remaining||[];
+                    let meta=`<strong>PO:</strong> ${header? header.po_number:'?'} — <strong>Remaining total:</strong> ${remaining.reduce((a,b)=>a+(b.remaining_quantity||0),0)} units`;
+                    if(remaining.length===0) meta+=' — <span style="color:#c62828;">No remaining items (already completed)</span>';
+                    document.getElementById('complete-po-meta').innerHTML=meta;
+                    const tbody=document.getElementById('complete-items-tbody');
+                    tbody.innerHTML='';
+                    if(remaining.length===0){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#c62828;">Nothing remaining to complete.</td></tr>'; return; }
+                    remaining.forEach(rw=>{
+                        if(rw.remaining_quantity<=0) return;
+                        const tr=document.createElement('tr');
+                        tr.innerHTML=`<td class="readonly-cell"><strong>${rw.item_name}</strong> <small>(${rw.category||''})</small><input type="hidden" name="product_id[]" value="${rw.product_id}"></td><td class="readonly-cell" style="font-weight:700;">${rw.remaining_quantity} <small style="color:#888;">/ ordered ${rw.ordered_quantity} (already ${rw.total_received})</small></td><td class="readonly-cell">₱ ${Number(rw.price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td><td><input type="number" name="received_quantity[]" min="0" max="${rw.remaining_quantity}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #ef6c00;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${rw.remaining_quantity}){this.setCustomValidity('Cannot exceed remaining '+${rw.remaining_quantity}); this.reportValidity();}else{this.setCustomValidity('');}"></td>`;
+                        tbody.appendChild(tr);
+                    });
+                    if(tbody.children.length===0){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#888;">All items already fully delivered.</td></tr>'; }
+                });
+            });
+        }
+        function closeCompleteModal(){ document.getElementById('complete-modal').classList.add('hidden'); currentCompleteDeliveryId=null; }
+        function validateCompleteForm(){
+            const inputs=document.querySelectorAll('#complete-items-tbody input[name="received_quantity[]"]');
+            let hasVal=false; let err='';
+            inputs.forEach(inp=>{
+                const v=inp.value.trim();
+                if(v!=='' && parseInt(v)>0) hasVal=true;
+                const n=parseInt(inp.value||0); const mx=parseInt(inp.getAttribute('max')||0);
+                if(n>mx) err=`Received ${n} exceeds remaining ${mx}.`;
+            });
+            if(!hasVal){ alert('Enter at least one remaining quantity >0.'); return false; }
+            if(err){ alert(err); return false; }
+            return true;
+        }
+
+        function openViewModal(deliveryId){
+            const content=document.getElementById('view-modal-content');
+            content.innerHTML='Loading...';
+            document.getElementById('view-modal').classList.remove('hidden');
+            fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(data=>{
+                if(data.error){ content.innerHTML='<span style="color:#c62828;">'+data.error+'</span>'; return; }
+                document.getElementById('view-delivery-title').innerText=`${data.header.delivery_number} — ${data.header.iar_number||''}`;
+                let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;">`;
+                html+=`<div><strong>PO:</strong> ${data.header.po_number} | <strong>PR:</strong> ${data.header.pr_number}</div><div><strong>Supplier:</strong> ${data.header.supplier_name||'N/A'}</div>`;
+                html+=`<div><strong>IAR #:</strong> ${data.header.iar_number||'-'}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
+                html+=`<div><strong>Inspected By:</strong> ${data.header.inspected_by||'-'}</div><div><strong>Supply Officer:</strong> ${data.header.supply_officer||'-'}</div>`;
+                html+=`<div><strong>Partial:</strong> ${data.header.is_partial? 'Yes — auto (received ≠ ordered)':'No'}</div><div><strong>Date:</strong> ${data.header.delivery_date}</div>`;
+                if(data.header.remarks) html+=`<div style="grid-column:span 2;"><strong>Remarks:</strong> ${data.header.remarks}</div>`;
+                html+=`</div>`;
+                html+=`<table class="item-table"><thead><tr><th>Item</th><th>Ordered</th><th>Received</th><th>Price</th><th>Total</th></tr></thead><tbody>`;
+                data.items.forEach(i=>{
+                    const clr = i.received_quantity >= i.ordered_quantity ? '#2e7d32' : '#c62828';
+                    html+=`<tr><td><strong>${i.item_name}</strong></td><td>${i.ordered_quantity}</td><td style="font-weight:700;color:${clr}">${i.received_quantity} / ${i.ordered_quantity}</td><td>₱ ${Number(i.price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td><td>₱ ${Number(i.total_price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td></tr>`;
+                });
+                html+=`</tbody></table>`;
+                if(data.header.status==='Pending') html+=`<div style="margin-top:10px;padding:8px 10px;background:#fff3cd;border:1px solid #ffe082;border-radius:6px;font-size:11px;color:#856404;">⏳ Pending — stock not credited. ${data.header.is_partial? 'Partial (remaining can be added via Complete).':''}</div>`;
+                content.innerHTML=html;
+            });
+        }
+        function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>

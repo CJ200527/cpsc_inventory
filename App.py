@@ -53,14 +53,35 @@ from crud_po import (
     update_po_status
 )
 
-# --- IMPORTS FOR IAR MODULE ---
+# --- IMPORTS FOR IAR MODULE (legacy) ---
 from crud_iar import create_iar_record, get_iar_by_po
+
+# --- IMPORTS FOR DELIVERY/IAR MODULE (spec-compliant 2-step) ---
+from crud_delivery import (
+    create_delivery,
+    create_completion_delivery,
+    get_all_deliveries,
+    get_delivery_details,
+    approve_delivery,
+    get_deliverable_pos,
+    search_deliverable_pos,
+    get_po_remaining
+)
 
 # Initialize Flask Application
 app = Flask(__name__)
 
 # Secret key required by Flask to handle user sessions and flash notification messages
 app.secret_key = "cpsc_inventory_secret_key"
+
+
+# Helper function to render template regardless of whether it's in a subfolder or root templates directory
+def safe_render_template(subfolder_template, **kwargs):
+    try:
+        return render_template(subfolder_template, **kwargs)
+    except Exception:
+        direct_template = subfolder_template.split("/")[-1]
+        return render_template(direct_template, **kwargs)
 
 
 # --- ROUTE 1: Home Redirect ---
@@ -78,13 +99,13 @@ def login():
         password = request.form.get("password", "").strip()
         if not username or not password:
             flash("Username and password are required. Please fill in all fields.", "error")
-            return render_template("Loginpage.html")
+            return safe_render_template("LogIn and Registration/Loginpage.html")
         try:
             user = login_user(username, password)
         except Exception as err:
             print(f"[login] DB error: {err}")
             flash("Database connection failed. Is MySQL/XAMPP running?", "error")
-            return render_template("Loginpage.html")
+            return safe_render_template("LogIn and Registration/Loginpage.html")
 
         if user:
             # Save user identity into browser session
@@ -101,15 +122,13 @@ def login():
             elif user["Role"] == "Staff":
                 return redirect(url_for("staff_dashboard"))
             else:
-                # Unknown role - clear session and redirect to login
                 flash("User role not recognized. Please contact Admin.", "error")
                 session.clear()
                 return redirect(url_for("login"))
         else:
             flash("Invalid credentials OR account is pending Admin approval.", "error")
 
-    # If method is GET, simply display the HTML page
-    return render_template("Loginpage.html")
+    return safe_render_template("LogIn and Registration/Loginpage.html")
 
 # --- ROUTE: Forgot Password Reset ---
 @app.route("/forgot_password", methods=["GET", "POST"])
@@ -120,22 +139,22 @@ def forgot_password():
         new_password = request.form.get("new_password", "").strip()
         if not all([username, contact_number, new_password]):
             flash("All fields are required to reset password.", "error")
-            return render_template("forgot_password.html")
+            return safe_render_template("LogIn and Registration/forgot_password.html")
         if not re.fullmatch(r"09\d{9}", contact_number):
             flash("Contact number must be 11 digits starting with 09.", "error")
-            return render_template("forgot_password.html")
+            return safe_render_template("LogIn and Registration/forgot_password.html")
         try:
             success = reset_password_verified(username, contact_number, new_password)
         except Exception as err:
             print(f"[forgot_password] DB error: {err}")
             flash("Database error. Is MySQL running?", "error")
-            return render_template("forgot_password.html")
+            return safe_render_template("LogIn and Registration/forgot_password.html")
         if success:
             flash("Password updated successfully! You can now sign in with your new password.", "success")
             return redirect(url_for("login"))
         else:
             flash("Verification failed! Username and Contact Number do not match our records.", "error")
-    return render_template("forgot_password.html")
+    return safe_render_template("LogIn and Registration/forgot_password.html")
 
 
 # --- ROUTE 3: Registration Action ---
@@ -153,7 +172,6 @@ def register():
         flash("All fields are required. Please fill in all textboxes before signing up.", "error")
         return redirect(url_for("login"))
 
-    # Philippine mobile: must be 09 + 9 digits = 11 digits total
     if not re.fullmatch(r"09\d{9}", contact_number):
         flash("Invalid contact number! Must be 11 digits starting with '09' (e.g., 09123456789).", "error")
         return redirect(url_for("login"))
@@ -183,29 +201,27 @@ def logout():
     flash("You have been logged out.", "info")
     return redirect(url_for("login"))
 
-# --- ROUTE 5: Admin Dashboard (Protected - Requires Login) ---
+# --- ROUTE 5: Admin Dashboard ---
 @app.route("/admin_dashboard")
 def admin_dashboard():
-    """Admin dashboard page - only accessible to logged-in admins."""
     if "user_id" not in session:
         flash("Please log in to access the dashboard.", "error")
         return redirect(url_for("login"))
     if session.get("role") != "Admin":
         flash("You do not have permission to access the admin dashboard.", "error")
         return redirect(url_for("login"))
-    return render_template("admin_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
+    return safe_render_template("Admin Dashboards/admin_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
 
-# --- ROUTE 6: Staff Dashboard (Protected - Requires Login as Staff) ---
+# --- ROUTE 6: Staff Dashboard ---
 @app.route("/staff_dashboard")
 def staff_dashboard():
-    """Staff dashboard page - only accessible to logged-in staff users."""
     if "user_id" not in session:
         flash("Please log in to access the staff dashboard.", "error")
         return redirect(url_for("login"))
     if session.get("role") != "Staff":
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for("login"))
-    return render_template("staff_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
+    return safe_render_template("Staff Dashboards/staff_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
 
 # --- ROUTE: Admin User Management View & Filters ---
 @app.route("/admin/users")
@@ -222,7 +238,7 @@ def admin_users():
         print(f"[admin_users] DB error: {err}")
         flash("Database error while loading users.", "error")
         users = []
-    return render_template("user_management.html", user=session, users=users, search=search, date_filter=date_filter, custom_date=custom_date)
+    return safe_render_template("Admin Dashboards/user_management.html", user=session, users=users, search=search, date_filter=date_filter, custom_date=custom_date)
 
 # --- ACTION ROUTES: Approve, Reject, Delete ---
 @app.route("/admin/users/approve/<int:target_id>", methods=["POST"])
@@ -293,7 +309,7 @@ def admin_suppliers():
         print(f"[admin_suppliers] DB error: {err}")
         flash("Database error while loading suppliers.", "error")
         suppliers = []
-    return render_template("supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
+    return safe_render_template("Admin Dashboards/supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
 
 # --- ACTION ROUTE: Add New Supplier ---
 @app.route("/admin/suppliers/add", methods=["POST"])
@@ -386,7 +402,7 @@ def admin_products():
         print(f"[admin_products] DB error: {err}")
         flash("Database error while loading products.", "error")
         products = []; suppliers_list = []
-    return render_template("product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
+    return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
 
 @app.route("/admin/products/add", methods=["POST"])
 def admin_add_product():
@@ -456,6 +472,7 @@ def admin_delete_product(target_id):
     except Exception as err:
         flash(f"Delete failed: {err}", "error")
     return redirect(url_for("admin_products", search=request.args.get("search","")))
+
 # --- ROUTE: Purchase Request Management (Role-Separated View) ---
 @app.route("/pr")
 def pr_management():
@@ -469,8 +486,8 @@ def pr_management():
     custom_date = request.args.get("custom_date", "")
 
     user_role = session.get("role")
-    # Staff users view only their own submitted requests; Admins view all institutional requests
-    user_id_scope = None if user_role == "Admin" else session.get("user_id")
+    # Staff now sees ALL records (not just own) to avoid confusion with Admin
+    user_id_scope = None
 
     try:
         requests_list = get_all_purchase_requests(
@@ -487,10 +504,9 @@ def pr_management():
         requests_list = []
         products_list = []
 
-    # Choose template based on active role to guarantee sidebar navigation consistency
-    template_file = "admin_pr_management.html" if user_role == "Admin" else "staff_pr_management.html"
+    template_file = "Admin Dashboards/admin_pr_management.html" if user_role == "Admin" else "Staff Dashboards/staff_pr_management.html"
 
-    return render_template(
+    return safe_render_template(
         template_file,
         user=session,
         requests=requests_list,
@@ -525,7 +541,6 @@ def add_pr_action():
     def _safe(lst, idx, default=""):
         return lst[idx].strip() if idx < len(lst) and lst[idx] is not None else default
 
-    # Build item payloads - skip empty/unselected rows safely
     items_payload = []
     for i, pid_raw in enumerate(product_ids):
         try:
@@ -534,7 +549,6 @@ def add_pr_action():
             iname = _safe(item_names, i)
             price_str = _safe(prices, i)
             qty_str = _safe(quantities, i)
-            # Skip rows where dropdown not selected or required fields empty
             if not pid_str or not sid_str or not iname or not price_str or not qty_str:
                 continue
             items_payload.append({
@@ -571,11 +585,9 @@ def get_pr_details_api(pr_id):
     header, items = get_pr_details(pr_id)
     if not header:
         return {"error": "Purchase request not found"}, 404
-    # Safe serialization: datetime -> string, Decimal -> float
     try:
         raw_date = header.get("date_requested")
         if raw_date:
-            # Handle both datetime object and string
             header["date_requested"] = raw_date.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw_date, "strftime") else str(raw_date)
         else:
             header["date_requested"] = ""
@@ -635,7 +647,8 @@ def po_management():
     status_filter = request.args.get("status_filter", "All")
 
     user_role = session.get("role")
-    user_id_scope = None if user_role == "Admin" else session.get("user_id")
+    # Staff sees ALL POs regardless of creator
+    user_id_scope = None
 
     try:
         orders_list = get_all_purchase_orders(
@@ -650,9 +663,9 @@ def po_management():
         orders_list = []
         approved_prs = []
 
-    template_file = "admin_po_management.html" if user_role == "Admin" else "staff_po_management.html"
+    template_file = "Admin Dashboards/admin_po_management.html" if user_role == "Admin" else "Staff Dashboards/staff_po_management.html"
 
-    return render_template(
+    return safe_render_template(
         template_file,
         user=session,
         orders=orders_list,
@@ -661,7 +674,7 @@ def po_management():
         status_filter=status_filter
     )
 
-# --- ACTION ROUTE: Generate PO from Approved PR (Staff & Admin) - with editable Actual PO prices ---
+# --- ACTION ROUTE: Generate PO from Approved PR ---
 @app.route("/admin/po/generate", methods=["POST"])
 @app.route("/po/generate", methods=["POST"])
 def generate_po_action():
@@ -674,7 +687,6 @@ def generate_po_action():
         flash("Please select an approved Purchase Request.", "error")
         return redirect(url_for("po_management"))
 
-    # Read adjusted items (if form included editable price table)
     product_ids = request.form.getlist("product_id[]")
     supplier_ids = request.form.getlist("supplier_id[]")
     item_names = request.form.getlist("item_name[]")
@@ -683,7 +695,6 @@ def generate_po_action():
     sizes = request.form.getlist("size[]")
     details_list = request.form.getlist("details[]")
     quantities = request.form.getlist("quantity[]")
-    # Support both unit_price[] and price[] naming
     unit_prices = request.form.getlist("unit_price[]") or request.form.getlist("price[]")
 
     adjusted_items = []
@@ -695,7 +706,6 @@ def generate_po_action():
                 pid_str = product_ids[i].strip() if product_ids[i] else ""
                 if not pid_str:
                     continue
-                # Skip rows where required fields empty
                 qty_str = _safe(quantities, i)
                 price_str = _safe(unit_prices, i)
                 if not qty_str or not price_str:
@@ -722,13 +732,12 @@ def generate_po_action():
 
     return redirect(url_for("po_management"))
 
-# --- Admin-Only PO Approval: Pending PO Approval -> Approved ---
+# --- Admin-Only PO Approval ---
 @app.route("/po/approve/<int:po_id>", methods=["POST"])
 def approve_po_action(po_id):
     if session.get("role") != "Admin":
         flash("Admin permission required.", "error")
         return redirect(url_for("po_management"))
-    # Verify current status is Pending PO Approval
     header, _ = get_po_details(po_id)
     if not header:
         flash("Purchase Order not found.", "error")
@@ -742,7 +751,7 @@ def approve_po_action(po_id):
         flash("Failed to approve Purchase Order.", "error")
     return redirect(url_for("po_management"))
 
-# --- ACTION ROUTE: Get PO Details API (JSON for Modal) ---
+# --- ACTION ROUTE: Get PO Details API ---
 @app.route("/po/details/<int:po_id>")
 def get_po_details_api(po_id):
     if "user_id" not in session:
@@ -780,349 +789,292 @@ def update_po_status_action(po_id):
     return redirect(url_for("po_management"))
 
 
-@app.route("/iar/create", methods=["POST"])
-def create_iar_action():
-    """Integrated IAR into deliveries: saves iar_number/inspected_by/supply_officer/is_partial directly to deliveries and updates stock."""
-    if not session.get("user_id"):
-        flash("Please log in first.", "error")
+
+# ============================================================
+# DELIVERY & IAR MODULE — 2-STEP WORKFLOW (Spec-Compliant)
+# ============================================================
+
+@app.route("/delivery")
+def delivery_dashboard():
+    """Unified delivery dashboard — renders admin vs staff template based on role."""
+    if "user_id" not in session:
+        flash("Please log in to access Delivery.", "error")
         return redirect(url_for("login"))
 
-    po_id = request.form.get("po_id")
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    date_filter = request.args.get("date_filter", "All")
+    custom_date = request.args.get("custom_date", "")
+
+    user_role = session.get("role")
+    # Staff and Admin both see ALL deliveries to keep records in sync
+    user_id_scope = None
+
+    try:
+        deliveries = get_all_deliveries(
+            search_query=search,
+            status_filter=status_filter,
+            date_filter=date_filter,
+            custom_date=custom_date,
+            user_id=user_id_scope
+        )
+        # Deliverable POs: Approved/Issued without prior deliveries — visible to all roles
+        deliverable_pos = get_deliverable_pos(
+            search_query="",
+            user_id=None
+        )
+        # Also fetch without scope for admin to see all
+        if user_role == "Admin":
+            # Admin sees all deliverable POs
+            pass
+    except Exception as err:
+        print(f"[delivery_dashboard] DB error: {err}")
+        flash("Database error loading Deliveries.", "error")
+        deliveries = []
+        deliverable_pos = []
+
+    template_file = "Admin Dashboards/admin_delivery_dashboard.html" if user_role == "Admin" else "Staff Dashboards/staff_delivery_dashboard.html"
+
+    return safe_render_template(
+        template_file,
+        user=session,
+        deliveries=deliveries,
+        deliverable_pos=deliverable_pos,
+        search=search,
+        status_filter=status_filter,
+        date_filter=date_filter,
+        custom_date=custom_date
+    )
+
+
+@app.route("/delivery/create", methods=["POST"])
+def create_delivery_action():
+    """Step 1: Receiving & IAR — Pending, AUTO partial, guard received > ordered."""
+    if "user_id" not in session:
+        flash("Please log in to submit a delivery.", "error")
+        return redirect(url_for("login"))
+
+    user_id = session.get("user_id")
+
+    po_id = request.form.get("po_id", "").strip()
+    delivery_number = request.form.get("delivery_number", "").strip()
     iar_number = request.form.get("iar_number", "").strip()
-    iar_date = request.form.get("iar_date")
     inspected_by = request.form.get("inspected_by", "").strip()
     supply_officer = request.form.get("supply_officer", "").strip()
+    delivery_date = request.form.get("delivery_date", "").strip()
     remarks = request.form.get("remarks", "").strip()
-    is_partial = 1 if request.form.get("is_partial") == "1" else 0
-    delivery_number = request.form.get("delivery_number", "").strip() or f"DEL-{iar_number}" if iar_number else f"DEL-{po_id}-{int(datetime.now().timestamp())}"
+    # is_partial AUTO-computed inside create_delivery — checkbox removed per new spec
 
-    if not (po_id and iar_number and iar_date and inspected_by and supply_officer):
-        flash("Please fill in all required IAR fields.", "error")
-        return redirect(url_for("po_management"))
+    if not all([po_id, delivery_number, iar_number, inspected_by, supply_officer, delivery_date]):
+        flash("Delivery Number, IAR Number, Inspected By, Supply Officer, and Delivery Date are required.", "error")
+        return redirect(url_for("delivery_dashboard"))
 
-    # Fetch PO to get pr_id and supplier_id
-    conn = None
-    cursor = None
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT pr_id, supplier_id FROM purchase_orders WHERE po_id=%s", (int(po_id),))
-        po_row = cursor.fetchone()
-        if not po_row:
-            flash("Purchase Order not found.", "error")
-            return redirect(url_for("po_management"))
-        pr_id = po_row['pr_id']
-        supplier_id = po_row['supplier_id']
-        user_id = session.get("user_id")
+        po_id_int = int(po_id)
+    except:
+        flash("Invalid Purchase Order selected.", "error")
+        return redirect(url_for("delivery_dashboard"))
 
-        # 1. Insert into deliveries with IAR fields
-        cursor.execute("""
-            INSERT INTO deliveries (delivery_number, iar_number, po_id, pr_id, supplier_id, user_id, inspected_by, supply_officer, is_partial, remarks, status, delivery_date)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Received', %s)
-        """, (delivery_number, iar_number, int(po_id), int(pr_id), int(supplier_id), int(user_id), inspected_by, supply_officer, is_partial, remarks, iar_date))
-        delivery_id = cursor.lastrowid
-
-        # 2. Insert items into delivery_items & update stock
-        product_ids = request.form.getlist("product_id[]")
-        received_qtys = request.form.getlist("received_quantity[]")
-        unit_prices = request.form.getlist("unit_price[]")
-
-        for i in range(len(product_ids)):
-            try:
-                p_id = int(product_ids[i].strip()) if product_ids[i].strip() else 0
-                if p_id == 0:
-                    continue
-                r_qty = int(received_qtys[i].strip()) if i < len(received_qtys) and received_qtys[i].strip() else 0
-                u_price = float(unit_prices[i].strip()) if i < len(unit_prices) and unit_prices[i].strip() else 0
-                if r_qty <= 0:
-                    continue
-                # Fetch product details for item_name etc and ordered quantity
-                cursor.execute("SELECT product_name, category, unit, size, details FROM Products WHERE product_id=%s", (p_id,))
-                prod = cursor.fetchone()
-                if not prod:
-                    continue
-                cursor.execute("SELECT quantity, price FROM po_items WHERE po_id=%s AND product_id=%s LIMIT 1", (int(po_id), p_id))
-                po_item = cursor.fetchone()
-                ordered_qty = int(po_item['quantity']) if po_item else r_qty
-                # Use unit_price from form as price
-                total_price = r_qty * u_price
-                cursor.execute("""
-                    INSERT INTO delivery_items (delivery_id, po_id, pr_id, user_id, supplier_id, product_id, item_name, ordered_quantity, received_quantity, category, details, unit, size, price, total_price)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (delivery_id, int(po_id), int(pr_id), int(user_id), int(supplier_id), p_id, prod['product_name'], ordered_qty, r_qty, prod.get('category',''), prod.get('details',''), prod.get('unit','pcs'), prod.get('size',''), u_price, total_price))
-                # Stock ingestion: current_stock = current_stock + received_quantity
-                cursor.execute("UPDATE products SET current_stock = current_stock + %s WHERE product_id = %s", (r_qty, p_id))
-                try:
-                    cursor.execute("UPDATE products SET quantity = current_stock WHERE product_id = %s", (p_id,))
-                except Exception:
-                    pass
-            except (ValueError, IndexError, AttributeError):
-                continue
-
-        # Optionally update PO status if fully received
-        try:
-            cursor.execute("SELECT COALESCE(SUM(quantity),0) AS ordered FROM po_items WHERE po_id=%s", (int(po_id),))
-            ordered_total = int((cursor.fetchone() or {}).get('ordered', 0) or 0)
-            cursor.execute("SELECT COALESCE(SUM(received_quantity),0) AS received FROM delivery_items WHERE po_id=%s", (int(po_id),))
-            received_total = int((cursor.fetchone() or {}).get('received', 0) or 0)
-            if ordered_total > 0 and received_total >= ordered_total:
-                cursor.execute("UPDATE purchase_orders SET status='Delivered' WHERE po_id=%s", (int(po_id),))
-            elif received_total > 0:
-                cursor.execute("UPDATE purchase_orders SET status='Partial' WHERE po_id=%s", (int(po_id),))
-        except Exception:
-            pass
-
-        conn.commit()
-        flash(f"IAR {iar_number} submitted successfully! Stock has been credited.", "success")
-        return redirect(url_for("po_management"))
-    except Exception as err:
-        if conn:
-            try: conn.rollback()
-            except: pass
-        print(f"[create_iar_action deliveries] DB error: {err}")
-        flash(f"Failed to create IAR/Delivery: {err}", "error")
-        return redirect(url_for("po_management"))
-    finally:
-        if cursor:
-            try: cursor.close()
-            except: pass
-        if conn:
-            try: conn.close()
-            except: pass
-            
-            
-# ===================================================================
-# DELIVERY / IAR MODULE
-# ===================================================================
-
-# -------------------------------------------------------------------
-# 1. Delivery Dashboard Route
-# -------------------------------------------------------------------
-@app.route('/delivery')
-def delivery_dashboard():
-    if 'user_id' not in session:
-        flash('Please log in first.', 'error')
-        return redirect(url_for('login'))
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute("""
-            SELECT po.po_id, po.pr_id, po.supplier_id, po.user_id, po.status, po.date_ordered,
-                   s.supplier_name, u.username AS creator_name
-            FROM purchase_orders po
-            JOIN Supplier s ON po.supplier_id = s.id
-            JOIN Users u ON po.user_id = u.id
-            WHERE po.status = 'Approved'
-            ORDER BY po.date_ordered DESC
-        """)
-        pending_deliveries = cursor.fetchall()
-        for po in pending_deliveries:
-            cursor.execute("""
-                SELECT poi.*, p.product_name AS item_name, p.category, p.details, p.unit, p.size, poi.price
-                FROM po_items poi
-                LEFT JOIN Products p ON poi.product_id = p.product_id
-                WHERE poi.po_id = %s
-            """, (po['po_id'],))
-            po['po_items'] = cursor.fetchall()
-
-        cursor.execute("""
-            SELECT d.*, s.supplier_name, u.username AS receiver_name,
-                   app_u.username AS approver_name
-            FROM deliveries d
-            JOIN Supplier s ON d.supplier_id = s.id
-            JOIN Users u ON d.user_id = u.id
-            LEFT JOIN Users app_u ON d.approved_by = app_u.id
-            ORDER BY d.delivery_date DESC
-        """)
-        delivery_logs = cursor.fetchall()
-
-        cursor.close()
-        conn.close()
-
-        if session.get('role') == 'Admin':
-            template = 'admin_delivery_dashboard.html'
-        else:
-            template = 'staff_delivery_dashboard.html'
-
-        return render_template(template,
-                             pending_deliveries=pending_deliveries,
-                             delivery_logs=delivery_logs)
-    except Exception as err:
-        print(f"[delivery_dashboard] Error: {err}")
-        flash("Error loading delivery dashboard.", "error")
-        return redirect(url_for("po_management"))
-
-
-# -------------------------------------------------------------------
-# 2. Create Delivery & IAR Entry (Staff or Admin)
-# -------------------------------------------------------------------
-@app.route('/delivery/create/<int:po_id>', methods=['POST'])
-def create_delivery(po_id):
-    if 'user_id' not in session:
-        flash('Please log in first.', 'error')
-        return redirect(url_for('login'))
-
-    delivery_number = request.form.get('delivery_number', '').strip()
-    iar_number = request.form.get('iar_number', '').strip()
-    pr_id = request.form.get('pr_id', '').strip()
-    supplier_id = request.form.get('supplier_id', '').strip()
-    inspected_by = request.form.get('inspected_by', '').strip()
-    supply_officer = request.form.get('supply_officer', '').strip()
-    remarks = request.form.get('remarks', '').strip()
-    is_partial = 1 if request.form.get('is_partial') == '1' else 0
-
-    if not all([delivery_number, iar_number, pr_id, supplier_id]):
-        flash("All required fields must be filled.", "error")
-        return redirect(url_for('delivery_dashboard'))
-
-    product_ids = request.form.getlist('product_id[]')
-    item_names = request.form.getlist('item_name[]')
-    categories = request.form.getlist('category[]')
-    details_list = request.form.getlist('details[]')
-    units = request.form.getlist('unit[]')
-    sizes = request.form.getlist('size[]')
-    ordered_qtys = request.form.getlist('ordered_quantity[]')
-    received_qtys = request.form.getlist('received_quantity[]')
-    prices = request.form.getlist('price[]')
+    product_ids = request.form.getlist("product_id[]")
+    received_qtys = request.form.getlist("received_quantity[]")
 
     if not product_ids:
-        flash("No items found in delivery.", "error")
-        return redirect(url_for('delivery_dashboard'))
+        flash("No items. Please select a PO and enter received quantities.", "error")
+        return redirect(url_for("delivery_dashboard"))
 
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        cursor.execute("""
-            INSERT INTO deliveries (
-                po_id, pr_id, user_id, supplier_id, delivery_number, iar_number,
-                remarks, inspected_by, supply_officer, is_partial, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'Pending')
-        """, (
-            po_id, int(pr_id), session.get('user_id'), int(supplier_id),
-            delivery_number, iar_number, remarks, inspected_by,
-            supply_officer, is_partial
-        ))
-
-        delivery_id = cursor.lastrowid
-
-        for i in range(len(product_ids)):
-            try:
-                p_id = int(product_ids[i])
-                ord_q = int(ordered_qtys[i]) if i < len(ordered_qtys) and ordered_qtys[i] else 0
-                rec_q = int(received_qtys[i]) if i < len(received_qtys) and received_qtys[i] else 0
-                prc = float(prices[i]) if i < len(prices) and prices[i] else 0
-
-                if p_id == 0 or rec_q <= 0:
-                    continue
-
-                total_price = rec_q * prc
-                cursor.execute("""
-                    INSERT INTO delivery_items (
-                        delivery_id, po_id, pr_id, user_id, supplier_id, product_id,
-                        item_name, category, details, unit, size, ordered_quantity,
-                        received_quantity, price, total_price
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """, (
-                    delivery_id, po_id, int(pr_id), session.get('user_id'), int(supplier_id), p_id,
-                    item_names[i] if i < len(item_names) else '',
-                    categories[i] if i < len(categories) else '',
-                    details_list[i] if i < len(details_list) else '',
-                    units[i] if i < len(units) else 'pcs',
-                    sizes[i] if i < len(sizes) else '',
-                    ord_q, rec_q, prc, total_price
-                ))
-            except (ValueError, IndexError) as e:
-                print(f"[create_delivery] Item error: {e}")
+    received_items = []
+    for i, pid_raw in enumerate(product_ids):
+        try:
+            pid = int(pid_raw.strip()) if pid_raw else None
+            if pid is None:
                 continue
+            # Empty input -> must be filled by user (no autofill) — treat empty as error
+            qty_raw = received_qtys[i].strip() if i < len(received_qtys) and received_qtys[i] is not None else ""
+            if qty_raw == "":
+                flash(f"Received quantity required for item row {i+1} — please enter a value (0 if none).", "error")
+                return redirect(url_for("delivery_dashboard"))
+            qty = int(qty_raw)
+            if qty < 0:
+                raise ValueError
+            received_items.append({"product_id": pid, "received_quantity": qty})
+        except (ValueError, IndexError, AttributeError):
+            flash(f"Invalid received quantity for item row {i+1}. Must be integer 0..ordered.", "error")
+            return redirect(url_for("delivery_dashboard"))
 
-        conn.commit()
-        cursor.close()
-        conn.close()
+    if not received_items:
+        flash("No valid received quantities provided.", "error")
+        return redirect(url_for("delivery_dashboard"))
 
-        flash('Delivery/IAR record submitted successfully! Pending Admin approval.', 'success')
+    success, result = create_delivery(
+        po_id=po_id_int,
+        user_id=user_id,
+        delivery_number=delivery_number,
+        iar_number=iar_number,
+        inspected_by=inspected_by,
+        supply_officer=supply_officer,
+        delivery_date=delivery_date,
+        remarks=remarks,
+        received_items=received_items
+    )
 
-    except Exception as e:
-        print(f"[create_delivery] Error: {e}")
-        flash(f'Error submitting delivery record: {str(e)}', 'error')
-        return redirect(url_for('delivery_dashboard'))
+    if success:
+        flash(f"Delivery {delivery_number} submitted! Pending approval. Partial auto-detected if any received != ordered.", "success")
+    else:
+        flash(f"Failed to submit delivery: {result}", "error")
 
-    return redirect(url_for('delivery_dashboard'))
+    return redirect(url_for("delivery_dashboard"))
 
 
-# -------------------------------------------------------------------
-# 3. Approve Delivery & Update Inventory Stock (Admin Only)
-# -------------------------------------------------------------------
-@app.route('/delivery/approve/<int:delivery_id>', methods=['POST'])
-def approve_delivery(delivery_id):
-    if 'user_id' not in session:
-        flash('Please log in first.', 'error')
-        return redirect(url_for('login'))
+@app.route("/delivery/details/<int:delivery_id>")
+def get_delivery_details_api(delivery_id):
+    """JSON for delivery details modal (header + items)."""
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
 
-    if session.get('role') != 'Admin':
-        flash('Permission denied. Admin authorization required.', 'error')
-        return redirect(url_for('delivery_dashboard'))
+    header, items = get_delivery_details(delivery_id)
+    if not header:
+        return {"error": "Delivery not found"}, 404
 
+    # Normalize dates and decimals for JSON
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        raw = header.get("delivery_date")
+        header["delivery_date"] = raw.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw, "strftime") else str(raw or "")
+    except Exception:
+        header["delivery_date"] = str(header.get("delivery_date", ""))
+    try:
+        header["is_partial"] = int(header.get("is_partial", 0))
+    except Exception:
+        header["is_partial"] = 0
 
-        cursor.execute("""
-            SELECT product_id, received_quantity
-            FROM delivery_items
-            WHERE delivery_id = %s
-        """, (delivery_id,))
-        items = cursor.fetchall()
+    for it in items:
+        try: it["price"] = float(it.get("price") or 0)
+        except: it["price"] = 0.0
+        try: it["total_price"] = float(it.get("total_price") or 0)
+        except: it["total_price"] = 0.0
+        try: it["ordered_quantity"] = int(it.get("ordered_quantity") or 0)
+        except: it["ordered_quantity"] = 0
+        try: it["received_quantity"] = int(it.get("received_quantity") or 0)
+        except: it["received_quantity"] = 0
 
-        if not items:
-            flash('No items found in this delivery.', 'error')
-            cursor.close()
-            conn.close()
-            return redirect(url_for('delivery_dashboard'))
+    return {"header": header, "items": items}
 
-        for item in items:
-            cursor.execute("""
-                UPDATE Products
-                SET current_stock = current_stock + %s
-                WHERE product_id = %s
-            """, (item['received_quantity'], item['product_id']))
 
-        cursor.execute("""
-            UPDATE deliveries
-            SET status = 'Received', approved_by = %s
-            WHERE delivery_id = %s
-        """, (session.get('user_id'), delivery_id))
+@app.route("/delivery/approve/<int:delivery_id>", methods=["POST"])
+def approve_delivery_action(delivery_id):
+    """Step 2: Admin-only verification & stock ingestion."""
+    if session.get("role") != "Admin":
+        flash("Admin permission required to approve deliveries.", "error")
+        return redirect(url_for("delivery_dashboard"))
 
-        cursor.execute("SELECT po_id FROM deliveries WHERE delivery_id = %s", (delivery_id,))
-        deliv = cursor.fetchone()
-        if deliv:
-            po_id = deliv['po_id']
-            cursor.execute("""
-                SELECT COALESCE(SUM(quantity), 0) AS ordered,
-                       COALESCE(SUM(received_quantity), 0) AS received
-                FROM po_items
-                WHERE po_id = %s
-            """, (po_id,))
-            po_status = cursor.fetchone()
+    admin_id = session.get("user_id")
+    success, msg = approve_delivery(delivery_id, admin_id)
+    if success:
+        flash(msg, "success")
+    else:
+        flash(f"Approve failed: {msg}", "error")
+    return redirect(url_for("delivery_dashboard"))
 
-            if po_status and po_status['received'] >= po_status['ordered']:
-                cursor.execute("UPDATE purchase_orders SET status = 'Completed' WHERE po_id = %s", (po_id,))
-            else:
-                cursor.execute("UPDATE purchase_orders SET status = 'Partial' WHERE po_id = %s", (po_id,))
 
-        conn.commit()
-        cursor.close()
-        conn.close()
+# --- LIVE SEARCH for Approved POs in Receive modal ---
+@app.route("/delivery/search_pos")
+def search_pos_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    q = request.args.get("q", "").strip()
+    user_role = session.get("role")
+    scope = None  # all roles see same Approved POs
+    rows = search_deliverable_pos(search_query=q, user_id=scope)
+    # Minimal payload
+    out = []
+    for r in rows:
+        out.append({
+            "po_id": r["po_id"],
+            "po_number": r["po_number"],
+            "pr_number": r["pr_number"],
+            "supplier_name": r.get("supplier_name") or "N/A",
+            "status": r["status"],
+            "total_amount": float(r.get("total_amount") or 0)
+        })
+    return {"results": out}
 
-        flash('Delivery approved! Product stock levels have been updated.', 'success')
 
-    except Exception as e:
-        print(f"[approve_delivery] Error: {e}")
-        flash(f'Error approving delivery: {str(e)}', 'error')
+# --- Remaining quantities for a PO (for Complete action) ---
+@app.route("/delivery/remaining/<int:po_id>")
+def get_remaining_api(po_id):
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    data = get_po_remaining(po_id)
+    # Also fetch PO header for context
+    header, _ = get_po_details(po_id) if po_id else (None, [])
+    if header:
+        try:
+            header["total_amount"] = float(header.get("total_amount") or 0)
+        except: pass
+        try:
+            header["date_issued"] = header["date_issued"].strftime("%Y-%m-%d %H:%M:%S") if header.get("date_issued") else ""
+        except: pass
+    return {"header": header, "remaining": data}
 
-    return redirect(url_for('delivery_dashboard'))
+
+# --- COMPLETE REMAINING: create follow-up delivery for same PO ---
+@app.route("/delivery/complete/<int:delivery_id>", methods=["POST"])
+def complete_delivery_action(delivery_id):
+    if "user_id" not in session:
+        flash("Please log in.", "error")
+        return redirect(url_for("login"))
+
+    user_id = session.get("user_id")
+    delivery_number = request.form.get("delivery_number", "").strip()
+    iar_number = request.form.get("iar_number", "").strip()
+    inspected_by = request.form.get("inspected_by", "").strip()
+    supply_officer = request.form.get("supply_officer", "").strip()
+    delivery_date = request.form.get("delivery_date", "").strip()
+    remarks = request.form.get("remarks", "").strip()
+
+    if not all([delivery_number, iar_number, inspected_by, supply_officer, delivery_date]):
+        flash("Delivery Number, IAR Number, Inspected By, Supply Officer, Delivery Date required for completion.", "error")
+        return redirect(url_for("delivery_dashboard"))
+
+    product_ids = request.form.getlist("product_id[]")
+    received_qtys = request.form.getlist("received_quantity[]")
+
+    if not product_ids:
+        flash("No items for completion.", "error")
+        return redirect(url_for("delivery_dashboard"))
+
+    received_items = []
+    for i, pid_raw in enumerate(product_ids):
+        try:
+            pid = int(pid_raw.strip()) if pid_raw else None
+            if pid is None: continue
+            qty_raw = received_qtys[i].strip() if i < len(received_qtys) and received_qtys[i] else ""
+            if qty_raw == "":
+                flash(f"Received quantity required for item row {i+1}.", "error")
+                return redirect(url_for("delivery_dashboard"))
+            qty = int(qty_raw)
+            if qty < 0: raise ValueError
+            received_items.append({"product_id": pid, "received_quantity": qty})
+        except (ValueError, IndexError, AttributeError):
+            flash(f"Invalid received quantity row {i+1}.", "error")
+            return redirect(url_for("delivery_dashboard"))
+
+    success, result = create_completion_delivery(
+        original_delivery_id=delivery_id,
+        user_id=user_id,
+        delivery_number=delivery_number,
+        iar_number=iar_number,
+        inspected_by=inspected_by,
+        supply_officer=supply_officer,
+        delivery_date=delivery_date,
+        remarks=remarks,
+        received_items=received_items
+    )
+    if success:
+        flash(f"Completion delivery {delivery_number} created! Pending approval for remaining {sum(r['received_quantity'] for r in received_items)} units.", "success")
+    else:
+        flash(f"Complete failed: {result}", "error")
+    return redirect(url_for("delivery_dashboard"))
+
 
 if __name__ == "__main__":
-    # Keep the app stable on Windows without the Flask reloader crash
     app.run(debug=False, use_reloader=False, port=5000)
