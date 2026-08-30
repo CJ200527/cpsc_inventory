@@ -16,44 +16,68 @@ def _ensure_withdrawal_schema(cursor):
             cursor.execute("ALTER TABLE Products ADD COLUMN reorder_level INT DEFAULT 10")
     except Exception:
         pass
-    # withdrawals header
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS withdrawals (
-                withdrawal_id INT AUTO_INCREMENT PRIMARY KEY,
-                ris_number VARCHAR(50) NOT NULL UNIQUE,
-                user_id INT NOT NULL,
-                department VARCHAR(100) NOT NULL,
-                purpose TEXT NOT NULL,
-                status ENUM('Pending','Approved','Rejected','Issued') DEFAULT 'Pending',
-                issued_by INT NULL,
-                received_by VARCHAR(100),
-                date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                date_issued DATETIME NULL,
-                FOREIGN KEY (user_id) REFERENCES Users(id),
-                FOREIGN KEY (issued_by) REFERENCES Users(id)
-            )
-        """)
-    except Exception as e:
-        print(f"[withdraw ensure] withdrawals: {e}")
-    # withdrawal_items
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS withdrawal_items (
-                withdrawal_item_id INT AUTO_INCREMENT PRIMARY KEY,
-                withdrawal_id INT NOT NULL,
-                product_id INT NOT NULL,
-                item_name VARCHAR(100) NOT NULL,
-                quantity INT NOT NULL,
-                unit VARCHAR(20),
-                unit_price DECIMAL(10,2) DEFAULT 0.00,
-                total_price DECIMAL(12,2) DEFAULT 0.00,
-                FOREIGN KEY (withdrawal_id) REFERENCES withdrawals(withdrawal_id) ON DELETE CASCADE,
-                FOREIGN KEY (product_id) REFERENCES Products(product_id)
-            )
-        """)
-    except Exception as e:
-        print(f"[withdraw ensure] items: {e}")
+    # withdrawals header (plural) and withdraw (singular per spec) — ensure both exist and are spec-compliant
+    for tbl, is_singular in [("withdrawals", False), ("withdraw", True)]:
+        try:
+            # Create spec table if not exists (if legacy exists, this is no-op)
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS `{tbl}` (
+                    withdraw_id INT AUTO_INCREMENT PRIMARY KEY,
+                    ris_number VARCHAR(50) NOT NULL UNIQUE,
+                    user_id INT NOT NULL,
+                    department VARCHAR(100) NOT NULL,
+                    purpose TEXT NOT NULL,
+                    status ENUM('Pending','Approved','Rejected','Issued') DEFAULT 'Pending',
+                    issued_by INT NULL,
+                    received_by VARCHAR(100),
+                    date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    date_issued DATETIME NULL,
+                    FOREIGN KEY (user_id) REFERENCES Users(id),
+                    FOREIGN KEY (issued_by) REFERENCES Users(id)
+                )
+            """)
+        except Exception as e:
+            # If table exists with legacy schema, add missing columns
+            try:
+                cursor.execute(f"SHOW COLUMNS FROM `{tbl}` LIKE 'ris_number'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE `{tbl}` ADD COLUMN ris_number VARCHAR(50)")
+            except: pass
+            try:
+                cursor.execute(f"SHOW COLUMNS FROM `{tbl}` LIKE 'department'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE `{tbl}` ADD COLUMN department VARCHAR(100)")
+            except: pass
+            try:
+                cursor.execute(f"SHOW COLUMNS FROM `{tbl}` LIKE 'purpose'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE `{tbl}` ADD COLUMN purpose TEXT")
+            except: pass
+            try:
+                cursor.execute(f"SHOW COLUMNS FROM `{tbl}` LIKE 'issued_by'")
+                if not cursor.fetchone():
+                    cursor.execute(f"ALTER TABLE `{tbl}` ADD COLUMN issued_by INT NULL")
+            except: pass
+            print(f"[withdraw ensure] {tbl} legacy handled: {e}")
+    # withdrawal_items / withdraw_items
+    for itbl, parent in [("withdrawal_items", "withdrawals"), ("withdraw_items", "withdraw")]:
+        try:
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS `{itbl}` (
+                    withdraw_item_id INT AUTO_INCREMENT PRIMARY KEY,
+                    withdrawal_id INT NOT NULL,
+                    product_id INT NOT NULL,
+                    item_name VARCHAR(100) NOT NULL,
+                    quantity INT NOT NULL,
+                    unit VARCHAR(20),
+                    unit_price DECIMAL(10,2) DEFAULT 0.00,
+                    total_price DECIMAL(12,2) DEFAULT 0.00,
+                    FOREIGN KEY (withdrawal_id) REFERENCES `{parent}`(withdraw_id) ON DELETE CASCADE,
+                    FOREIGN KEY (product_id) REFERENCES Products(product_id)
+                )
+            """)
+        except Exception as e:
+            print(f"[withdraw ensure] {itbl}: {e}")
     # stock_movements log
     try:
         cursor.execute("""
@@ -81,6 +105,20 @@ def _stock_col(cursor):
     except Exception:
         pass
     return "quantity"
+
+def _withdraw_tables(cursor):
+    """Return (header_table, items_table) per spec — prefer singular `withdraw`/`withdraw_items`, fallback to plural."""
+    # Check if singular tables exist and have ris_number
+    try:
+        cursor.execute("SHOW TABLES LIKE 'withdraw'")
+        has_withdraw = cursor.fetchone() is not None
+        if has_withdraw:
+            cursor.execute("SHOW COLUMNS FROM `withdraw` LIKE 'ris_number'")
+            has_ris = cursor.fetchone() is not None
+            if has_ris:
+                return ("withdraw", "withdraw_items")
+    except: pass
+    return ("withdrawals", "withdrawal_items")
 
 def get_available_products():
     conn=None; cur=None
@@ -113,7 +151,7 @@ def get_available_products():
 def create_withdrawal(user_id, ris_number, department, purpose, received_by, date_requested, items_list):
     """
     items_list: [{'product_id':1,'quantity':5}, ...]
-    Validates requested <= current_stock, inserts Pending, no deduction.
+    Validates requested <= current_stock, inserts Pending into BOTH withdraw (spec) and withdrawals (legacy) for compatibility, no deduction.
     Returns (True, withdrawal_id) or (False, msg)
     """
     conn=None; cur=None
@@ -126,10 +164,13 @@ def create_withdrawal(user_id, ris_number, department, purpose, received_by, dat
             return False, "RIS Number, Department and Purpose are required."
         if not items_list:
             return False, "Add at least one item."
-        # Unique RIS
-        cur.execute("SELECT withdrawal_id FROM withdrawals WHERE ris_number=%s", (ris_number,))
-        if cur.fetchone():
-            return False, f"RIS Number '{ris_number}' already exists."
+        # Unique RIS - check both tables
+        for tbl in ("withdraw", "withdrawals"):
+            try:
+                cur.execute(f"SELECT withdrawal_id FROM `{tbl}` WHERE ris_number=%s", (ris_number,))
+                if cur.fetchone():
+                    return False, f"RIS Number '{ris_number}' already exists."
+            except: pass
         # Validate stock for each item
         for it in items_list:
             try:
@@ -150,13 +191,38 @@ def create_withdrawal(user_id, ris_number, department, purpose, received_by, dat
             date_requested = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         elif len(date_requested)==10:
             date_requested += " 00:00:00"
-        # Insert header
-        cur.execute("""
-            INSERT INTO withdrawals (ris_number, user_id, department, purpose, status, received_by, date_requested)
-            VALUES (%s,%s,%s,%s,'Pending',%s,%s)
-        """, (ris_number, user_id, department, purpose, received_by or "", date_requested))
-        wid=cur.lastrowid
-        # Insert items
+        # Insert header into spec table `withdraw` (singular) as primary per spec
+        # Also insert into `withdrawals` (plural) for backward compatibility
+        wid=None
+        # Try withdraw (spec)
+        try:
+            cur.execute("""
+                INSERT INTO `withdraw` (ris_number, user_id, department, purpose, status, received_by, date_requested)
+                VALUES (%s,%s,%s,%s,'Pending',%s,%s)
+            """, (ris_number, user_id, department, purpose, received_by or "", date_requested))
+            wid=cur.lastrowid
+        except Exception as e:
+            # Fallback to withdrawals
+            cur.execute("""
+                INSERT INTO withdrawals (ris_number, user_id, department, purpose, status, received_by, date_requested)
+                VALUES (%s,%s,%s,%s,'Pending',%s,%s)
+            """, (ris_number, user_id, department, purpose, received_by or "", date_requested))
+            wid=cur.lastrowid
+        # Also ensure withdrawals has same record if we inserted into withdraw
+        if wid:
+            try:
+                # Check if withdrawals already has this ris_number (if we inserted into withdraw first, withdrawals may not have it)
+                cur.execute("SELECT withdrawal_id FROM withdrawals WHERE ris_number=%s", (ris_number,))
+                if not cur.fetchone():
+                    # Insert into withdrawals as well for backward compat
+                    try:
+                        cur.execute("""
+                            INSERT INTO withdrawals (ris_number, user_id, department, purpose, status, received_by, date_requested)
+                            VALUES (%s,%s,%s,%s,'Pending',%s,%s)
+                        """, (ris_number, user_id, department, purpose, received_by or "", date_requested))
+                    except: pass
+            except: pass
+        # Insert items into both item tables
         for it in items_list:
             pid=int(it['product_id']); qty=int(it['quantity'])
             cur.execute(f"SELECT product_name, unit, price FROM Products WHERE product_id=%s", (pid,))
@@ -165,10 +231,27 @@ def create_withdrawal(user_id, ris_number, department, purpose, received_by, dat
             unit=prod['unit'] or 'pcs'
             price=float(prod['price'] or 0)
             total=qty*price
-            cur.execute("""
-                INSERT INTO withdrawal_items (withdrawal_id, product_id, item_name, quantity, unit, unit_price, total_price)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (wid, pid, iname, qty, unit, price, total))
+            # Spec table
+            try:
+                cur.execute("""
+                    INSERT INTO `withdraw_items` (withdrawal_id, product_id, item_name, quantity, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """, (wid, pid, iname, qty, unit, price, total))
+            except:
+                # Fallback to withdrawal_items
+                cur.execute("""
+                    INSERT INTO withdrawal_items (withdrawal_id, product_id, item_name, quantity, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """, (wid, pid, iname, qty, unit, price, total))
+            # Also ensure withdrawal_items has it if we used withdraw_items
+            try:
+                cur.execute("SELECT withdrawal_item_id FROM withdrawal_items WHERE withdrawal_id=%s AND product_id=%s", (wid, pid))
+                if not cur.fetchone():
+                    cur.execute("""
+                        INSERT INTO withdrawal_items (withdrawal_id, product_id, item_name, quantity, unit, unit_price, total_price)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s)
+                    """, (wid, pid, iname, qty, unit, price, total))
+            except: pass
         conn.commit()
         return True, wid
     except Exception as e:
@@ -186,18 +269,14 @@ def create_withdrawal(user_id, ris_number, department, purpose, received_by, dat
             except: pass
 
 def get_all_withdrawals(search_query="", status_filter="All", user_id=None):
-    conn=None; cur=None
-    try:
-        conn=get_db_connection()
-        cur=conn.cursor(dictionary=True)
-        _ensure_withdrawal_schema(cur)
-        sql="""
+    def _query(cur, tbl, itbl, search_query, status_filter, user_id):
+        sql=f"""
             SELECT w.withdrawal_id, w.ris_number, w.department, w.purpose, w.status, w.issued_by, w.received_by, w.date_requested, w.date_issued,
                    u.Firstname, u.Lastname, u.username,
                    iu.Firstname AS issuer_first, iu.Lastname AS issuer_last,
-                   (SELECT COALESCE(SUM(wi.quantity),0) FROM withdrawal_items wi WHERE wi.withdrawal_id=w.withdrawal_id) AS total_qty,
-                   (SELECT COALESCE(SUM(wi.total_price),0) FROM withdrawal_items wi WHERE wi.withdrawal_id=w.withdrawal_id) AS total_amount
-            FROM withdrawals w
+                   (SELECT COALESCE(SUM(wi.quantity),0) FROM `{itbl}` wi WHERE wi.withdrawal_id=w.withdrawal_id) AS total_qty,
+                   (SELECT COALESCE(SUM(wi.total_price),0) FROM `{itbl}` wi WHERE wi.withdrawal_id=w.withdrawal_id) AS total_amount
+            FROM `{tbl}` w
             JOIN Users u ON w.user_id = u.id
             LEFT JOIN Users iu ON w.issued_by = iu.id
             WHERE 1=1
@@ -219,6 +298,26 @@ def get_all_withdrawals(search_query="", status_filter="All", user_id=None):
         sql+=" ORDER BY w.withdrawal_id DESC"
         cur.execute(sql, tuple(params))
         return cur.fetchall()
+    conn=None; cur=None
+    try:
+        conn=get_db_connection()
+        cur=conn.cursor(dictionary=True)
+        _ensure_withdrawal_schema(cur)
+        # Try spec `withdraw` first, fallback to `withdrawals`
+        for tbl, itbl in [("withdraw","withdraw_items"), ("withdrawals","withdrawal_items")]:
+            try:
+                rows=_query(cur, tbl, itbl, search_query, status_filter, user_id)
+                if rows:
+                    return rows
+                # Keep last empty result to return if both empty
+                last_rows=rows
+                continue
+            except Exception:
+                continue
+        # If both empty, return last found or empty
+        if 'last_rows' in locals() and last_rows is not None:
+            return last_rows
+        return []
     except Exception as e:
         print(f"[get_all_withdrawals] {e}")
         return []

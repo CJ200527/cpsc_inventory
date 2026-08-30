@@ -634,6 +634,52 @@ def approve_delivery(delivery_id, admin_user_id):
         if not items:
             return False, "No items for this delivery."
         stock_col = _get_product_stock_column(cursor)
+        # Ensure stock_movements and items ledger exist
+        try:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS stock_movements (
+                    movement_id INT AUTO_INCREMENT PRIMARY KEY,
+                    product_id INT NOT NULL,
+                    reference_type VARCHAR(20) NOT NULL,
+                    reference_id INT NOT NULL,
+                    quantity_change INT NOT NULL,
+                    balance_after INT NOT NULL,
+                    user_id INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES Products(product_id),
+                    FOREIGN KEY (user_id) REFERENCES Users(id)
+                )
+            """)
+        except: pass
+        try:
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS items (
+                    item_id INT AUTO_INCREMENT PRIMARY KEY,
+                    delivery_id INT,
+                    po_id INT,
+                    pr_id INT,
+                    user_id INT,
+                    supplier_id INT,
+                    product_id INT NOT NULL,
+                    item_number VARCHAR(50),
+                    item_name VARCHAR(100) NOT NULL,
+                    item_quantity INT NOT NULL DEFAULT 0,
+                    item_category VARCHAR(50),
+                    item_details TEXT,
+                    item_unit VARCHAR(20),
+                    item_size VARCHAR(20),
+                    item_price DECIMAL(10,2) DEFAULT 0.00,
+                    item_total_price DECIMAL(12,2) DEFAULT 0.00,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id),
+                    FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id),
+                    FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
+                    FOREIGN KEY (user_id) REFERENCES Users(id),
+                    FOREIGN KEY (supplier_id) REFERENCES Supplier(id),
+                    FOREIGN KEY (product_id) REFERENCES Products(product_id)
+                )
+            """)
+        except: pass
         cursor.execute("UPDATE deliveries SET status='Received', approved_by=%s WHERE delivery_id=%s", (admin_user_id, delivery_id))
         for it in items:
             pid = int(it['product_id'])
@@ -648,6 +694,31 @@ def approve_delivery(delivery_id, admin_user_id):
                     cursor.execute("UPDATE Products SET current_stock = quantity WHERE product_id = %s", (pid,))
             except Exception:
                 pass
+            # Populate physical ledger `items`
+            try:
+                # Fetch extra details from po_items for this product
+                cursor.execute("SELECT category, details, unit, size FROM po_items WHERE po_id=%s AND product_id=%s LIMIT 1", (delivery['po_id'], pid))
+                po_extra = cursor.fetchone()
+                cat = po_extra['category'] if po_extra and po_extra.get('category') else None
+                det = po_extra['details'] if po_extra and po_extra.get('details') else None
+                unit = po_extra['unit'] if po_extra and po_extra.get('unit') else (it.get('unit') or 'pcs')
+                size = po_extra['size'] if po_extra and po_extra.get('size') else None
+                cursor.execute("""
+                    INSERT INTO items (delivery_id, po_id, pr_id, user_id, supplier_id, product_id, item_name, item_quantity, item_category, item_details, item_unit, item_size, item_price, item_total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (delivery_id, delivery['po_id'], delivery['pr_id'], delivery['user_id'], delivery['supplier_id'], pid, it['item_name'], qty, cat, det, unit, size, float(it['price'] or 0), float(qty * float(it['price'] or 0))))
+            except Exception as e:
+                print(f"[items ledger] {e}")
+            # Audit log stock_movements Delivery positive
+            try:
+                cursor.execute(f"SELECT COALESCE({stock_col},0) AS bal FROM Products WHERE product_id=%s", (pid,))
+                bal = int(cursor.fetchone()['bal'] or 0)
+                cursor.execute("""
+                    INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
+                    VALUES (%s,'Delivery',%s,%s,%s,%s)
+                """, (pid, delivery_id, qty, bal, admin_user_id))
+            except Exception as e:
+                print(f"[stock_movements Delivery] {e}")
         po_id = int(delivery['po_id'])
         is_partial = int(delivery.get('is_partial') or 0)
         new_po_status = "Partial" if is_partial == 1 else "Delivered"
