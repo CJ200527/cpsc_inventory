@@ -117,17 +117,11 @@
                     <span class="icon">🚚</span>
                     <span>Receive Delivery</span>
                 </a>
-                <a href="#" class="nav-btn">
-                    <span class="icon">📦</span>
-                    <span>Stock Inventory</span>
+                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span>
                 </a>
-                <a href="#" class="nav-btn">
-                    <span class="icon">📤</span>
-                    <span>Request Withdraw</span>
+                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Request Withdraw</span>
                 </a>
-                <a href="#" class="nav-btn">
-                    <span class="icon">🔄</span>
-                    <span>Return Item</span>
+                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return Item</span>
                 </a>
             </div>
         </div>

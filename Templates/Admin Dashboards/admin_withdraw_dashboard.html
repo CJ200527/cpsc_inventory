@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Admin Withdrawal Queue</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
+        .hidden { display: none !important; }
+        .sidebar { width: 260px; background-color: #f7f0e8; border-right: 1px solid #e2d7ca; display: flex; flex-direction: column; justify-content: space-between; padding: 16px 14px; overflow-y: auto; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0,0,0,0.03); }
+        .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding: 0 4px; }
+        .sidebar-logo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
+        .school-title { font-size: 11px; font-weight: 700; color: #2c3e50; line-height: 1.25; text-transform: uppercase; }
+        .school-subtitle { font-size: 9.5px; color: #666; margin-top: 2px; }
+        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
+        .nav-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%); border: 1px solid #d2d2d2; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9); font-size: 13px; font-weight: 600; color: #333; text-decoration: none; cursor: pointer; transition: all 0.2s; }
+        .nav-btn .icon { font-size: 17px; width: 22px; display: flex; align-items: center; justify-content: center; }
+        .nav-btn:hover { background:#fff; border-color:#53c5f1; color:#0277bd; transform: translateY(-2px); box-shadow:0 4px 10px rgba(83,197,241,0.25); }
+        .nav-btn.active { background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%); border-color:#53c5f1; color:#0277bd; box-shadow: inset 0 1px 2px rgba(255,255,255,0.8), 0 2px 6px rgba(83,197,241,0.3); }
+        .nav-btn.logout-btn { margin-top:14px; color:#d9534f; background: linear-gradient(180deg,#fff 0%,#fdf2f2 100%); border-color:#f5c6cb; justify-content:center; }
+        .nav-btn.logout-btn:hover { background:#dc3545; color:#fff; }
+        .sidebar-footer { font-size:10px; color:#888; text-align:center; margin-top:12px; font-style:italic; }
+        .main-wrapper { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+        .top-header { background:#aae0f7; padding:12px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #94d2ee; box-shadow:0 2px 8px rgba(0,0,0,0.04); flex-shrink:0; }
+        .header-title-box h1 { font-size:22px; font-weight:800; font-style:italic; color:#0d233a; }
+        .header-title-box .date-time-box { font-size:11px; color:#2c3e50; margin-top:2px; font-weight:500; }
+        .user-profile-box { text-align:right; }
+        .user-profile-box .user-name { font-size:14px; font-weight:700; font-style:italic; color:#0d233a; }
+        .user-profile-box .user-role { font-size:11px; color:#333; font-weight:500; }
+        .dashboard-container { padding:22px 28px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:18px; }
+        .control-card { background:#fff; border-radius:12px; padding:16px 22px; box-shadow:0 4px 15px rgba(0,0,0,0.04); border:1px solid #eef2f5; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+        .search-form { display:flex; align-items:center; gap:10px; flex:1; max-width:480px; }
+        .search-input-box { display:flex; align-items:center; background:#f0f4f8; border:1.5px solid #d0dbe5; border-radius:8px; padding:6px 12px; width:100%; }
+        .search-input-box input { border:none; background:transparent; outline:none; font-size:13px; width:100%; }
+        .filter-controls { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+        .filter-select { padding:7px 12px; border:1.5px solid #d0dbe5; border-radius:8px; font-size:12px; outline:none; background:#fff; }
+        .icon-btn { padding:8px 14px; background:#fff; border:1.5px solid #d0dbe5; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; text-decoration:none; color:#333; }
+        .btn-add-primary { padding:9px 18px; background:#53c5f1; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 3px 8px rgba(83,197,241,0.35); }
+        .btn-add-primary:hover { background:#3ba9d4; transform:translateY(-1px); }
+        .table-card { background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.04); border:1px solid #eef2f5; flex:1; overflow-x:auto; }
+        table { width:100%; border-collapse:collapse; min-width:1050px; }
+        th { background:#53c5f1; color:#fff; font-size:11px; font-weight:700; text-transform:uppercase; padding:12px 14px; text-align:left; white-space:nowrap; }
+        th:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px;} th:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px;}
+        td { padding:11px 14px; font-size:12.5px; color:#333; border-bottom:1px solid #f0f4f8; white-space:nowrap; }
+        tr:hover td{ background:#f8fcff; }
+        .badge{ display:inline-block; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+        .badge-pending{ background:#fff3cd; color:#856404; border:1px solid #ffeeba; }
+        .badge-approved{ background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .badge-rejected{ background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+        .badge-issued{ background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
+        .price-badge{ font-weight:700; color:#2e7d32; }
+        .btn-action{ padding:5px 10px; border-radius:6px; border:none; font-size:11px; font-weight:600; cursor:pointer; }
+        .btn-view{ background:#e1f3fe; color:#0277bd; }
+        .btn-approve{ background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .btn-reject{ background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+        .alert-bar{ padding:10px 16px; border-radius:8px; font-size:12px; font-weight:500; margin-bottom:2px; }
+        .alert-success{ background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+        .alert-error{ background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+        .modal-overlay{ position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.35); backdrop-filter:blur(6px); display:flex; justify-content:center; align-items:center; z-index:9999; }
+        .modal-box{ background:#fff; border-radius:12px; padding:26px 30px; width:880px; max-width:95%; box-shadow:0 15px 35px rgba(0,0,0,0.2); max-height:92vh; overflow-y:auto; }
+        .modal-header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+        .modal-header h3{ font-size:18px; font-weight:700; color:#0d233a; }
+        .close-btn{ background:none; border:none; font-size:22px; color:#888; cursor:pointer; }
+        .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px; }
+        .form-grid .full{ grid-column:span 2; }
+        .form-group label{ font-size:11px; font-weight:600; color:#0d233a; display:block; margin-bottom:4px; }
+        .form-group input, .form-group textarea, .form-group select{ width:100%; padding:8px 10px; border:1.5px solid #d0dbe5; border-radius:6px; font-size:12px; outline:none; background:#f8fcff; }
+        .item-table{ width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:14px; min-width:unset; }
+        .item-table th{ background:#eaf3f8; color:#0d233a; font-size:11px; padding:8px; }
+        .item-table td{ padding:8px; border-bottom:1px solid #eef2f5; font-size:12px; white-space:normal; }
+        .modal-buttons{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
+        .btn-modal-cancel{ padding:8px 18px; background:#e0e0e0; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+        .btn-modal-save{ padding:8px 22px; background:#53c5f1; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 3px 8px rgba(83,197,241,0.35); }
+        .stock-info{ font-size:11px; color:#666; }
+        .stock-ok{ color:#2e7d32; font-weight:600; } .stock-low{ color:#ef6c00; font-weight:600; } .stock-out{ color:#c62828; font-weight:700; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo" src="{{ url_for('static', filename='cpsc_logo.png') }}" alt="CPSC Seal" onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div><div class="school-title">Camiguin Polytechnic State College</div><div class="school-subtitle">Balbagon, Mambajao, Camiguin</div></div>
+            </div>
+            <div class="nav-menu">
+                <a href="/admin_dashboard" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>PR</span></a>
+                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>PO</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Delivery</span></a>
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Inventory</span></a>
+                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn active"><span class="icon">📤</span><span>Withdraw</span></a>
+                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
+                <a href="#" class="nav-btn"><span class="icon">📊</span><span>Reports</span></a>
+                <a href="{{ url_for('admin_suppliers') }}" class="nav-btn"><span class="icon">🏬</span><span>Supplier</span></a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Products</span></a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
+            </div>
+        </div>
+        <div><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>Withdrawal & Requisition (RIS) — Admin Queue</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                <div class="user-name">{{ user.full_name }}</div>
+                <div class="user-role">{{ user.role }}</div>
+            </div>
+        </div>
+
+        <div class="dashboard-container">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert-bar alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+
+            <div style="background:#fff3cd; border:1px solid #ffe082; border-radius:8px; padding:10px 12px; font-size:11px; color:#856404;">📥 Admin queue — <strong>Pending</strong> withdrawals await <strong>Approve & Issue Stock</strong> (deducts <code>products.current_stock</code> & logs <code>stock_movements</code>).</div>
+
+            <div class="control-card">
+                <form method="GET" action="{{ url_for('admin_withdraw_dashboard') }}" class="search-form" id="filter-form">
+                    <div class="search-input-box">
+                        <span style="margin-right:8px;">🔍</span>
+                        <input type="text" name="search" value="{{ search }}" placeholder="Search RIS #, Department, Purpose..." autocomplete="off">
+                    </div>
+                    <button type="submit" class="icon-btn">Search</button>
+                </form>
+                <div class="filter-controls">
+                    <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All</option>
+                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                        <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                    <a href="{{ url_for('admin_withdraw_dashboard') }}" class="icon-btn">🔄 Refresh</a>
+                    <button type="button" class="btn-add-primary" onclick="openWithdrawModal()">+ New Withdrawal</button>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>RIS Number</th>
+                            <th>Department</th>
+                            <th>Requested By</th>
+                            <th>Purpose</th>
+                            <th>Date Requested</th>
+                            <th>Total Qty</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if withdrawals %}
+                            {% for w in withdrawals %}
+                            <tr>
+                                <td><strong>{{ w.ris_number }}</strong></td>
+                                <td>{{ w.department }}</td>
+                                <td>{{ w.Firstname }} {{ w.Lastname }}<br><small style="color:#888;">{{ w.username }}</small></td>
+                                <td style="max-width:180px; white-space:normal;">{{ w.purpose }}</td>
+                                <td>{{ w.date_requested.strftime('%Y-%m-%d') if w.date_requested else '' }}</td>
+                                <td style="text-align:center; font-weight:700;">{{ w.total_qty or 0 }}</td>
+                                <td><span class="price-badge">₱ {{ "{:,.2f}".format(w.total_amount or 0) }}</span></td>
+                                <td><span class="badge badge-{{ w.status|lower }}">{{ w.status }}</span></td>
+                                <td>
+                                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                        <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdrawal_id }})">👁️</button>
+                                        {% if w.status == 'Pending' %}
+                                        <button type="button" class="btn-action btn-approve" title="Approve & Issue Stock" onclick="openApproveModal({{ w.withdrawal_id }}, '{{ w.ris_number }}')">✔️ Approve</button>
+                                        <form method="POST" action="{{ url_for('reject_withdrawal_action', withdrawal_id=w.withdrawal_id) }}" style="display:inline;" onsubmit="return confirm('Reject {{ w.ris_number }}?')">
+                                            <button type="submit" class="btn-action btn-reject" title="Disapprove">✖️ Reject</button>
+                                        </form>
+                                        {% else %}
+                                            <small style="color:#888;">{% if w.issuer_first %}by {{ w.issuer_first }} {{ w.issuer_last }}{% endif %}</small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="9" style="text-align:center; color:#888; padding:25px;">No withdrawals. Click "+ New Withdrawal" to request.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- WITHDRAW MODAL (Staff & Admin) -->
+    <div id="withdraw-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div>
+                    <h3>New Withdrawal — Requisition & Issue Slip (RIS)</h3>
+                    <p style="font-size:11px; color:#666; margin-top:4px;">Select live inventory items (stock &gt; 0). Requested ≤ Current Stock — blocked if insufficient. Pending → Admin approves deducts stock.</p>
+                </div>
+                <button type="button" class="close-btn" onclick="closeWithdrawModal()">✖</button>
+            </div>
+            <form method="POST" action="{{ url_for('create_withdrawal_action') }}" id="withdraw-form" onsubmit="return validateWithdrawForm()">
+                <div class="form-grid">
+                    <div class="form-group"><label>RIS Number * (e.g., RIS-2026-001)</label><input type="text" name="ris_number" placeholder="RIS-2026-001" required></div>
+                    <div class="form-group"><label>Department / Office *</label><input type="text" name="department" placeholder="e.g., Registrar, MIS" required></div>
+                    <div class="form-group full"><label>Purpose of Request *</label><textarea name="purpose" rows="2" placeholder="Purpose..." required></textarea></div>
+                    <div class="form-group"><label>Received By (optional)</label><input type="text" name="received_by" placeholder="Receiver name"></div>
+                    <div class="form-group"><label>Date Requested *</label><input type="date" name="date_requested" required></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                    <p style="font-size:12px; font-weight:700; color:#0d233a;">Line Items — requested ≤ current stock</p>
+                    <button type="button" class="icon-btn" onclick="addWithdrawRow()">+ Add Item</button>
+                </div>
+                <table class="item-table">
+                    <thead><tr><th>Product *</th><th>Available</th><th>Unit</th><th>Price</th><th>Requested Qty *</th><th>Subtotal</th><th>Action</th></tr></thead>
+                    <tbody id="withdraw-items-body"></tbody>
+                </table>
+                <div style="text-align:right; font-weight:700; font-size:14px;">Grand Total: <span id="withdraw-grand-total" class="price-badge">₱ 0.00</span></div>
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeWithdrawModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Submit (Pending)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- VIEW MODAL -->
+    <div id="view-modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 id="view-ris-number">RIS Details</h3>
+                <button type="button" class="close-btn" onclick="closeViewModal()">✖</button>
+            </div>
+            <div id="view-modal-content" style="font-size:12px;">Loading...</div>
+            <div id="view-approve-area" class="hidden" style="margin-top:12px; text-align:right;"></div>
+            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+        </div>
+    </div>
+
+    <!-- APPROVE CONFIRM MODAL -->
+    <div id="approve-modal" class="modal-overlay hidden">
+        <div class="modal-box" style="width:520px;">
+            <div class="modal-header">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px;">✔️</div>
+                    <div><h3 style="font-size:17px; margin:0;">Confirm Approve & Issue</h3><p style="font-size:11px; color:#666; margin:0;">Deducts stock & logs movement</p></div>
+                </div>
+                <button type="button" class="close-btn" onclick="closeApproveModal()">✖</button>
+            </div>
+            <div style="background:#f8fcff; border:1px solid #e2f0fb; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12px;">
+                <div><strong>RIS #:</strong> <span id="approve-ris-number" style="font-weight:700; color:#0d233a;"></span></div>
+                <div style="margin-top:6px; background:#fff3cd; border:1px solid #ffe082; border-radius:8px; padding:8px; font-size:11px; color:#6d4c00;">This will issue stock: <code>products.current_stock -= requested</code> and insert into <code>stock_movements</code>. Low/Out of Stock flags auto-updated.</div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal-cancel" onclick="closeApproveModal()">Cancel</button>
+                <button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="confirmApprove()">✔️ Yes, Issue Stock</button>
+            </div>
+        </div>
+    </div>
+    <form id="approve-hidden-form" method="POST" style="display:none;"></form>
+
+    <script>
+        const availableProducts = [
+            {% for p in available_products %}
+            { id: {{ p.product_id }}, name: "{{ p.product_name }}", category: "{{ p.category or '' }}", unit: "{{ p.unit or 'pcs' }}", price: {{ p.price or 0 }}, stock: {{ p.current_stock or 0 }}, reorder: {{ p.reorder_level or 10 }} }
+            {% if not loop.last %},{% endif %}
+            {% endfor %}
+        ];
+        function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+        function updateClock(){ const now=new Date(); document.getElementById('live-clock').innerText=`${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} | ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`; }
+        setInterval(updateClock,1000); updateClock();
+
+        function openWithdrawModal(){
+            document.getElementById('withdraw-items-body').innerHTML='';
+            addWithdrawRow();
+            document.getElementById('withdraw-modal').classList.remove('hidden');
+            const d=document.querySelector('#withdraw-modal input[name="date_requested"]'); if(d && !d.value) d.valueAsDate=new Date();
+        }
+        function closeWithdrawModal(){ document.getElementById('withdraw-modal').classList.add('hidden'); }
+
+        function addWithdrawRow(){
+            const tbody=document.getElementById('withdraw-items-body');
+            const rowId=tbody.rows.length;
+            const tr=document.createElement('tr');
+            let opts='<option value="" disabled selected>Select Product</option>';
+            availableProducts.forEach((p,idx)=>{ 
+                const status = p.stock==0?'Out':(p.stock<=p.reorder?'Low':'In');
+                opts+=`<option value="${idx}">${p.name} — ${p.unit} — Stock:${p.stock} — ${status}</option>`;
+            });
+            tr.innerHTML=`
+                <td>
+                    <select onchange="onWithdrawProductSelect(this, ${rowId})" required>${opts}</select>
+                    <input type="hidden" name="product_id[]" id="w-prod-${rowId}">
+                </td>
+                <td><span id="w-stock-${rowId}" class="stock-info">—</span></td>
+                <td><span id="w-unit-${rowId}">—</span></td>
+                <td><span id="w-price-${rowId}">—</span></td>
+                <td><input type="number" name="quantity[]" id="w-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="calcWithdrawSubtotal(${rowId})" required><div id="w-stock-msg-${rowId}" class="stock-info"></div></td>
+                <td><span id="w-subtotal-${rowId}">₱ 0.00</span></td>
+                <td><button type="button" class="btn-action btn-reject" onclick="this.closest('tr').remove(); recalcWithdrawGrand()">✖</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        function onWithdrawProductSelect(sel, rowId){
+            const p=availableProducts[sel.value];
+            if(!p) return;
+            document.getElementById(`w-prod-${rowId}`).value=p.id;
+            document.getElementById(`w-unit-${rowId}`).innerText=p.unit;
+            document.getElementById(`w-price-${rowId}`).innerText=fmtPeso(p.price);
+            const stockEl=document.getElementById(`w-stock-${rowId}`);
+            stockEl.innerText=p.stock;
+            stockEl.className = p.stock==0 ? 'stock-out' : (p.stock<=p.reorder ? 'stock-low' : 'stock-ok');
+            const qtyInput=document.getElementById(`w-qty-${rowId}`);
+            qtyInput.max=p.stock;
+            qtyInput.placeholder=`max ${p.stock}`;
+            qtyInput.value='';
+            document.getElementById(`w-subtotal-${rowId}`).innerText='₱ 0.00';
+            document.getElementById(`w-stock-msg-${rowId}`).innerText=`Available: ${p.stock} | Reorder: ${p.reorder}`;
+            recalcWithdrawGrand();
+        }
+        function calcWithdrawSubtotal(rowId){
+            const qty=parseInt(document.getElementById(`w-qty-${rowId}`).value)||0;
+            // find product
+            const prodId=document.getElementById(`w-prod-${rowId}`).value;
+            const prod=availableProducts.find(pp=>String(pp.id)===String(prodId));
+            if(!prod) return;
+            const maxStock=prod.stock;
+            const msgEl=document.getElementById(`w-stock-msg-${rowId}`);
+            const qtyInput=document.getElementById(`w-qty-${rowId}`);
+            if(qty > maxStock){
+                qtyInput.setCustomValidity(`Exceeds stock ${maxStock}`);
+                qtyInput.reportValidity();
+                msgEl.innerText=`❌ Exceeds stock! Max ${maxStock}`;
+                msgEl.className='stock-out';
+            } else {
+                qtyInput.setCustomValidity('');
+                msgEl.innerText=`Available: ${maxStock} | Reorder: ${prod.reorder}`;
+                msgEl.className = maxStock==0 ? 'stock-out' : (maxStock<=prod.reorder ? 'stock-low' : 'stock-ok');
+            }
+            document.getElementById(`w-subtotal-${rowId}`).innerText=fmtPeso(qty * prod.price);
+            recalcWithdrawGrand();
+        }
+        function recalcWithdrawGrand(){
+            let grand=0;
+            document.querySelectorAll('[id^="w-subtotal-"]').forEach(el=>{
+                let v=el.innerText.replace(/[^0-9.-]/g,'').replace(/,/g,'');
+                grand+=parseFloat(v)||0;
+            });
+            document.getElementById('withdraw-grand-total').innerText=fmtPeso(grand);
+        }
+        function validateWithdrawForm(){
+            const rows=document.querySelectorAll('#withdraw-items-body tr');
+            if(rows.length===0){ alert('Add at least one item.'); return false; }
+            let ok=true; let msg='';
+            rows.forEach(tr=>{
+                const sel=tr.querySelector('select');
+                const qtyInput=tr.querySelector('input[name="quantity[]"]');
+                if(!sel || !qtyInput) return;
+                const idx=sel.value;
+                if(idx==="" || sel.selectedIndex<=0){ ok=false; msg='Select product for each row.'; }
+                const qty=parseInt(qtyInput.value||0);
+                const prod=availableProducts[idx];
+                if(prod && qty > prod.stock){ ok=false; msg=`Requested ${qty} exceeds stock ${prod.stock} for ${prod.name}`; }
+                if(qty<=0){ ok=false; msg='Quantity must be >0.'; }
+            });
+            if(!ok){ alert(msg); return false; }
+            return true;
+        }
+
+        function openViewModal(id){
+            const c=document.getElementById('view-modal-content');
+            c.innerHTML='Loading...';
+            document.getElementById('view-modal').classList.remove('hidden');
+            fetch('/withdraw/details/'+id).then(r=>r.json()).then(data=>{
+                if(data.error){ c.innerHTML=data.error; return; }
+                document.getElementById('view-ris-number').innerText=data.header.ris_number + ' Details';
+                let html=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#f8fcff; border:1px solid #e2f0fb; border-radius:8px; padding:12px; margin-bottom:12px; font-size:12px;">`;
+                html+=`<div><strong>RIS #:</strong> ${data.header.ris_number}</div><div><strong>Department:</strong> ${data.header.department}</div>`;
+                html+=`<div><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname}</div><div><strong>Purpose:</strong> ${data.header.purpose}</div>`;
+                html+=`<div><strong>Date Requested:</strong> ${data.header.date_requested}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
+                if(data.header.issuer_first) html+=`<div><strong>Issued By:</strong> ${data.header.issuer_first} ${data.header.issuer_last}</div>`;
+                html+=`</div>`;
+                html+=`<table class="item-table"><thead><tr><th>Item</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>`;
+                data.items.forEach(i=>{
+                    html+=`<tr><td>${i.item_name}</td><td>${i.unit}</td><td>${i.quantity}</td><td>${fmtPeso(i.unit_price)}</td><td>${fmtPeso(i.total_price)}</td></tr>`;
+                });
+                html+=`</tbody></table>`;
+                const total = data.items.reduce((a,b)=>a+parseFloat(b.total_price||0),0);
+                html+=`<p style="text-align:right; font-weight:700;">Grand Total: ${fmtPeso(total)}</p>`;
+                if(data.header.status==='Pending'){
+                    html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">⏳ Pending — stock not yet deducted. Awaiting Admin approval.</div>`;
+                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.withdrawal_id}, '${data.header.ris_number}')">✔️ Approve & Issue</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.withdrawal_id})">✖️ Reject</button>`;
+                    document.getElementById('view-approve-area').classList.remove('hidden');
+                } else {
+                    document.getElementById('view-approve-area').classList.add('hidden');
+                    document.getElementById('view-approve-area').innerHTML='';
+                }
+                c.innerHTML=html;
+            });
+        }
+        function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); document.getElementById('view-approve-area').classList.add('hidden'); }
+        function rejectFromView(id){
+            if(confirm('Reject this withdrawal?')){
+                const f=document.createElement('form'); f.method='POST'; f.action='/withdraw/reject/'+id; document.body.appendChild(f); f.submit();
+            }
+        }
+        let pendingApproveId=null;
+        function openApproveModal(id, ris){
+            pendingApproveId=id;
+            document.getElementById('approve-ris-number').innerText=ris;
+            document.getElementById('approve-modal').classList.remove('hidden');
+        }
+        function closeApproveModal(){ document.getElementById('approve-modal').classList.add('hidden'); pendingApproveId=null; }
+        function confirmApprove(){
+            if(!pendingApproveId) return;
+            const f=document.getElementById('approve-hidden-form');
+            f.action='/withdraw/approve/'+pendingApproveId;
+            f.submit();
+        }
+    </script>
+</body>
+</html>

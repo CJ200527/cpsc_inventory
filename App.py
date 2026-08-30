@@ -68,6 +68,30 @@ from crud_delivery import (
     get_po_remaining
 )
 
+# --- IMPORTS FOR INVENTORY MODULE (Live ledger) ---
+from crud_inventory import get_inventory_summary, get_inventory_items, get_inventory_categories
+
+# --- IMPORTS FOR WITHDRAWAL MODULE (RIS) ---
+from crud_withdrawal import (
+    get_available_products as get_withdraw_products,
+    create_withdrawal,
+    get_all_withdrawals,
+    get_withdrawal_details,
+    approve_withdrawal,
+    reject_withdrawal
+)
+
+# --- IMPORTS FOR RETURN MODULE (Return Slip) ---
+from crud_returns import (
+    get_issued_withdrawals,
+    get_return_products,
+    create_return,
+    get_all_returns,
+    get_return_details,
+    approve_return,
+    reject_return
+)
+
 # Initialize Flask Application
 app = Flask(__name__)
 
@@ -210,7 +234,13 @@ def admin_dashboard():
     if session.get("role") != "Admin":
         flash("You do not have permission to access the admin dashboard.", "error")
         return redirect(url_for("login"))
-    return safe_render_template("Admin Dashboards/admin_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
+    # Live inventory metrics for dashboard cards
+    try:
+        summary = get_inventory_summary()
+    except Exception as err:
+        print(f"[admin_dashboard] summary error: {err}")
+        summary = {"total_unique":0,"total_asset_value":0,"low_stock_count":0,"out_of_stock_count":0,"in_stock_count":0}
+    return safe_render_template("Admin Dashboards/admin_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"), summary=summary)
 
 # --- ROUTE 6: Staff Dashboard ---
 @app.route("/staff_dashboard")
@@ -1074,6 +1104,361 @@ def complete_delivery_action(delivery_id):
     else:
         flash(f"Complete failed: {result}", "error")
     return redirect(url_for("delivery_dashboard"))
+
+
+# ============================================================
+# INVENTORY MODULE — Live Ledger (inventory table via Products)
+# Split into two separate routes as per spec
+# ============================================================
+def _inventory_context(search, category_filter, stock_filter):
+    """Shared logic for both Admin and Staff inventory dashboards."""
+    try:
+        summary = get_inventory_summary()
+        items = get_inventory_items(search_query=search, category_filter=category_filter, stock_status=stock_filter)
+        categories = get_inventory_categories()
+        return summary, items, categories
+    except Exception as err:
+        print(f"[inventory_dashboard] DB error: {err}")
+        return {"total_unique":0,"total_asset_value":0,"low_stock_count":0,"out_of_stock_count":0}, [], []
+
+@app.route("/admin/inventory")
+def admin_inventory_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Inventory.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") != "Admin":
+        flash("Admin access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    category_filter = request.args.get("category", "All")
+    stock_filter = request.args.get("stock_status", "All")
+    summary, items, categories = _inventory_context(search, category_filter, stock_filter)
+    return safe_render_template(
+        "Admin Dashboards/admin_inventory_dashboard.html",
+        user=session,
+        summary=summary,
+        items=items,
+        categories=categories,
+        search=search,
+        category_filter=category_filter,
+        stock_filter=stock_filter
+    )
+
+@app.route("/inventory")
+@app.route("/staff/inventory")
+def staff_inventory_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Inventory.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Staff", "Admin"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    category_filter = request.args.get("category", "All")
+    stock_filter = request.args.get("stock_status", "All")
+    summary, items, categories = _inventory_context(search, category_filter, stock_filter)
+    # Staff and Admin can both view staff template via /inventory, but admin_inventory has dedicated route
+    # If Admin hits /inventory, show staff view for consistency; admin should use /admin/inventory
+    return safe_render_template(
+        "Staff Dashboards/staff_inventory_dashboard.html",
+        user=session,
+        summary=summary,
+        items=items,
+        categories=categories,
+        search=search,
+        category_filter=category_filter,
+        stock_filter=stock_filter
+    )
+
+# Backward compatibility: old generic endpoint that staff templates previously used
+@app.route("/inventory_legacy")
+def inventory_dashboard():
+    # Redirect based on role to correct dashboard
+    if session.get("role") == "Admin":
+        return redirect(url_for("admin_inventory_dashboard"))
+    return redirect(url_for("staff_inventory_dashboard"))
+
+# ============================================================
+# WITHDRAWAL & REQUISITION MODULE (RIS) — Separate Admin/Staff
+# ============================================================
+@app.route("/admin/withdraw")
+def admin_withdraw_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Withdrawals.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") != "Admin":
+        flash("Admin access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    try:
+        withdrawals = get_all_withdrawals(search_query=search, status_filter=status_filter, user_id=None)
+        available = get_withdraw_products()
+    except Exception as err:
+        print(f"[admin_withdraw_dashboard] {err}")
+        flash("Database error loading Withdrawals.", "error")
+        withdrawals=[]; available=[]
+    return safe_render_template(
+        "Admin Dashboards/admin_withdraw_dashboard.html",
+        user=session,
+        withdrawals=withdrawals,
+        available_products=available,
+        search=search,
+        status_filter=status_filter
+    )
+
+@app.route("/withdraw")
+@app.route("/staff/withdraw")
+def staff_withdraw_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Withdrawals.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    # Staff sees all withdrawals (shared ledger) — no user filter to avoid confusion
+    try:
+        withdrawals = get_all_withdrawals(search_query=search, status_filter=status_filter, user_id=None)
+        available = get_withdraw_products()
+    except Exception as err:
+        print(f"[staff_withdraw_dashboard] {err}")
+        flash("Database error loading Withdrawals.", "error")
+        withdrawals=[]; available=[]
+    return safe_render_template(
+        "Staff Dashboards/staff_withdraw_dashboard.html",
+        user=session,
+        withdrawals=withdrawals,
+        available_products=available,
+        search=search,
+        status_filter=status_filter
+    )
+
+@app.route("/withdraw/create", methods=["POST"])
+def create_withdrawal_action():
+    if "user_id" not in session:
+        flash("Please log in.", "error")
+        return redirect(url_for("login"))
+    user_id=session.get("user_id")
+    ris_number=request.form.get("ris_number","").strip()
+    department=request.form.get("department","").strip()
+    purpose=request.form.get("purpose","").strip()
+    received_by=request.form.get("received_by","").strip()
+    date_requested=request.form.get("date_requested","").strip()
+    product_ids=request.form.getlist("product_id[]")
+    quantities=request.form.getlist("quantity[]")
+    if not all([ris_number, department, purpose]):
+        flash("RIS Number, Department and Purpose are required.", "error")
+        return redirect(request.referrer or url_for("staff_withdraw_dashboard" if session.get("role")=="Staff" else "admin_withdraw_dashboard"))
+    if not product_ids:
+        flash("Add at least one item.", "error")
+        return redirect(request.referrer or url_for("staff_withdraw_dashboard" if session.get("role")=="Staff" else "admin_withdraw_dashboard"))
+    items=[]
+    for i, pid_raw in enumerate(product_ids):
+        try:
+            pid=int(pid_raw.strip()) if pid_raw else None
+            if pid is None: continue
+            qty_raw=quantities[i].strip() if i < len(quantities) and quantities[i] else ""
+            if qty_raw=="":
+                flash(f"Quantity required for item row {i+1}.", "error")
+                return redirect(request.referrer or url_for("staff_withdraw_dashboard" if session.get("role")=="Staff" else "admin_withdraw_dashboard"))
+            qty=int(qty_raw)
+            if qty<=0: raise ValueError
+            items.append({"product_id":pid,"quantity":qty})
+        except (ValueError, IndexError, AttributeError):
+            flash(f"Invalid quantity row {i+1}.", "error")
+            return redirect(request.referrer or url_for("staff_withdraw_dashboard" if session.get("role")=="Staff" else "admin_withdraw_dashboard"))
+    success, result = create_withdrawal(user_id, ris_number, department, purpose, received_by, date_requested, items)
+    if success:
+        flash(f"Withdrawal {ris_number} submitted! Pending approval (stock not yet deducted).", "success")
+    else:
+        flash(f"Failed: {result}", "error")
+    # Redirect back to appropriate dashboard
+    if session.get("role")=="Admin":
+        return redirect(url_for("admin_withdraw_dashboard"))
+    return redirect(url_for("staff_withdraw_dashboard"))
+
+@app.route("/withdraw/details/<int:withdrawal_id>")
+def get_withdrawal_details_api(withdrawal_id):
+    if "user_id" not in session:
+        return {"error":"Unauthorized"}, 401
+    header, items = get_withdrawal_details(withdrawal_id)
+    if not header:
+        return {"error":"Withdrawal not found"}, 404
+    try:
+        header["date_requested"]=header["date_requested"].strftime("%Y-%m-%d %H:%M:%S") if hasattr(header["date_requested"],"strftime") else str(header["date_requested"] or "")
+    except: header["date_requested"]=str(header.get("date_requested",""))
+    try:
+        header["date_issued"]=header["date_issued"].strftime("%Y-%m-%d %H:%M:%S") if header.get("date_issued") and hasattr(header["date_issued"],"strftime") else str(header.get("date_issued") or "")
+    except: header["date_issued"]=str(header.get("date_issued",""))
+    for it in items:
+        try: it["unit_price"]=float(it.get("unit_price") or 0)
+        except: it["unit_price"]=0.0
+        try: it["total_price"]=float(it.get("total_price") or 0)
+        except: it["total_price"]=0.0
+        try: it["quantity"]=int(it.get("quantity") or 0)
+        except: it["quantity"]=0
+    return {"header":header,"items":items}
+
+@app.route("/withdraw/approve/<int:withdrawal_id>", methods=["POST"])
+def approve_withdrawal_action(withdrawal_id):
+    if session.get("role") != "Admin":
+        flash("Admin required.", "error")
+        return redirect(url_for("admin_withdraw_dashboard"))
+    admin_id=session.get("user_id")
+    ok,msg=approve_withdrawal(withdrawal_id, admin_id)
+    flash(msg, "success" if ok else "error")
+    return redirect(url_for("admin_withdraw_dashboard"))
+
+@app.route("/withdraw/reject/<int:withdrawal_id>", methods=["POST"])
+def reject_withdrawal_action(withdrawal_id):
+    if session.get("role") != "Admin":
+        flash("Admin required.", "error")
+        return redirect(url_for("admin_withdraw_dashboard"))
+    admin_id=session.get("user_id")
+    ok,msg=reject_withdrawal(withdrawal_id, admin_id)
+    flash(msg, "success" if ok else "error")
+    return redirect(url_for("admin_withdraw_dashboard"))
+
+# ============================================================
+# RETURN MODULE — Separate Admin/Staff
+# ============================================================
+@app.route("/admin/returns")
+def admin_return_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Returns.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") != "Admin":
+        flash("Admin access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    try:
+        returns = get_all_returns(search_query=search, status_filter=status_filter, user_id=None)
+        issued = get_issued_withdrawals()
+        products = get_return_products()
+    except Exception as err:
+        print(f"[admin_return] {err}")
+        flash("Database error loading Returns.", "error")
+        returns=[]; issued=[]; products=[]
+    return safe_render_template(
+        "Admin Dashboards/admin_return_dashboard.html",
+        user=session,
+        returns=returns,
+        issued_withdrawals=issued,
+        available_products=products,
+        search=search,
+        status_filter=status_filter
+    )
+
+@app.route("/returns")
+@app.route("/staff/returns")
+def staff_return_dashboard():
+    if "user_id" not in session:
+        flash("Please log in to access Returns.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    status_filter = request.args.get("status_filter", "All")
+    try:
+        returns = get_all_returns(search_query=search, status_filter=status_filter, user_id=None)
+        issued = get_issued_withdrawals()
+        products = get_return_products()
+    except Exception as err:
+        print(f"[staff_return] {err}")
+        flash("Database error loading Returns.", "error")
+        returns=[]; issued=[]; products=[]
+    return safe_render_template(
+        "Staff Dashboards/staff_return_dashboard.html",
+        user=session,
+        returns=returns,
+        issued_withdrawals=issued,
+        available_products=products,
+        search=search,
+        status_filter=status_filter
+    )
+
+@app.route("/returns/create", methods=["POST"])
+def create_return_action():
+    if "user_id" not in session:
+        flash("Please log in.", "error")
+        return redirect(url_for("login"))
+    user_id=session.get("user_id")
+    return_number=request.form.get("return_number","").strip()
+    withdrawal_id=request.form.get("withdrawal_id","").strip()
+    department=request.form.get("department","").strip()
+    reason=request.form.get("reason","").strip()
+    date_returned=request.form.get("date_returned","").strip()
+    product_ids=request.form.getlist("product_id[]")
+    quantities=request.form.getlist("returned_quantity[]")
+    conditions=request.form.getlist("condition_status[]")
+    if not all([return_number, department, reason]):
+        flash("Return Number, Department and Reason are required.", "error")
+        return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
+    if not product_ids:
+        flash("Add at least one item.", "error")
+        return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
+    items=[]
+    for i, pid_raw in enumerate(product_ids):
+        try:
+            pid=int(pid_raw.strip()) if pid_raw else None
+            if pid is None: continue
+            qty_raw=quantities[i].strip() if i < len(quantities) and quantities[i] else ""
+            if qty_raw=="":
+                flash(f"Returned quantity required row {i+1}.", "error")
+                return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
+            qty=int(qty_raw)
+            cond=conditions[i].strip() if i < len(conditions) and conditions[i] else "Serviceable"
+            if cond not in ("Serviceable","Unserviceable"):
+                cond="Serviceable"
+            items.append({"product_id":pid,"returned_quantity":qty,"condition_status":cond})
+        except (ValueError, IndexError, AttributeError):
+            flash(f"Invalid row {i+1}.", "error")
+            return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
+    success, result = create_return(user_id, return_number, withdrawal_id or None, department, reason, date_returned, items)
+    if success:
+        flash(f"Return {return_number} submitted! Pending approval (serviceable will restock on approve).", "success")
+    else:
+        flash(f"Failed: {result}", "error")
+    if session.get("role")=="Admin":
+        return redirect(url_for("admin_return_dashboard"))
+    return redirect(url_for("staff_return_dashboard"))
+
+@app.route("/returns/details/<int:return_id>")
+def get_return_details_api(return_id):
+    if "user_id" not in session:
+        return {"error":"Unauthorized"}, 401
+    header, items = get_return_details(return_id)
+    if not header:
+        return {"error":"Return not found"}, 404
+    try:
+        header["date_returned"]=header["date_returned"].strftime("%Y-%m-%d %H:%M:%S") if hasattr(header["date_returned"],"strftime") else str(header["date_returned"] or "")
+    except: header["date_returned"]=str(header.get("date_returned",""))
+    for it in items:
+        try: it["unit_price"]=float(it.get("unit_price") or 0)
+        except: it["unit_price"]=0.0
+        try: it["total_price"]=float(it.get("total_price") or 0)
+        except: it["total_price"]=0.0
+        try: it["returned_quantity"]=int(it.get("returned_quantity") or it.get("quantity") or 0)
+        except: it["returned_quantity"]=0
+    return {"header":header,"items":items}
+
+@app.route("/returns/approve/<int:return_id>", methods=["POST"])
+def approve_return_action(return_id):
+    if session.get("role") != "Admin":
+        flash("Admin required.", "error")
+        return redirect(url_for("admin_return_dashboard"))
+    admin_id=session.get("user_id")
+    ok,msg=approve_return(return_id, admin_id)
+    flash(msg, "success" if ok else "error")
+    return redirect(url_for("admin_return_dashboard"))
+
+@app.route("/returns/reject/<int:return_id>", methods=["POST"])
+def reject_return_action(return_id):
+    if session.get("role") != "Admin":
+        flash("Admin required.", "error")
+        return redirect(url_for("admin_return_dashboard"))
+    admin_id=session.get("user_id")
+    ok,msg=reject_return(return_id, admin_id)
+    flash(msg, "success" if ok else "error")
+    return redirect(url_for("admin_return_dashboard"))
 
 
 if __name__ == "__main__":
