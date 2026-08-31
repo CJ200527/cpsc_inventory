@@ -11,18 +11,18 @@ def get_db_connection():
             host="localhost",
             user="root",
             password="",
-            database="Production_Inventory_db"
+            database="production_inventory_db"
         )
         return conn
     except mysql.connector.Error as err:
         if err.errno == 1049:
             tmp = mysql.connector.connect(host="localhost", user="root", password="")
             cur = tmp.cursor()
-            cur.execute("CREATE DATABASE IF NOT EXISTS Production_Inventory_db")
+            cur.execute("CREATE DATABASE IF NOT EXISTS production_inventory_db")
             tmp.commit()
             cur.close()
             tmp.close()
             return mysql.connector.connect(
-                host="localhost", user="root", password="", database="Production_Inventory_db"
+                host="localhost", user="root", password="", database="production_inventory_db"
             )
         raise

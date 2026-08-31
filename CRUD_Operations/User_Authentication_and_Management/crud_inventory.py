@@ -1,8 +1,7 @@
 from db import get_db_connection
 
 def _ensure_inventory_schema(cursor):
-    """Ensure inventory table and Products reorder_level / current_stock exist."""
-    # Ensure Products has current_stock and reorder_level
+    """Ensure Products live columns exist — uses products.current_stock per spec, no legacy inventory table."""
     try:
         cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
         if not cursor.fetchone():
@@ -17,46 +16,7 @@ def _ensure_inventory_schema(cursor):
             cursor.execute("UPDATE Products SET reorder_level = 10 WHERE reorder_level IS NULL")
     except Exception:
         pass
-    # Create inventory ledger table (central real-time snapshot) if not exists
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS inventory (
-                inventory_id INT AUTO_INCREMENT PRIMARY KEY,
-                product_id INT NOT NULL UNIQUE,
-                current_stock INT DEFAULT 0,
-                reorder_level INT DEFAULT 10,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (product_id) REFERENCES Products(product_id) ON DELETE CASCADE
-            )
-        """)
-    except Exception:
-        pass
-    # Sync inventory from Products (keep ledger in sync)
-    try:
-        cursor.execute("""
-            INSERT INTO inventory (product_id, current_stock, reorder_level)
-            SELECT p.product_id, COALESCE(p.current_stock, p.quantity, 0), COALESCE(p.reorder_level, 10)
-            FROM Products p
-            ON DUPLICATE KEY UPDATE
-                current_stock = VALUES(current_stock),
-                reorder_level = VALUES(reorder_level)
-        """)
-    except Exception:
-        pass
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
-        has_cs = cursor.fetchone() is not None
-        cursor.execute("SHOW COLUMNS FROM inventory LIKE 'current_stock'")
-        has_inv = cursor.fetchone() is not None
-        if has_cs and has_inv:
-            cursor.execute("""
-                UPDATE inventory i
-                JOIN Products p ON i.product_id = p.product_id
-                SET i.current_stock = COALESCE(p.current_stock, p.quantity, 0)
-                WHERE i.current_stock != COALESCE(p.current_stock, p.quantity, 0)
-            """)
-    except Exception:
-        pass
+    # NOTE: Legacy `inventory` table is deleted per cleanup — do NOT recreate. Live balances are in products.current_stock and physical ledger `items`.
 
 def _stock_column(cursor):
     try:
