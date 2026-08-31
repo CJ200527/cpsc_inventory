@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CPSC Inventory - Supplier Management</title>
+    <title>CPSC Inventory - Staff Supplier Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
@@ -249,7 +249,15 @@
             width: 100%; padding: 8px 12px; background-color: #f2f2f2;
             border: 1.5px solid transparent; border-radius: 6px; font-size: 13px; outline: none;
         }
-        .modal-form input:focus { background-color: #ffffff; border-color: #53c5f1; box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2); }
+        .modal-form input:hover, .modal-form select:hover, .modal-form textarea:hover {
+            background-color: #e8e8e8;
+            border-color: #d0d0d0;
+        }
+        .modal-form input:focus, .modal-form select:focus, .modal-form textarea:focus {
+            background-color: #ffffff;
+            border-color: #53c5f1;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+        }
         .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
 
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
@@ -376,17 +384,16 @@
                 </div>
             </div>
 
-                        <div class="nav-menu">
-                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
+                                    <div class="nav-menu">
+                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
                 <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
                 <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
-                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
-                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
-                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="/admin/suppliers" class="nav-btn active"><span class="icon">🏬</span><span>Supplier</span></a>
-                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
-                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
+                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
+                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
+                <a href="{{ url_for('staff_suppliers') }}" class="nav-btn active"><span class="icon">🏬</span><span>Supplier</span></a>
+                <a href="{{ url_for('staff_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
             </div>
         </div>
 
@@ -401,7 +408,7 @@
         
         <div class="top-header">
             <div class="header-title-box">
-                <h1>Supplier Directory</h1>
+                <h1>Supplier Directory (Staff)</h1>
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
@@ -416,7 +423,7 @@
 
             <!-- SEARCH, FILTER AND ADD SUPPLIER BAR (mirrors user_management) -->
             <div class="control-card">
-                <form method="GET" action="/admin/suppliers" class="search-form" id="filter-form">
+                <form method="GET" action="{{ url_for('staff_suppliers') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
                         <span style="margin-right: 8px;">🔍</span>
                         <input type="text" name="search" value="{{ search }}" placeholder="Search Company Name, Contact Person, Phone, Email, City..." autocomplete="off">
@@ -425,7 +432,7 @@
                 </form>
 
                 <div class="filter-controls">
-                    <a href="/admin/suppliers" class="icon-btn" title="Refresh List">🔄 Refresh</a>
+                    <a href="{{ url_for('staff_suppliers') }}" class="icon-btn" title="Refresh List">🔄 Refresh</a>
                     <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
                         <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
                         <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
@@ -484,10 +491,7 @@
                                             ✏️
                                         </button>
 
-                                        <!-- Delete Supplier Button -->
-                                        <form method="POST" action="/admin/suppliers/delete/{{ s.supplier_id }}?search={{ search }}" onsubmit="return confirm('Delete supplier {{ s.supplier_name }}?')">
-                                            <button type="submit" class="btn-action btn-delete" title="Delete Supplier">✖</button>
-                                        </form>
+                                        <!-- Delete removed for Staff (Admin only) -->
                                     </div>
                                 </td>
                             </tr>
@@ -772,7 +776,7 @@
             }
 
             // Navigation-Only Unveil Trigger: suppress cascade on search/filter/refresh
-            const isNavigationFromOtherPage = document.referrer && !document.referrer.includes('/admin/suppliers');
+            const isNavigationFromOtherPage = document.referrer && !document.referrer.includes(window.location.pathname);
             const hasSearchOrFilter = window.location.search.length > 0;
             if (!isNavigationFromOtherPage || hasSearchOrFilter) {
                 document.querySelectorAll('.top-header, .cards-grid, .action-bar-card, .table-card, .dashboard-container, .control-card, .content-card, .workspace-grid')

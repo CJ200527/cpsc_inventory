@@ -138,7 +138,7 @@ def login():
             session["full_name"] = f"{user['Firstname']} {user['Lastname']}"
             session["role"] = user["Role"]
 
-            flash(f"Welcome back, {user['Firstname']}!", "success")
+            flash(f"Log In Successfully! Welcome {user['username']} 😊", "success")
             
             # Redirect based on user role
             if user["Role"] == "Admin":
@@ -174,10 +174,10 @@ def forgot_password():
             flash("Database error. Is MySQL running?", "error")
             return safe_render_template("LogIn and Registration/forgot_password.html")
         if success:
-            flash("Password updated successfully! You can now sign in with your new password.", "success")
+            flash("Password updated successfully! Please log in with your new password 😊", "success")
             return redirect(url_for("login"))
         else:
-            flash("Verification failed! Username and Contact Number do not match our records.", "error")
+            flash("Verification failed! Username and Contact Number do not match our records ⚠️", "error")
     return safe_render_template("LogIn and Registration/forgot_password.html")
 
 
@@ -200,6 +200,28 @@ def register():
         flash("Invalid contact number! Must be 11 digits starting with '09' (e.g., 09123456789).", "error")
         return redirect(url_for("login"))
 
+    # Case-Sensitive Username & Unique Contact Number Validation (Database Guard)
+    try:
+        conn_check = get_db_connection()
+        cur_check = conn_check.cursor()
+        cur_check.execute("SELECT id FROM Users WHERE BINARY username = %s", (username,))
+        if cur_check.fetchone():
+            flash("Username already exists (case-sensitive). Please choose another username.", "error")
+            cur_check.close()
+            conn_check.close()
+            return redirect(url_for("login"))
+        cur_check.execute("SELECT id FROM Users WHERE Contact_Number = %s", (contact_number,))
+        if cur_check.fetchone():
+            flash("Contact number already registered. Please use another number.", "error")
+            cur_check.close()
+            conn_check.close()
+            return redirect(url_for("login"))
+        cur_check.close()
+        conn_check.close()
+    except Exception as err:
+        print(f"[register] check DB error: {err}")
+        # Continue to attempt registration; crud will also guard
+
     try:
         success = register_user(
             first_name=first_name, middle_initial=middle_initial, last_name=last_name,
@@ -211,18 +233,22 @@ def register():
         return redirect(url_for("login"))
 
     if success:
-        flash("Account created! Please wait for Admin approval before signing in.", "success")
+        flash("Sign Up Successful! Please wait for Admin approval 😊😊😊", "success")
         return redirect(url_for("login"))
     else:
-        flash("Registration failed. Username may already be taken.", "error")
+        flash("Registration failed. Username or Contact Number may already be taken.", "error")
         return redirect(url_for("login"))
 
 
 # --- ROUTE 4: Logout Action ---
 @app.route("/logout")
 def logout():
+    username = session.get("username", "")
     session.clear()
-    flash("You have been logged out.", "info")
+    if username:
+        flash(f"Successfully logged out {username} 😢", "info")
+    else:
+        flash("Successfully logged out 😢", "info")
     return redirect(url_for("login"))
 
 # --- ROUTE 5: Admin Dashboard ---
@@ -314,12 +340,45 @@ def admin_update_user_action(target_id):
         if not re.fullmatch(r"09\d{9}", contact_number):
             flash("Invalid contact number! Must be 11 digits starting with '09' (e.g., 09123456789).", "error")
             return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
+
+        # Backend Uniqueness Guard: pre-check before calling crud (redundant safety)
         try:
-            success = update_user_info(user_id=target_id, first_name=first_name, middle_initial=middle_initial, last_name=last_name, username=username, role=role, contact_number=contact_number)
+            conn_check = get_db_connection()
+            cur_check = conn_check.cursor()
+            cur_check.execute("SELECT id FROM Users WHERE BINARY username = %s AND id != %s", (username, target_id))
+            if cur_check.fetchone():
+                flash(f"Failed to update user: Username '{username}' is already taken by another account.", "error")
+                cur_check.close()
+                conn_check.close()
+                return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
+            cur_check.execute("SELECT id FROM Users WHERE Contact_Number = %s AND id != %s", (contact_number, target_id))
+            if cur_check.fetchone():
+                flash(f"Failed to update user: Contact number '{contact_number}' is already registered to another account.", "error")
+                cur_check.close()
+                conn_check.close()
+                return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
+            cur_check.close()
+            conn_check.close()
+        except Exception as err:
+            print(f"[admin_update_user_action] duplicate check error: {err}")
+
+        try:
+            result = update_user_info(user_id=target_id, first_name=first_name, middle_initial=middle_initial, last_name=last_name, username=username, role=role, contact_number=contact_number)
+            # Support both tuple (success, msg) and legacy boolean
+            if isinstance(result, tuple):
+                success, msg = result
+            else:
+                success, msg = bool(result), None
+
             if success:
                 flash(f"User USR-{'%03d' % target_id} updated successfully!", "success")
             else:
-                flash(f"Failed to update USR-{'%03d' % target_id}. Username might already exist.", "error")
+                if msg and ("Username" in msg or "Contact number" in msg):
+                    flash(f"Failed to update user: {msg}", "error")
+                elif msg:
+                    flash(f"Failed to update user: {msg}", "error")
+                else:
+                    flash(f"Failed to update USR-{'%03d' % target_id}. Username might already exist.", "error")
         except Exception as err:
             flash(f"Update failed: {err}", "error")
     return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
@@ -341,12 +400,34 @@ def admin_suppliers():
         suppliers = []
     return safe_render_template("Admin Dashboards/supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
 
-# --- ACTION ROUTE: Add New Supplier ---
-@app.route("/admin/suppliers/add", methods=["POST"])
-def admin_add_supplier_action():
-    if session.get("role") != "Admin":
-        flash("Admin access required.", "error")
+# --- ROUTE: Staff Supplier Management View (Staff + Admin) ---
+@app.route("/staff/suppliers")
+def staff_suppliers():
+    if "user_id" not in session:
+        flash("Please log in to access Supplier Directory.", "error")
         return redirect(url_for("login"))
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    date_filter = request.args.get("date_filter", "All")
+    custom_date = request.args.get("custom_date", "")
+    try:
+        suppliers = get_all_suppliers(search_query=search, date_filter=date_filter, custom_date=custom_date)
+    except Exception as err:
+        print(f"[staff_suppliers] DB error: {err}")
+        flash("Database error while loading suppliers.", "error")
+        suppliers = []
+    return safe_render_template("Staff Dashboards/staff_supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
+
+# --- ACTION ROUTE: Add New Supplier (Admin + Staff) ---
+@app.route("/admin/suppliers/add", methods=["POST"])
+@app.route("/suppliers/add", methods=["POST"])
+def admin_add_supplier_action():
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Admin or Staff access required.", "error")
+        return redirect(url_for("login"))
+    _redir = "staff_suppliers" if session.get("role") == "Staff" else "admin_suppliers"
     supplier_name = request.form.get("supplier_name", "").strip()
     contact_person = request.form.get("contact_person", "").strip()
     contact_number = request.form.get("contact_number", "").strip()
@@ -358,25 +439,28 @@ def admin_add_supplier_action():
     country = request.form.get("country", "Philippines").strip() or "Philippines"
     if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
         flash("All fields are required. Please fill every textbox.", "error")
-        return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     if not re.fullmatch(r"09\d{9}", contact_number):
         flash("Invalid contact number! Must be 11 digits starting with 09.", "error")
-        return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     if "@" not in email or "." not in email:
         flash("Invalid email address.", "error")
-        return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         ok = add_supplier(supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country)
         flash(f"Supplier '{supplier_name}' added!" if ok else "Failed to add supplier.", "success" if ok else "error")
     except Exception as err:
         flash(f"Add failed: {err}", "error")
+    if session.get("role") == "Staff":
+        return redirect(url_for("staff_suppliers", search=request.args.get("search","")))
     return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
 
-# --- ACTION ROUTE: Update Supplier ---
+# --- ACTION ROUTE: Update Supplier (Admin + Staff) ---
 @app.route("/admin/suppliers/update/<int:target_id>", methods=["POST"])
+@app.route("/suppliers/update/<int:target_id>", methods=["POST"])
 def admin_update_supplier_action(target_id):
-    if session.get("role") != "Admin":
-        flash("Admin access required.", "error")
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Admin or Staff access required.", "error")
         return redirect(url_for("login"))
     supplier_name = request.form.get("supplier_name", "").strip()
     contact_person = request.form.get("contact_person", "").strip()
@@ -387,23 +471,28 @@ def admin_update_supplier_action(target_id):
     municipality = request.form.get("municipality", "").strip()
     city = request.form.get("city", "").strip()
     country = request.form.get("country", "Philippines").strip() or "Philippines"
+    _redir = "staff_suppliers" if session.get("role") == "Staff" else "admin_suppliers"
     if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
         flash("All fields are required. Please fill every textbox.", "error")
-        return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     if not re.fullmatch(r"09\d{9}", contact_number):
         flash("Invalid contact number! Must be 11 digits starting with 09.", "error")
-        return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         ok = update_supplier(target_id, supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country)
         flash(f"Supplier SUP-{target_id:03d} updated!" if ok else "Update failed.", "success" if ok else "error")
     except Exception as err:
         flash(f"Update failed: {err}", "error")
-    return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+    return redirect(url_for(_redir, search=request.args.get("search","")))
 
-# --- ACTION ROUTE: Delete Supplier ---
+# --- ACTION ROUTE: Delete Supplier (Admin Only) ---
 @app.route("/admin/suppliers/delete/<int:target_id>", methods=["POST"])
+@app.route("/suppliers/delete/<int:target_id>", methods=["POST"])
 def admin_delete_supplier_action(target_id):
     if session.get("role") != "Admin":
+        if session.get("role") == "Staff":
+            flash("Delete access denied: Only Admin can delete suppliers. Staff can only Add/Edit.", "error")
+            return redirect(url_for("staff_suppliers"))
         flash("Admin access required.", "error")
         return redirect(url_for("login"))
     try:
@@ -434,11 +523,34 @@ def admin_products():
         products = []; suppliers_list = []
     return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
 
-@app.route("/admin/products/add", methods=["POST"])
-def admin_add_product():
-    if session.get("role") != "Admin":
-        flash("Admin access required.", "error")
+# --- ROUTE: Staff Product Catalog View (Staff + Admin) ---
+@app.route("/staff/products")
+def staff_products():
+    if "user_id" not in session:
+        flash("Please log in to access Product Catalog.", "error")
         return redirect(url_for("login"))
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    search = request.args.get("search", "").strip()
+    date_filter = request.args.get("date_filter", "All")
+    custom_date = request.args.get("custom_date", "")
+    try:
+        products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date)
+        suppliers_list = get_suppliers_list()
+    except Exception as err:
+        print(f"[staff_products] DB error: {err}")
+        flash("Database error while loading products.", "error")
+        products = []; suppliers_list = []
+    return safe_render_template("Staff Dashboards/staff_product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
+
+@app.route("/admin/products/add", methods=["POST"])
+@app.route("/products/add", methods=["POST"])
+def admin_add_product():
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Admin or Staff access required.", "error")
+        return redirect(url_for("login"))
+    _redir = "staff_products" if session.get("role") == "Staff" else "admin_products"
     supplier_id = request.form.get("supplier_id", "").strip()
     product_name = request.form.get("product_name", "").strip()
     category = request.form.get("category", "").strip()
@@ -448,26 +560,28 @@ def admin_add_product():
     price = request.form.get("price", "").strip()
     if not all([supplier_id, product_name, category, unit, size, details, price]):
         flash("All fields are required (including price and specification).", "error")
-        return redirect(url_for("admin_products", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         supplier_id = int(supplier_id)
         price = float(price)
         if price < 0: raise ValueError
     except:
         flash("Price must be a valid number (0 or more) and supplier must be selected.", "error")
-        return redirect(url_for("admin_products", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         ok = add_product(supplier_id, product_name, category, details, unit, size, price)
         flash(f"Product '{product_name}' added!" if ok else "Failed to add product.", "success" if ok else "error")
     except Exception as err:
         flash(f"Add failed: {err}", "error")
-    return redirect(url_for("admin_products", search=request.args.get("search","")))
+    return redirect(url_for(_redir, search=request.args.get("search","")))
 
 @app.route("/admin/products/update/<int:target_id>", methods=["POST"])
+@app.route("/products/update/<int:target_id>", methods=["POST"])
 def admin_update_product(target_id):
-    if session.get("role") != "Admin":
-        flash("Admin access required.", "error")
+    if session.get("role") not in ["Admin", "Staff"]:
+        flash("Admin or Staff access required.", "error")
         return redirect(url_for("login"))
+    _redir = "staff_products" if session.get("role") == "Staff" else "admin_products"
     supplier_id = request.form.get("supplier_id", "").strip()
     product_name = request.form.get("product_name", "").strip()
     category = request.form.get("category", "").strip()
@@ -477,23 +591,27 @@ def admin_update_product(target_id):
     price = request.form.get("price", "").strip()
     if not all([supplier_id, product_name, category, unit, size, details, price]):
         flash("All fields are required.", "error")
-        return redirect(url_for("admin_products", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         supplier_id = int(supplier_id); price = float(price)
         if price < 0: raise ValueError
     except:
         flash("Invalid price or supplier.", "error")
-        return redirect(url_for("admin_products", search=request.args.get("search","")))
+        return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
         ok = update_product(target_id, supplier_id, product_name, category, details, unit, size, price)
         flash(f"Product PRD-{target_id:03d} updated!" if ok else "Update failed.", "success" if ok else "error")
     except Exception as err:
         flash(f"Update failed: {err}", "error")
-    return redirect(url_for("admin_products", search=request.args.get("search","")))
+    return redirect(url_for(_redir, search=request.args.get("search","")))
 
 @app.route("/admin/products/delete/<int:target_id>", methods=["POST"])
+@app.route("/products/delete/<int:target_id>", methods=["POST"])
 def admin_delete_product(target_id):
     if session.get("role") != "Admin":
+        if session.get("role") == "Staff":
+            flash("Delete access denied: Only Admin can delete products. Staff can only Add/Edit.", "error")
+            return redirect(url_for("staff_products"))
         flash("Admin access required.", "error")
         return redirect(url_for("login"))
     try:

@@ -2,21 +2,35 @@ from db import get_db_connection
 
 # --- 1. CREATE: Register New User ---
 def register_user(first_name, middle_initial, last_name, username, password, role="Staff", contact_number=""):
-    """Inserts a new user record (Approved_By = 0 by default)."""
+    """Inserts a new user record (Approved_By = 0 by default). Case-sensitive username & unique contact check."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    query = """
-    INSERT INTO Users (Firstname, MI, Lastname, fullname, username, password, Role, Contact_Number, Approved_By)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0);
-    """
     try:
+        # Case-Sensitive Username Check
+        cursor.execute("SELECT id FROM Users WHERE BINARY username = %s", (username,))
+        if cursor.fetchone():
+            print(f"Username already exists (case-sensitive): {username}")
+            return False
+        # Unique Contact Number Validation
+        cursor.execute("SELECT id FROM Users WHERE Contact_Number = %s", (contact_number,))
+        if cursor.fetchone():
+            print(f"Contact number already exists: {contact_number}")
+            return False
+
+        query = """
+        INSERT INTO Users (Firstname, MI, Lastname, fullname, username, password, Role, Contact_Number, Approved_By)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0);
+        """
         fullname = f"{first_name} {last_name}"
         cursor.execute(query, (first_name, middle_initial, last_name, fullname, username, password, role, contact_number))
         conn.commit()
         return True
     except Exception as err:
         print(f"Error registering user: {err}")
+        try:
+            conn.rollback()
+        except:
+            pass
         return False
     finally:
         cursor.close()
@@ -24,11 +38,11 @@ def register_user(first_name, middle_initial, last_name, username, password, rol
 
 # --- 2. READ: Authenticate Login ---
 def login_user(username, password):
-    """Verifies credentials and checks if approved by Admin."""
+    """Verifies credentials case-sensitive and checks if approved by Admin."""
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     
-    query = "SELECT * FROM Users WHERE username = %s AND password = %s;"
+    query = "SELECT * FROM Users WHERE BINARY username = %s AND BINARY password = %s;"
     cursor.execute(query, (username, password))
     user = cursor.fetchone()
     
@@ -48,8 +62,8 @@ def reset_password_verified(username, contact_number, new_password):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # 1. Check if username and contact number exist together
-    query_check = "SELECT user_id FROM users WHERE username = %s AND contact_number = %s;"
+    # 1. Check if username and contact number exist together (case-sensitive username)
+    query_check = "SELECT id FROM Users WHERE BINARY username = %s AND Contact_Number = %s;"
     cursor.execute(query_check, (username, contact_number))
     user = cursor.fetchone()
 
@@ -58,10 +72,9 @@ def reset_password_verified(username, contact_number, new_password):
         conn.close()
         return False  # Verification failed
 
-    # 2. Hash new password and update
-    new_hash = hash_password(new_password)
-    query_update = "UPDATE users SET password_hash = %s WHERE user_id = %s;"
-    cursor.execute(query_update, (new_hash, user["user_id"]))
+    # 2. Update password (plain as per existing schema)
+    query_update = "UPDATE Users SET password = %s WHERE id = %s;"
+    cursor.execute(query_update, (new_password, user["id"]))
     conn.commit()
 
     cursor.close()
@@ -151,26 +164,51 @@ def delete_user(user_id):
     cursor.close()
     conn.close()
     
-    # --- UPDATE: Edit User Information ---
+# --- UPDATE: Edit User Information ---
 def update_user_info(user_id, first_name, middle_initial, last_name, username, role, contact_number):
     """
-    Updates a user's details in MySQL without touching password_hash.
+    Updates a user's details in MySQL without touching password.
+    Backend Uniqueness Guard: username (BINARY case-sensitive) and contact_number must be unique across other accounts.
+    Returns (True, None) on success or (False, error_message) on duplicate.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    query = """
-    UPDATE Users
-    SET Firstname = %s, MI = %s, Lastname = %s, username = %s, Role = %s, Contact_Number = %s
-    WHERE id = %s;
-    """
     try:
+        # --- Duplicate Guard: Username (case-sensitive) ---
+        cursor.execute("SELECT id FROM Users WHERE BINARY username = %s AND id != %s", (username, user_id))
+        if cursor.fetchone():
+            return False, f"Username '{username}' is already taken by another account."
+
+        # --- Duplicate Guard: Contact Number ---
+        cursor.execute("SELECT id FROM Users WHERE Contact_Number = %s AND id != %s", (contact_number, user_id))
+        if cursor.fetchone():
+            return False, f"Contact number '{contact_number}' is already registered to another account."
+
+        query = """
+        UPDATE Users
+        SET Firstname = %s, MI = %s, Lastname = %s, username = %s, Role = %s, Contact_Number = %s
+        WHERE id = %s;
+        """
         cursor.execute(query, (first_name, middle_initial, last_name, username, role, contact_number, user_id))
         conn.commit()
-        return True
+        if cursor.rowcount == 0:
+            # No rows updated — user not found
+            return False, "User not found or no changes made."
+        return True, None
     except Exception as err:
         print(f"Error updating user: {err}")
-        return False
+        try:
+            conn.rollback()
+        except:
+            pass
+        return False, str(err)
     finally:
-        cursor.close()
-        conn.close()
+        try:
+            cursor.close()
+        except:
+            pass
+        try:
+            conn.close()
+        except:
+            pass

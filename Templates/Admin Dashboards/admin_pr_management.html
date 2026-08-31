@@ -11,17 +11,72 @@
         .hidden { display: none !important; }
 
         /* SIDEBAR NAVIGATION (ADMIN VERSION) */
-        .sidebar { width: 260px; background-color: #f7f0e8; border-right: 1px solid #e2d7ca; display: flex; flex-direction: column; justify-content: space-between; padding: 16px 14px; overflow-y: auto; flex-shrink: 0; box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03); }
+        .sidebar {
+    width: 260px;
+    background-color: #f7f0e8;
+    border-right: 1px solid #e2d7ca;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px 14px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
+}
         .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding: 0 4px; }
         .sidebar-logo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
         .school-title { font-size: 11px; font-weight: 700; color: #2c3e50; line-height: 1.25; text-transform: uppercase; }
         .school-subtitle { font-size: 9.5px; color: #666666; margin-top: 2px; font-weight: 400; }
-        .nav-menu { display: flex; flex-direction: column; gap: 8px; }
-        .nav-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%); border: 1px solid #d2d2d2; border-radius: 10px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9); font-size: 13px; font-weight: 600; color: #333333; text-decoration: none; cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1); user-select: none; }
-        .nav-btn .icon { font-size: 17px; display: flex; align-items: center; justify-content: center; width: 22px; }
-        .nav-btn:hover { background: #ffffff; border-color: #53c5f1; color: #0277bd; transform: translateY(-2px); box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25); }
-        .nav-btn:active { transform: translateY(0); }
-        .nav-btn.active { background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%); border-color: #53c5f1; color: #0277bd; box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3); }
+        .nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+        .nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 42px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
+    border: 1px solid #d2d2d2;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    font-weight: 600;
+    color: #333333;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    user-select: none;
+    box-sizing: border-box;
+}
+        .nav-btn .icon {
+    font-size: 17px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    flex-shrink: 0;
+}
+        .nav-btn:hover {
+    background: #ffffff;
+    border-color: #53c5f1;
+    color: #0277bd;
+    box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
+}
+        .nav-btn:active {
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+        .nav-btn.active {
+    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
+    border-color: #53c5f1;
+    color: #0277bd;
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
+}
         .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
         .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; border-color: #dc3545; box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3); }
         .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
@@ -87,9 +142,114 @@
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
         .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    
+        /* Global Floating Toast - Non-Disruptive Top-Center */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast-card {
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 300px;
+            max-width: 450px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.18);
+            animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), toastOut 0.4s ease 3.5s forwards;
+            background: #ffffff;
+            border: 1px solid #e0e0e0;
+        }
+        .toast-card.toast-success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .toast-card.toast-error, .toast-card.toast-danger {
+            background: #fdf7f7;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .toast-card.toast-info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .toast-icon { font-size: 16px; flex-shrink: 0; }
+        .toast-message { flex: 1; text-align: left; }
+        .toast-close {
+            background: transparent;
+            border: none;
+            color: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            opacity: 0.7;
+            padding: 0 4px;
+            line-height: 1;
+        }
+        .toast-close:hover { opacity: 1; }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(-30px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toastOut {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-20px) scale(0.9); }
+        }
+
+    
+        /* Progressive Top-to-Bottom Unveil (Internal Navigation - sidebar stays static) */
+        .cascade-unveil {
+            opacity: 0;
+            transform: translateY(-20px);
+            animation: progressiveReveal 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        @keyframes progressiveReveal {
+            0% {
+                opacity: 0;
+                transform: translateY(-20px);
+                clip-path: inset(0 0 100% 0);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                clip-path: inset(0 0 0 0);
+            }
+        }
+        .cascade-lock {
+            pointer-events: none !important;
+            user-select: none !important;
+        }
     </style>
 </head>
 <body>
+    <div id="toast-container" class="toast-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="toast-card toast-{{ category }}">
+                    <span class="toast-icon">
+                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                    </span>
+                    <span class="toast-message">{{ message }}</span>
+                    <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
 
     <!-- LEFT SIDEBAR (ADMIN PORTAL) -->
     <div class="sidebar">
@@ -105,45 +265,17 @@
                 </div>
             </div>
 
-            <div class="nav-menu">
-                <a href="/admin_dashboard" class="nav-btn">
-                    <span class="icon">💻</span>
-                    <span>Dashboard</span>
-                </a>
-                <a href="{{ url_for('pr_management') }}" class="nav-btn active">
-                    <span class="icon">📋</span>
-                    <span>PR</span>
-                </a>
-                <a href="{{ url_for('po_management') }}" class="nav-btn">
-                    <span class="icon">📝</span>
-                    <span>PO</span>
-                </a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn">
-                    <span class="icon">🚚</span>
-                    <span>Delivery</span>
-                </a>
-                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Inventory</span>
-                </a>
-                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span>
-                </a>
-                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span>
-                </a>
-                <a href="#" class="nav-btn">
-                    <span class="icon">📊</span>
-                    <span>Reports</span>
-                </a>
-                <a href="{{ url_for('admin_suppliers') }}" class="nav-btn">
-                    <span class="icon">🏬</span>
-                    <span>Supplier</span>
-                </a>
-                <a href="{{ url_for('admin_products') }}" class="nav-btn">
-                    <span class="icon">🏷️</span>
-                    <span>Products</span>
-                </a>
-                <a href="{{ url_for('admin_users') }}" class="nav-btn">
-                    <span class="icon">👥</span>
-                    <span>Users</span>
-                </a>
+                        <div class="nav-menu">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn active"><span class="icon">📋</span><span>Submit PR</span></a>
+                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
+                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
+                <a href="/admin/suppliers" class="nav-btn"><span class="icon">🏬</span><span>Supplier</span></a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
             </div>
         </div>
 
@@ -170,13 +302,7 @@
         </div>
 
         <div class="dashboard-container">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert-bar alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+            
 
             <!-- CONTROL BAR -->
             <div class="control-card">
@@ -395,6 +521,74 @@
                 });
         }
         function closeViewModal() { document.getElementById('view-modal').classList.add('hidden'); }
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toasts = document.querySelectorAll('.toast-card');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-20px) scale(0.9)';
+                    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 400);
+                }, 4000);
+            });
+        });
+    </script>
+
+
+    <!-- Progressive Cascade Unveil + Click Lock (Internal Navigation) -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const isFromLogin = document.referrer.includes('/login');
+            const skeleton = document.getElementById('skeleton-overlay');
+            // Only show skeleton when coming from /login, otherwise bypass and do cascade
+            if (!isFromLogin) {
+                document.getElementById('skeleton-overlay')?.remove();
+                const main = document.getElementById('main-dashboard-content');
+                if (main) { main.style.opacity = '1'; main.classList.add('loaded'); }
+                // Also handle dashboards that use .main-wrapper without #main-dashboard-content
+                const fallbackMain = document.querySelector('.main-wrapper') || document.body;
+                if (fallbackMain && !main) {
+                    fallbackMain.style.opacity = '1';
+                }
+            }
+            // Progressive cascade unveil - top to bottom, sidebar stays static
+            const header = document.querySelector('.top-header');
+            const cards = document.querySelector('.cards-grid');
+            const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .content-card, .workspace-grid');
+            // Only run cascade if internal navigation (not from login) OR if no skeleton present
+            if (!isFromLogin || !skeleton) {
+                if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
+                if (cards) { cards.classList.add('cascade-unveil'); cards.style.animationDelay = '0.25s'; }
+                tables.forEach(el => { 
+                    // avoid double-animating the container if it contains cards/header
+                    if (el.classList.contains('dashboard-container') && el.querySelector('.cards-grid')) return;
+                    el.classList.add('cascade-unveil'); el.style.animationDelay = '0.5s'; 
+                });
+                // Click lock during transition
+                const lockTarget = document.getElementById('main-dashboard-content') || document.querySelector('.main-wrapper') || document.querySelector('.dashboard-container') || document.body;
+                if (lockTarget) {
+                    lockTarget.classList.add('cascade-lock');
+                    lockTarget.style.pointerEvents = 'none';
+                    lockTarget.style.userSelect = 'none';
+                    const lastEl = tables.length ? tables[tables.length - 1] : (cards || header);
+                    if (lastEl) {
+                        lastEl.addEventListener('animationend', () => {
+                            lockTarget.classList.remove('cascade-lock');
+                            lockTarget.style.pointerEvents = 'auto';
+                            lockTarget.style.userSelect = 'auto';
+                        }, { once: true });
+                    }
+                    setTimeout(() => {
+                        lockTarget.classList.remove('cascade-lock');
+                        lockTarget.style.pointerEvents = 'auto';
+                        lockTarget.style.userSelect = 'auto';
+                    }, 1800);
+                }
+            }
+        });
     </script>
 </body>
 </html>
