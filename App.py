@@ -398,7 +398,27 @@ def admin_suppliers():
         print(f"[admin_suppliers] DB error: {err}")
         flash("Database error while loading suppliers.", "error")
         suppliers = []
-    return safe_render_template("Admin Dashboards/supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
+    # Dynamic Address Learning: fetch distinct existing addresses
+    try:
+        conn2 = get_db_connection()
+        cur = conn2.cursor(dictionary=True)
+        cur.execute("SELECT DISTINCT street FROM Supplier WHERE street IS NOT NULL AND street != ''")
+        existing_streets = [r['street'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT barangay FROM Supplier WHERE barangay IS NOT NULL AND barangay != ''")
+        existing_barangays = [r['barangay'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT municipality FROM Supplier WHERE municipality IS NOT NULL AND municipality != ''")
+        existing_municipalities = [r['municipality'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT city FROM Supplier WHERE city IS NOT NULL AND city != ''")
+        existing_cities = [r['city'] for r in cur.fetchall()]
+        cur.close()
+        conn2.close()
+    except Exception as e:
+        print(f"[admin_suppliers address learning] DB error: {e}")
+        existing_streets = []
+        existing_barangays = []
+        existing_municipalities = []
+        existing_cities = []
+    return safe_render_template("Admin Dashboards/supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date, existing_streets=existing_streets, existing_barangays=existing_barangays, existing_municipalities=existing_municipalities, existing_cities=existing_cities)
 
 # --- ROUTE: Staff Supplier Management View (Staff + Admin) ---
 @app.route("/staff/suppliers")
@@ -418,7 +438,27 @@ def staff_suppliers():
         print(f"[staff_suppliers] DB error: {err}")
         flash("Database error while loading suppliers.", "error")
         suppliers = []
-    return safe_render_template("Staff Dashboards/staff_supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date)
+    # Dynamic Address Learning: fetch distinct existing addresses (same as admin)
+    try:
+        conn2 = get_db_connection()
+        cur = conn2.cursor(dictionary=True)
+        cur.execute("SELECT DISTINCT street FROM Supplier WHERE street IS NOT NULL AND street != ''")
+        existing_streets = [r['street'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT barangay FROM Supplier WHERE barangay IS NOT NULL AND barangay != ''")
+        existing_barangays = [r['barangay'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT municipality FROM Supplier WHERE municipality IS NOT NULL AND municipality != ''")
+        existing_municipalities = [r['municipality'] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT city FROM Supplier WHERE city IS NOT NULL AND city != ''")
+        existing_cities = [r['city'] for r in cur.fetchall()]
+        cur.close()
+        conn2.close()
+    except Exception as e:
+        print(f"[staff_suppliers address learning] DB error: {e}")
+        existing_streets = []
+        existing_barangays = []
+        existing_municipalities = []
+        existing_cities = []
+    return safe_render_template("Staff Dashboards/staff_supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date, existing_streets=existing_streets, existing_barangays=existing_barangays, existing_municipalities=existing_municipalities, existing_cities=existing_cities)
 
 # --- ACTION ROUTE: Add New Supplier (Admin + Staff) ---
 @app.route("/admin/suppliers/add", methods=["POST"])
@@ -432,11 +472,12 @@ def admin_add_supplier_action():
     contact_person = request.form.get("contact_person", "").strip()
     contact_number = request.form.get("contact_number", "").strip()
     email = request.form.get("email", "").strip()
-    street = request.form.get("street", "").strip()
-    barangay = request.form.get("barangay", "").strip()
-    municipality = request.form.get("municipality", "").strip()
-    city = request.form.get("city", "").strip()
-    country = request.form.get("country", "Philippines").strip() or "Philippines"
+    # Sanitization & Title-Casing for addresses
+    street = request.form.get("street", "").strip().title()
+    barangay = request.form.get("barangay", "").strip().title()
+    municipality = request.form.get("municipality", "").strip().title()
+    city = request.form.get("city", "").strip().title()
+    country = request.form.get("country", "Philippines").strip().title() or "Philippines"
     if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
         flash("All fields are required. Please fill every textbox.", "error")
         return redirect(url_for(_redir, search=request.args.get("search","")))
@@ -466,11 +507,12 @@ def admin_update_supplier_action(target_id):
     contact_person = request.form.get("contact_person", "").strip()
     contact_number = request.form.get("contact_number", "").strip()
     email = request.form.get("email", "").strip()
-    street = request.form.get("street", "").strip()
-    barangay = request.form.get("barangay", "").strip()
-    municipality = request.form.get("municipality", "").strip()
-    city = request.form.get("city", "").strip()
-    country = request.form.get("country", "Philippines").strip() or "Philippines"
+    # Sanitization & Title-Casing for addresses
+    street = request.form.get("street", "").strip().title()
+    barangay = request.form.get("barangay", "").strip().title()
+    municipality = request.form.get("municipality", "").strip().title()
+    city = request.form.get("city", "").strip().title()
+    country = request.form.get("country", "Philippines").strip().title() or "Philippines"
     _redir = "staff_suppliers" if session.get("role") == "Staff" else "admin_suppliers"
     if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
         flash("All fields are required. Please fill every textbox.", "error")

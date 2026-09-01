@@ -544,28 +544,33 @@
                 <div class="form-grid-2">
                     <div class="input-group">
                         <label>Street *:</label>
-                        <input type="text" name="street" required autocomplete="off">
+                        <input type="text" name="street" id="add-street" list="street-list" required placeholder="Select or type street/purok..." autocomplete="off">
+                        <datalist id="street-list"></datalist>
                     </div>
                     <div class="input-group">
                         <label>Barangay *:</label>
-                        <input type="text" name="barangay" required autocomplete="off">
+                        <input type="text" name="barangay" id="add-barangay" list="barangay-list" required placeholder="Select or type barangay..." autocomplete="off">
+                        <datalist id="barangay-list"></datalist>
                     </div>
                 </div>
 
                 <div class="form-grid-2">
                     <div class="input-group">
                         <label>Municipality *:</label>
-                        <input type="text" name="municipality" required autocomplete="off">
+                        <input type="text" name="municipality" id="add-municipality" list="municipality-list" required placeholder="Select or type town..." autocomplete="off">
+                        <datalist id="municipality-list"></datalist>
                     </div>
                     <div class="input-group">
                         <label>City / Province *:</label>
-                        <input type="text" name="city" required autocomplete="off">
+                        <input type="text" name="city" id="add-city" list="city-list" required placeholder="Select or type province..." autocomplete="off" value="Camiguin">
+                        <datalist id="city-list"></datalist>
                     </div>
                 </div>
 
                 <div class="input-group">
                     <label>Country *:</label>
-                    <input type="text" name="country" value="Philippines" required>
+                    <input type="text" name="country" id="add-country" list="country-list" value="Philippines" required>
+                    <datalist id="country-list"><option value="Philippines"></option></datalist>
                 </div>
 
                 <div class="modal-buttons">
@@ -614,28 +619,33 @@
                 <div class="form-grid-2">
                     <div class="input-group">
                         <label>Street *:</label>
-                        <input type="text" id="edit-street" name="street" required autocomplete="off">
+                        <input type="text" id="edit-street" name="street" list="edit-street-list" required placeholder="Select or type street/purok..." autocomplete="off">
+                        <datalist id="edit-street-list"></datalist>
                     </div>
                     <div class="input-group">
                         <label>Barangay *:</label>
-                        <input type="text" id="edit-barangay" name="barangay" required autocomplete="off">
+                        <input type="text" id="edit-barangay" name="barangay" list="edit-barangay-list" required placeholder="Select or type barangay..." autocomplete="off">
+                        <datalist id="edit-barangay-list"></datalist>
                     </div>
                 </div>
 
                 <div class="form-grid-2">
                     <div class="input-group">
                         <label>Municipality *:</label>
-                        <input type="text" id="edit-municipality" name="municipality" required autocomplete="off">
+                        <input type="text" id="edit-municipality" name="municipality" list="edit-municipality-list" required placeholder="Select or type town..." autocomplete="off">
+                        <datalist id="edit-municipality-list"></datalist>
                     </div>
                     <div class="input-group">
                         <label>City / Province *:</label>
-                        <input type="text" id="edit-city" name="city" required autocomplete="off">
+                        <input type="text" id="edit-city" name="city" list="edit-city-list" required placeholder="Select or type province..." autocomplete="off">
+                        <datalist id="edit-city-list"></datalist>
                     </div>
                 </div>
 
                 <div class="input-group">
                     <label>Country *:</label>
-                    <input type="text" id="edit-country" name="country" required>
+                    <input type="text" id="edit-country" name="country" list="edit-country-list" required>
+                    <datalist id="edit-country-list"><option value="Philippines"></option></datalist>
                 </div>
 
                 <div class="modal-buttons">
@@ -709,6 +719,102 @@
                 e.preventDefault();
                 alert("Contact number must start with 09 and be exactly 11 digits (e.g., 09123456789).");
                 document.getElementById('edit-contact-number').focus();
+            }
+        });
+    </script>
+
+    <script>
+        // Pre-Loaded Local Camiguin Master Dataset (PSA) + Dynamic Address Learning
+        const CAMIGUIN_DATA = {
+            "Mambajao": [
+                "Agohay", "Agoho", "Anito", "Balbagon", "Baylao", "Benanaan", "Bug-ong", 
+                "Kuguita", "Magting", "Naasag", "Poblacion", "Soro-soro", "Tagdo", "Tupsan", "Yumbing"
+            ],
+            "Mahinog": [
+                "Benoni", "Binone", "Catohugan", "Hubangon", "Owakan", "Poblacion", "Puntod", 
+                "San Isidro", "San Jose", "San Miguel", "Santa Cruz", "Tubod", "Tuntungan"
+            ],
+            "Catarman": [
+                "Alangilan", "Bonbon", "Bura", "Catibac", "Compol", "Lawigan", "Lila", 
+                "Mainit", "Mandangao", "Panghiawan", "Poblacion", "Santa Cruz", "Santo Niño", "Tangaro", "Tuburan"
+            ],
+            "Guinsiliban": [
+                "Cabuan", "Canguinsa", "Liong", "Maac", "North Poblacion", "South Poblacion", "Santa Cruz"
+            ],
+            "Sagay": [
+                "Alangilan", "Bacunit", "Bugang", "Cogon", "Cuana", "Manuyog", "Mayana", "Poblacion", "Bonbon"
+            ]
+        };
+        const COMMON_STREETS = [
+            "National Highway", "Rizal Street", "Magsaysay Street", "Purok 1", "Purok 2", 
+            "Purok 3", "Purok 4", "Purok 5", "Purok 6", "Purok 7", "Circumferential Road", "CPSC Compound"
+        ];
+        const existingStreets = {{ existing_streets | default([], true) | tojson | safe }};
+        const existingBarangays = {{ existing_barangays | default([], true) | tojson | safe }};
+        const existingMunicipalities = {{ existing_municipalities | default([], true) | tojson | safe }};
+        const existingCities = {{ existing_cities | default([], true) | tojson | safe }};
+        function mergeUnique(...arrays) {
+            const seen = new Set();
+            const result = [];
+            arrays.flat().forEach(item => {
+                if (!item) return;
+                const trimmed = String(item).trim();
+                if (!trimmed) return;
+                const lower = trimmed.toLowerCase();
+                if (!seen.has(lower)) { seen.add(lower); result.push(trimmed); }
+            });
+            return result.sort((a,b) => a.localeCompare(b));
+        }
+        function populateDatalist(id, options) {
+            const dl = document.getElementById(id);
+            if (!dl) return;
+            dl.innerHTML = '';
+            options.forEach(opt => { const o = document.createElement('option'); o.value = opt; dl.appendChild(o); });
+        }
+        function getAllCamiguinBarangays() { return Object.values(CAMIGUIN_DATA).flat(); }
+        function populateAllAddressLists() {
+            const streets = mergeUnique(COMMON_STREETS, existingStreets);
+            const municipalities = mergeUnique(Object.keys(CAMIGUIN_DATA), existingMunicipalities);
+            const cities = mergeUnique(["Camiguin", "Camiguin Province"], existingCities);
+            const allBarangays = mergeUnique(getAllCamiguinBarangays(), existingBarangays);
+            populateDatalist('street-list', streets);
+            populateDatalist('edit-street-list', streets);
+            populateDatalist('municipality-list', municipalities);
+            populateDatalist('edit-municipality-list', municipalities);
+            populateDatalist('city-list', cities);
+            populateDatalist('edit-city-list', cities);
+            populateDatalist('barangay-list', allBarangays);
+            populateDatalist('edit-barangay-list', allBarangays);
+            populateDatalist('country-list', ["Philippines"]);
+            populateDatalist('edit-country-list', ["Philippines"]);
+        }
+        function filterBarangays(municipalityVal, targetListId) {
+            const input = municipalityVal ? municipalityVal.trim() : '';
+            const matchedTown = Object.keys(CAMIGUIN_DATA).find(t => t.toLowerCase() === input.toLowerCase());
+            let options = [];
+            if (matchedTown) {
+                const townBarangays = CAMIGUIN_DATA[matchedTown] || [];
+                const customBarangays = existingBarangays.filter(b => !getAllCamiguinBarangays().map(x=>x.toLowerCase()).includes(b.toLowerCase()));
+                options = mergeUnique(townBarangays, customBarangays);
+                if (options.length === 0) options = townBarangays;
+            } else if (!input) {
+                options = mergeUnique(getAllCamiguinBarangays(), existingBarangays);
+            } else {
+                options = mergeUnique(getAllCamiguinBarangays(), existingBarangays);
+            }
+            populateDatalist(targetListId, options);
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+            populateAllAddressLists();
+            const addMun = document.getElementById('add-municipality');
+            const editMun = document.getElementById('edit-municipality');
+            if (addMun) {
+                addMun.addEventListener('input', () => filterBarangays(addMun.value, 'barangay-list'));
+                addMun.addEventListener('change', () => filterBarangays(addMun.value, 'barangay-list'));
+            }
+            if (editMun) {
+                editMun.addEventListener('input', () => filterBarangays(editMun.value, 'edit-barangay-list'));
+                editMun.addEventListener('change', () => filterBarangays(editMun.value, 'edit-barangay-list'));
             }
         });
     </script>
