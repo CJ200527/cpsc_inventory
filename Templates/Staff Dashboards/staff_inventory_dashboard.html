@@ -221,6 +221,7 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -249,6 +250,7 @@
     </div>
 
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Inventory Ledger — Live Stock</h1>
@@ -300,6 +302,7 @@
 
             <div class="helper-text" style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:8px; padding:8px; color:#2e7d32;">Live ledger — auto-ingested when Admin approves IAR/Delivery.</div>
 
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('staff_inventory_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -325,6 +328,7 @@
                 </div>
             </div>
 
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>

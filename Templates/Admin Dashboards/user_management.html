@@ -464,6 +464,7 @@
 </div>
 
     <!-- SIDEBAR -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -497,6 +498,7 @@
     <!-- MAIN WORKSPACE -->
     <div class="main-wrapper">
         
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>User Management</h1>
@@ -514,6 +516,7 @@
             
 
             <!-- SEARCH AND FILTER CONTROLS BAR -->
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="/admin/users" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -544,6 +547,7 @@
             </div>
 
             <!-- USERS TABLE -->
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -630,6 +634,7 @@
     </div>
 
     <!-- EDIT USER MODAL POPUP -->
+    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier) ===== -->
     <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">

@@ -374,6 +374,8 @@
 </div>
 
     <!-- SIDEBAR -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button sequence, fixed 42px no shift) ===== -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -406,6 +408,8 @@
     <!-- MAIN WORKSPACE -->
     <div class="main-wrapper">
         
+        <!-- ===== TOP HEADER (Live clock #live-clock + user profile from Flask session) ===== -->
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Supplier Directory (Staff)</h1>
@@ -422,6 +426,8 @@
             
 
             <!-- SEARCH, FILTER AND ADD SUPPLIER BAR (mirrors user_management) -->
+            <!-- ===== CONTROL BAR (Search input + Date Filter + Refresh + Add Supplier/Product) ===== -->
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('staff_suppliers') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -448,6 +454,8 @@
             </div>
 
             <!-- SUPPLIERS TABLE -->
+            <!-- ===== DATA TABLE (Suppliers/Products with badges, hover, responsive) ===== -->
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -512,6 +520,8 @@
     </div>
 
     <!-- ADD SUPPLIER MODAL POPUP -->
+    <!-- ===== ADD MODAL (datalist autocomplete for Camiguin, static backdrop, hover/focus) ===== -->
+    <!-- ===== ADD MODAL (datalist Camiguin autocomplete, static backdrop, hover/focus) ===== -->
     <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">
@@ -582,6 +592,8 @@
     </div>
 
     <!-- EDIT SUPPLIER MODAL POPUP -->
+    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier, title-case) ===== -->
+    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier) ===== -->
     <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">
@@ -725,6 +737,11 @@
 
     <script>
         // Pre-Loaded Local Camiguin Master Dataset (PSA) + Dynamic Address Learning
+        // ===== SMART ADDRESS AUTOCOMPLETE =====
+        // Pre-Loaded PSA Camiguin Master Dataset (5 towns, 57 barangays) + COMMON_STREETS
+        // Merged with DB distinct values (existingStreets etc. from Flask via tojson) via mergeUnique() to avoid duplicates
+        // Cascading: Municipality oninput -> filterBarangays() shows town-specific barangays first
+        // HTML5 <datalist> retains freeform typing for non-Camiguin suppliers
         const CAMIGUIN_DATA = {
             "Mambajao": [
                 "Agohay", "Agoho", "Anito", "Balbagon", "Baylao", "Benanaan", "Bug-ong", 

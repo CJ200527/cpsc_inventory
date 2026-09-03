@@ -1,16 +1,34 @@
+"""
+Web-Based CPSC Production & Inventory Management System - Prototype 2
+================================================================
+Migrated from MS Access to Flask + MySQL. Handles Procurement (PR/PO),
+Delivery/IAR, and Inventory with Role-Based Access Control.
+
+Capstone Defense - Key Concepts:
+- Session Auth: Flask session stores user_id/username/role after login_user()
+- RBAC: Admin (full CRUD) vs Staff (Add/Edit only, Delete blocked)
+- PR/PO Price Variance: PR price = estimate; PO unit_price = vendor actual via adjusted_items
+- Address Learning: Supplier barangays/municipalities learned from DB distinct values
+
+Run: python App.py  (requires XAMPP MySQL, mysql-connector-python)
+"""
+
+# --- Standard Library Imports (PEP8: stdlib first) ---
 import os
 import sys
 import re
 from datetime import datetime
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+# --- Third-Party Imports ---
+from flask import Flask, render_template, request, redirect, url_for, session, flash  # Flask = micro-framework, Jinja2 templating, session
 
+# --- Local Application Imports (after sys.path setup) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 USER_MANAGEMENT_DIR = os.path.join(BASE_DIR, "CRUD_Operations", "User_Authentication_and_Management")
 if USER_MANAGEMENT_DIR not in sys.path:
-    sys.path.insert(0, USER_MANAGEMENT_DIR)
+    sys.path.insert(0, USER_MANAGEMENT_DIR)  # Allows `from db import` and `from crud_* import` from subfolder
 
-from db import get_db_connection
+from db import get_db_connection  # Central MySQL connector (auto-creates DB if missing)
 
 from crud_users import (
     register_user,
@@ -386,7 +404,9 @@ def admin_update_user_action(target_id):
 # --- ROUTE: Admin Supplier Management View & Search ---
 @app.route("/admin/suppliers")
 def admin_suppliers():
-    if "user_id" not in session or session.get("role") != "Admin":
+    """Admin Supplier View: RBAC guard (Admin only), loads suppliers + distinct addresses for Camiguin autocomplete (dynamic learning from Supplier table)."""
+    if "user_id" not in session or session.get("role") != "Admin":  # RBAC: block non-Admin, redirect to login with flash
+        flash("Admin access required.", "error")
         flash("Admin access required.", "error")
         return redirect(url_for("login"))
     search = request.args.get("search", "").strip()
@@ -423,7 +443,9 @@ def admin_suppliers():
 # --- ROUTE: Staff Supplier Management View (Staff + Admin) ---
 @app.route("/staff/suppliers")
 def staff_suppliers():
-    if "user_id" not in session:
+    """Staff Supplier View: RBAC (Staff+Admin), same data as admin but renders staff_supplier_management.html with Add/Edit only (Delete hidden)."""
+    if "user_id" not in session:  # Session check: must be logged in, else redirect
+        flash("Please log in to access Supplier Directory.", "error")
         flash("Please log in to access Supplier Directory.", "error")
         return redirect(url_for("login"))
     if session.get("role") not in ["Admin", "Staff"]:
@@ -865,10 +887,14 @@ def po_management():
     )
 
 # --- ACTION ROUTE: Generate PO from Approved PR ---
+# CRITICAL FIX (Prototype 2): PR price = estimate, PO unit_price = vendor actual.
+# Modal shows PR Est. Price (read-only) vs Actual PO Price (editable); adjusted_items overrides po_items.
 @app.route("/admin/po/generate", methods=["POST"])
 @app.route("/po/generate", methods=["POST"])
 def generate_po_action():
-    if session.get("role") not in ["Admin", "Staff"]:
+    """Generate PO: uses adjusted_items (vendor actuals) if provided, else falls back to PR items. Handles PR/PO price variance and marks has_po=1."""
+    if session.get("role") not in ["Admin", "Staff"]:  # RBAC: both roles can generate PO
+        flash("Login required to generate PO.", "error")
         flash("Login required to generate PO.", "error")
         return redirect(url_for("po_management"))
 
@@ -1151,17 +1177,47 @@ def get_delivery_details_api(delivery_id):
 
 @app.route("/delivery/approve/<int:delivery_id>", methods=["POST"])
 def approve_delivery_action(delivery_id):
-    """Step 2: Admin-only verification & stock ingestion."""
+    """
+    Step 2: Admin-only verification & stock ingestion (Study Guide - FIXED).
+    - Guard: Only Pending can be approved; double-click/refresh blocked via crud_delivery
+      check (status != Pending, approved_by not null, stock_movements exists).
+    - Exact Qty: Credits ONLY received_quantity per delivery_items to Products.current_stock
+      (not ordered qty, not PO total). Prevents ghost stock desync.
+    - Partial Handling: is_partial flag from delivery determines PO status Partial vs Delivered.
+    """
     if session.get("role") != "Admin":
         flash("Admin permission required to approve deliveries.", "error")
         return redirect(url_for("delivery_dashboard"))
 
+    # Idempotency guard at route level (extra safety before DB call)
+    # If delivery already Received, flash and do not call crud again
+    try:
+        from db import get_db_connection as _conn_check
+        _c = _conn_check()
+        _cur = _c.cursor(dictionary=True)
+        _cur.execute("SELECT status, approved_by FROM deliveries WHERE delivery_id=%s", (delivery_id,))
+        _row = _cur.fetchone()
+        _cur.close()
+        _c.close()
+        if _row and _row['status'] != 'Pending':
+            flash(f"Approve blocked: Delivery already '{_row['status']}' — possible double-click. Stock was already injected once.", "error")
+            return redirect(url_for("delivery_dashboard"))
+        if _row and _row.get('approved_by') is not None:
+            flash("Approve blocked: Delivery already has approver — stock already injected.", "error")
+            return redirect(url_for("delivery_dashboard"))
+    except Exception:
+        pass  # fallback to crud guard
+
     admin_id = session.get("user_id")
-    success, msg = approve_delivery(delivery_id, admin_id)
+    success, msg = approve_delivery(delivery_id, admin_id)  # crud handles FOR UPDATE lock + stock_movements check
     if success:
         flash(msg, "success")
     else:
-        flash(f"Approve failed: {msg}", "error")
+        # Show guard message clearly for double-click case
+        if "already" in msg.lower() or "blocked" in msg.lower() or "Pending" in msg:
+            flash(f"Approve blocked (idempotency guard): {msg}", "error")
+        else:
+            flash(f"Approve failed: {msg}", "error")
     return redirect(url_for("delivery_dashboard"))
 
 
@@ -1436,11 +1492,11 @@ def create_withdrawal_action():
         return redirect(url_for("admin_withdraw_dashboard"))
     return redirect(url_for("staff_withdraw_dashboard"))
 
-@app.route("/withdraw/details/<int:withdrawal_id>")
-def get_withdrawal_details_api(withdrawal_id):
+@app.route("/withdraw/details/<int:withdraw_id>")
+def get_withdrawal_details_api(withdraw_id):
     if "user_id" not in session:
         return {"error":"Unauthorized"}, 401
-    header, items = get_withdrawal_details(withdrawal_id)
+    header, items = get_withdrawal_details(withdraw_id)
     if not header:
         return {"error":"Withdrawal not found"}, 404
     try:
@@ -1458,23 +1514,23 @@ def get_withdrawal_details_api(withdrawal_id):
         except: it["quantity"]=0
     return {"header":header,"items":items}
 
-@app.route("/withdraw/approve/<int:withdrawal_id>", methods=["POST"])
-def approve_withdrawal_action(withdrawal_id):
+@app.route("/withdraw/approve/<int:withdraw_id>", methods=["POST"])
+def approve_withdrawal_action(withdraw_id):
     if session.get("role") != "Admin":
         flash("Admin required.", "error")
         return redirect(url_for("admin_withdraw_dashboard"))
     admin_id=session.get("user_id")
-    ok,msg=approve_withdrawal(withdrawal_id, admin_id)
+    ok,msg=approve_withdrawal(withdraw_id, admin_id)
     flash(msg, "success" if ok else "error")
     return redirect(url_for("admin_withdraw_dashboard"))
 
-@app.route("/withdraw/reject/<int:withdrawal_id>", methods=["POST"])
-def reject_withdrawal_action(withdrawal_id):
+@app.route("/withdraw/reject/<int:withdraw_id>", methods=["POST"])
+def reject_withdrawal_action(withdraw_id):
     if session.get("role") != "Admin":
         flash("Admin required.", "error")
         return redirect(url_for("admin_withdraw_dashboard"))
     admin_id=session.get("user_id")
-    ok,msg=reject_withdrawal(withdrawal_id, admin_id)
+    ok,msg=reject_withdrawal(withdraw_id, admin_id)
     flash(msg, "success" if ok else "error")
     return redirect(url_for("admin_withdraw_dashboard"))
 
@@ -1493,8 +1549,10 @@ def admin_return_dashboard():
     status_filter = request.args.get("status_filter", "All")
     try:
         returns = get_all_returns(search_query=search, status_filter=status_filter, user_id=None)
-        issued = get_issued_withdrawals()
+        # FIXED: Return now pulls directly from products (like Withdrawal), not from withdrawals
+        # get_return_products() does: SELECT product_id, product_name, category, unit, current_stock FROM products
         products = get_return_products()
+        issued = get_issued_withdrawals()  # kept for legacy modal that still shows RIS reference, but not required for product selection
     except Exception as err:
         print(f"[admin_return] {err}")
         flash("Database error loading Returns.", "error")
@@ -1519,8 +1577,10 @@ def staff_return_dashboard():
     status_filter = request.args.get("status_filter", "All")
     try:
         returns = get_all_returns(search_query=search, status_filter=status_filter, user_id=None)
-        issued = get_issued_withdrawals()
+        # FIXED: Return now pulls directly from products (like Withdrawal), not from withdrawals
+        # get_return_products() does: SELECT product_id, product_name, category, unit, current_stock FROM products
         products = get_return_products()
+        issued = get_issued_withdrawals()  # kept for legacy modal that still shows RIS reference, but not required for product selection
     except Exception as err:
         print(f"[staff_return] {err}")
         flash("Database error loading Returns.", "error")
@@ -1542,7 +1602,7 @@ def create_return_action():
         return redirect(url_for("login"))
     user_id=session.get("user_id")
     return_number=request.form.get("return_number","").strip()
-    withdrawal_id=request.form.get("withdrawal_id","").strip()
+    withdrawal_id=request.form.get("withdraw_id","").strip()
     department=request.form.get("department","").strip()
     reason=request.form.get("reason","").strip()
     date_returned=request.form.get("date_returned","").strip()
@@ -1572,9 +1632,9 @@ def create_return_action():
         except (ValueError, IndexError, AttributeError):
             flash(f"Invalid row {i+1}.", "error")
             return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
-    success, result = create_return(user_id, return_number, withdrawal_id or None, department, reason, date_returned, items)
+    success, result = create_return(user_id, return_number, withdraw_id or None, department, reason, date_returned, items)
     if success:
-        flash(f"Return {return_number} submitted! Pending approval (serviceable will restock on approve).", "success")
+        flash(f"Return {return_number} submitted! Pending approval (will DEDUCT from stock on approve, like Withdrawal).", "success")
     else:
         flash(f"Failed: {result}", "error")
     if session.get("role")=="Admin":

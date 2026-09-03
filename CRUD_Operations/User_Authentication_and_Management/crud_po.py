@@ -1,3 +1,9 @@
+"""crud_po.py — PO with Price Variance (Study Guide: Critical Fix)
+create_po_from_pr(): PR price (estimate) vs PO unit_price (vendor actual) can differ.
+If adjusted_items (from modal editable Actual PO Price) provided, uses it and recomputes total; else falls back to pr_items.
+Also handles has_po flag and status Pending PO Approval → Approved.
+"""
+
 from db import get_db_connection
 
 from datetime import datetime

@@ -1,7 +1,15 @@
+"""
+Supplier CRUD Module — Handles Supplier table (id, supplier_name, contact..., address fields).
+Used by Admin (full CRUD) and Staff (Add/Edit only) via App.py RBAC.
+All queries use parameterized SQL to prevent injection; dynamic address learning
+(SELECT DISTINCT street/barangay/...) is done in App.py and merged with Camiguin dataset in JS.
+"""
+
 from db import get_db_connection
 
 
 def get_all_suppliers_filtered(search_query="", date_filter="All", custom_date=""):
+    """Fetch suppliers with search + date filter; used by admin_suppliers/staff_suppliers. Supports distinct address learning."""
     """Fetch suppliers with optional search + date filter (mirrors user_management)."""
     conn = None
     cursor = None

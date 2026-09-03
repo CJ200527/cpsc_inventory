@@ -1,3 +1,8 @@
+"""crud_users.py — User Auth & RBAC (Study Guide)
+Handles Users (BINARY case-sensitive username, 09 contact). register_user() checks duplicates, login_user() checks Approved_By, update_user_info() guards duplicate BINARY username/contact for edits.
+Used by /login, /register, /admin/users, /forgot_password.
+"""
+
 from db import get_db_connection
 
 # --- 1. CREATE: Register New User ---

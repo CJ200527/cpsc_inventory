@@ -1,3 +1,8 @@
+"""crud_products.py — Product Catalog (Study Guide)
+Handles Products ↔ Supplier FK. get_all_products_filtered() supports search across product_name/category/supplier.
+Product ID preview PRD-001 uses products[0].product_id+1 (read-only #e9ecef). Searchable supplier via suppliers_list + datalist.
+"""
+
 from db import get_db_connection
 
 

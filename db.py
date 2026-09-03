@@ -1,3 +1,8 @@
+"""db.py — Central MySQL connector (Study Guide)
+Provides get_db_connection(): connects to Production_Inventory_db via mysql-connector-python.
+Auto-creates DB if missing (1049). Used by all crud_* modules. Keep credentials root/no-password for XAMPP.
+"""
+
 import mysql.connector
 
 def get_db_connection():

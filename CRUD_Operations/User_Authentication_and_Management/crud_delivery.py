@@ -1,3 +1,9 @@
+"""crud_delivery.py — Delivery 2-Step Workflow (Study Guide)
+Step 1 create_delivery(): inserts deliveries (Pending) + delivery_items (no stock change), is_partial auto-computed.
+Step 2 approve_delivery(): Admin only — sets Received, approved_by, credits products.current_stock, updates PO Partial/Delivered.
+Uses parameterized SQL; helper get_deliverable_pos() lists Approved POs ready for IAR.
+"""
+
 from db import get_db_connection
 from datetime import datetime
 
@@ -614,7 +620,9 @@ def get_delivery_details(delivery_id):
 
 
 # ============================================================
-# 5. Approve — ingest stock
+# 5. Approve — ingest stock (FIXED: exact qty + double-injection guard)
+#    Guard: Only Pending can be approved; block if already Received/Injected or stock_movement exists.
+#    Adds EXACT received_quantity per item to Products.current_stock (not ordered qty).
 # ============================================================
 def approve_delivery(delivery_id, admin_user_id):
     conn = None
@@ -623,12 +631,26 @@ def approve_delivery(delivery_id, admin_user_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         _ensure_delivery_schema(cursor)
-        cursor.execute("SELECT * FROM deliveries WHERE delivery_id = %s", (delivery_id,))
+        # Use FOR UPDATE to lock row and prevent race double-click
+        try:
+            cursor.execute("SELECT * FROM deliveries WHERE delivery_id = %s FOR UPDATE", (delivery_id,))
+        except Exception:
+            cursor.execute("SELECT * FROM deliveries WHERE delivery_id = %s", (delivery_id,))
         delivery = cursor.fetchone()
         if not delivery:
             return False, "Delivery not found."
+        # --- STRICT GUARD: prevent double stock injection ---
         if delivery['status'] != 'Pending':
-            return False, f"Only Pending deliveries can be approved. Current: {delivery['status']}"
+            return False, f"Only Pending deliveries can be approved. Current: {delivery['status']} — possible double-click blocked."
+        if delivery.get('approved_by') is not None:
+            return False, "Delivery already approved — stock already injected (approved_by is set)."
+        # Check stock_movements for existing injection (idempotency)
+        try:
+            cursor.execute("SELECT 1 FROM stock_movements WHERE reference_type='Delivery' AND reference_id=%s LIMIT 1", (delivery_id,))
+            if cursor.fetchone():
+                return False, "Stock already injected for this delivery — double approval blocked (stock_movements exists)."
+        except Exception:
+            pass  # table may not exist yet, ignore
         cursor.execute("SELECT * FROM delivery_items WHERE delivery_id = %s", (delivery_id,))
         items = cursor.fetchall()
         if not items:

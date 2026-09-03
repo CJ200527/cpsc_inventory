@@ -1,3 +1,8 @@
+"""crud_inventory.py — Live Inventory Ledger (Study Guide)
+Reads Products.current_stock (live ledger, not static quantity). Provides get_inventory_summary() (total_unique, asset_value, low/out counts) and get_inventory_items() with category/stock filters.
+Used by /admin/inventory and /staff/inventory dashboards.
+"""
+
 from db import get_db_connection
 
 def _ensure_inventory_schema(cursor):

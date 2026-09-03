@@ -252,6 +252,8 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button sequence, fixed 42px no shift) ===== -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -274,12 +276,16 @@
         <div><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span> Log Out</a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
     </div>
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + user profile from Flask session) ===== -->
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box"><h1>Product Catalog</h1><div class="date-time-box" id="live-clock">Loading Date & Time...</div></div>
             <div class="user-profile-box"><div class="user-name">{{ user.full_name }}</div><div class="user-role">{{ user.role }}</div></div>
         </div>
         <div class="dashboard-container">
             
+            <!-- ===== CONTROL BAR (Search input + Date Filter + Refresh + Add Supplier/Product) ===== -->
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('admin_products') }}" class="search-form" id="filter-form">
                     <div class="search-input-box"><span style="margin-right:8px;">🔍</span><input type="text" name="search" value="{{ search }}" placeholder="Search Product, Category, Supplier, Price..." autocomplete="off"></div>
@@ -298,6 +304,8 @@
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Add Product</button>
                 </div>
             </div>
+            <!-- ===== DATA TABLE (Suppliers/Products with badges, hover, responsive) ===== -->
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -344,6 +352,8 @@
         </div>
     </div>
     <!-- ADD MODAL -->
+    <!-- ===== ADD MODAL (datalist autocomplete for Camiguin, static backdrop, hover/focus) ===== -->
+    <!-- ===== ADD MODAL (datalist Camiguin autocomplete, static backdrop, hover/focus) ===== -->
     <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header"><h3>Add New Product</h3><button type="button" class="close-btn" onclick="closeAddModal()">✖</button></div>
@@ -402,6 +412,8 @@
         </div>
     </div>
     <!-- EDIT MODAL -->
+    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier, title-case) ===== -->
+    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier) ===== -->
     <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header"><h3>Edit Product</h3><button type="button" class="close-btn" onclick="closeEditModal()">✖</button></div>

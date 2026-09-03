@@ -252,6 +252,7 @@
 </div>
 
     <!-- LEFT SIDEBAR (ADMIN PORTAL) -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -290,6 +291,7 @@
 
     <!-- MAIN WORKSPACE -->
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Purchase Requests Directory</h1>
@@ -305,6 +307,7 @@
             
 
             <!-- CONTROL BAR -->
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="/pr" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -328,6 +331,7 @@
             </div>
 
             <!-- PR TABLE (ADMIN VIEW WITH APPROVE/REJECT ACTIONS) -->
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -374,6 +378,7 @@
     </div>
 
     <!-- CREATE PR MODAL -->
+    <!-- ===== ADD MODAL (datalist Camiguin autocomplete, static backdrop, hover/focus) ===== -->
     <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header">

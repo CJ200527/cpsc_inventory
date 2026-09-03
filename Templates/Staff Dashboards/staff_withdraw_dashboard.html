@@ -231,6 +231,7 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -253,6 +254,7 @@
     </div>
 
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Withdrawal — Request Stock (RIS)</h1>
@@ -269,6 +271,7 @@
 
             <div style="background:#e8f5e9; border:1px solid #c8e6c9; border-radius:8px; padding:8px 12px; font-size:11px; color:#2e7d32;">Live inventory check — requested ≤ current_stock. Pending until Admin approves and deducts stock.</div>
 
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('staff_withdraw_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -289,6 +292,7 @@
                 </div>
             </div>
 
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -317,7 +321,7 @@
                                 <td><span class="price-badge">₱ {{ "{:,.2f}".format(w.total_amount or 0) }}</span></td>
                                 <td><span class="badge badge-{{ w.status|lower }}">{{ w.status }}</span></td>
                                 <td>
-                                    <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdrawal_id }})">👁️ View</button>
+                                    <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})">👁️ View</button>
                                 </td>
                             </tr>
                             {% endfor %}

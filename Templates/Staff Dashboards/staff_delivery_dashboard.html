@@ -233,6 +233,7 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -261,6 +262,7 @@
     </div>
 
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Delivery & IAR — Receiving</h1>
@@ -275,6 +277,7 @@
         <div class="dashboard-container">
             
 
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -299,6 +302,7 @@
                 </div>
             </div>
 
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>

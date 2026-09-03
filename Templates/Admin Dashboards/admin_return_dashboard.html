@@ -232,6 +232,7 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -255,6 +256,7 @@
     </div>
 
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Return Slip — Admin Verification</h1>
@@ -271,6 +273,7 @@
 
             <div style="background:#e3f2fd; border:1px solid #90caf9; border-radius:8px; padding:10px 12px; font-size:11px; color:#0d47a1;">🔄 Return queue — <strong>Serviceable</strong> restocks <code>products.current_stock</code> on approve; <strong>Unserviceable</strong> flagged for disposal (no stock credit) but logged in <code>stock_movements</code>.</div>
 
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('admin_return_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -291,6 +294,7 @@
                 </div>
             </div>
 
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -355,10 +359,10 @@
                     <div class="form-group"><label>Return Slip Number *</label><input type="text" name="return_number" placeholder="RET-2026-001" required></div>
                     <div class="form-group">
                         <label>Original RIS Number (optional)</label>
-                        <select name="withdrawal_id" id="withdrawal-select" onchange="onWithdrawalSelect(this.value)">
+                        <select name="withdraw_id" id="withdraw-select" onchange="onWithdrawalSelect(this.value)">
                             <option value="">— Direct product selection (no RIS) —</option>
                             {% for w in issued_withdrawals %}
-                            <option value="{{ w.withdrawal_id }}">{{ w.ris_number }} — {{ w.department }} — {{ w.Firstname }} {{ w.Lastname }}</option>
+                            <option value="{{ w.withdraw_id }}">{{ w.ris_number }} — {{ w.department }} — {{ w.Firstname }} {{ w.Lastname }}</option>
                             {% endfor %}
                         </select>
                         <small style="font-size:10px; color:#666;">If selected, returned ≤ issued qty validated.</small>
@@ -418,7 +422,7 @@
     <script>
         const issuedWithdrawals = [
             {% for w in issued_withdrawals %}
-            { id: {{ w.withdrawal_id }}, ris: "{{ w.ris_number }}" }{% if not loop.last %},{% endif %}
+            { id: {{ w.withdraw_id }}, ris: "{{ w.ris_number }}" }{% if not loop.last %},{% endif %}
             {% endfor %}
         ];
         const availableProducts = [
@@ -427,7 +431,7 @@
             {% if not loop.last %},{% endif %}
             {% endfor %}
         ];
-        let withdrawalItemsMap = {}; // withdrawal_id -> items from server
+        let withdrawalItemsMap = {}; // withdraw_id -> items from server
         function updateClock(){ const now=new Date(); document.getElementById('live-clock').innerText=`${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} | ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`; }
         setInterval(updateClock,1000); updateClock();
 
@@ -436,7 +440,7 @@
             addReturnRow();
             document.getElementById('return-modal').classList.remove('hidden');
             const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d && !d.value) d.valueAsDate=new Date();
-            document.getElementById('withdrawal-select').selectedIndex=0;
+            document.getElementById('withdraw-select').selectedIndex=0;
             withdrawalItemsMap={};
         }
         function closeReturnModal(){ document.getElementById('return-modal').classList.add('hidden'); }
@@ -495,7 +499,7 @@
             document.getElementById(`r-prod-${rowId}`).value=p.id;
             document.getElementById(`r-unit-${rowId}`).innerText=p.unit;
             const issuedValEl=document.getElementById(`r-issued-val-${rowId}`);
-            const wid=document.getElementById('withdrawal-select').value;
+            const wid=document.getElementById('withdraw-select').value;
             if(wid && withdrawalItemsMap[wid]){
                 const issuedItem=withdrawalItemsMap[wid].find(it=>String(it.product_id)===String(p.id));
                 const issuedQty=issuedItem? issuedItem.quantity : '—';

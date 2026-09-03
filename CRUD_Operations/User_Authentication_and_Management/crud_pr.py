@@ -1,3 +1,9 @@
+"""crud_pr.py — Purchase Request Workflow (Study Guide)
+create_purchase_request(): inserts header + pr_items in transaction, generates PR-YYYY-XXX.
+get_all_purchase_requests() supports search + status/date filters, joined with Users.
+update_pr_status() for Admin approve/reject.
+"""
+
 from db import get_db_connection
 
 from datetime import datetime

@@ -233,6 +233,7 @@
         {% endif %}
     {% endwith %}
 </div>
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
             <div class="sidebar-header">
@@ -262,6 +263,7 @@
     </div>
 
     <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
                 <h1>Delivery & IAR — Admin Approval Queue</h1>
@@ -278,6 +280,7 @@
 
             <div class="approval-notice">📥 Pending deliveries await approval — <strong>Approve</strong> to credit <code>products.current_stock</code>. Use <strong>Complete</strong> on a partial row to add remaining quantity (shows REMAINING, not original ordered).</div>
 
+            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
@@ -302,6 +305,7 @@
                 </div>
             </div>
 
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
                     <thead>
@@ -664,8 +668,16 @@
         }
         function confirmApproveDelivery(){
             if(!pendingApproveDeliveryId) return;
+            // Frontend double-click guard: disable button, show processing, block second submit via sessionStorage
+            const btn = document.querySelector('#approve-confirm-modal .btn-modal-save');
+            if(btn) { btn.disabled = true; btn.innerHTML = '⏳ Processing...'; btn.style.opacity = '0.6'; btn.style.pointerEvents = 'none'; }
             const form = document.getElementById('approve-hidden-form');
             form.action = '/delivery/approve/' + pendingApproveDeliveryId;
+            const key = 'approving_' + pendingApproveDeliveryId;
+            if(sessionStorage.getItem(key)) return; // already submitting
+            sessionStorage.setItem(key, '1');
+            // Also prevent refresh double-submit: clear after 5s
+            setTimeout(() => sessionStorage.removeItem(key), 5000);
             form.submit();
         }
     </script>

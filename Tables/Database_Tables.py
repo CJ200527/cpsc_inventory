@@ -1,3 +1,8 @@
+"""Database_Tables.py — Schema Builder (Study Guide)
+Creates all tables in dependency order: Users → Supplier → Products → purchase_requests/pr_items → purchase_orders/po_items → deliveries/delivery_items → inventory/withdraw/return.
+Run: python Tables/Database_Tables.py (requires XAMPP MySQL running).
+"""
+
 import mysql.connector
 
 
