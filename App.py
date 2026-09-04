@@ -46,6 +46,7 @@ from crud_users import (
 from crud_products import (
     get_all_products,
     get_all_products_filtered,
+    get_products_for_pr_picker,
     add_product,
     update_product,
     delete_product,
@@ -737,7 +738,7 @@ def products_list_api():
     if "user_id" not in session:
         return {"error": "Unauthorized"}, 401
     try:
-        products = get_all_products()
+        products = get_products_for_pr_picker()
     except Exception as err:
         print(f"[products_list_api] DB error: {err}")
         return {"error": str(err)}, 500
@@ -755,6 +756,9 @@ def products_list_api():
             "size": p.get("size") or "",
             "details": p.get("details") or "",
             "price": price,
+            # Smart-lock flag: TRUE = locked history (Approved/Completed PR or
+            # delivery); FALSE = draft product editable from the PR form.
+            "is_established": bool(p.get("is_established")),
         })
     return {"products": out}
 

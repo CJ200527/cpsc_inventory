@@ -62,6 +62,47 @@ def get_suppliers_list():
     return []
 
 
+def get_products_for_pr_picker():
+    """Master Catalog list for the PR item-name datalist, with history flag.
+
+    is_established is TRUE when the product appears in ANY delivery_items
+    row or in pr_items tied to an Approved/Completed PR (locked history);
+    FALSE when it only exists in Pending PRs (editable draft product).
+    No DDL — SELECT only.
+    """
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT p.product_id, p.product_name, p.category, p.unit,
+                   p.size, p.details, p.price,
+                   CASE WHEN EXISTS (
+                       SELECT 1 FROM delivery_items di
+                       WHERE di.product_id = p.product_id
+                   ) OR EXISTS (
+                       SELECT 1 FROM pr_items pri
+                       JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
+                       WHERE pri.product_id = p.product_id
+                         AND pr.status IN ('Approved', 'Completed')
+                   ) THEN 1 ELSE 0 END AS is_established
+            FROM products p
+            ORDER BY p.product_name ASC
+        """)
+        return cursor.fetchall()
+    except Exception as err:
+        print(f"[get_products_for_pr_picker] DB error: {err}")
+        return []
+    finally:
+        if cursor is not None:
+            try: cursor.close()
+            except: pass
+        if conn is not None:
+            try: conn.close()
+            except: pass
+
+
 def add_product(supplier_id=None, product_name="", category="General", details="", unit="pcs", size="N/A", price=0.00, quantity=0, **kwargs):
     """supplier_id ignored (no supplier column in finalized products table)."""
     # Backwards compat: allow add_product(product_name, ...) positional shifts

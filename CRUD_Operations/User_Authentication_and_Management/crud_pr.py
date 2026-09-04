@@ -33,54 +33,109 @@ def generate_pr_number():
         if conn: conn.close()
 
 
+# --- Product history guard: established catalog rows are immutable ---
+def is_product_established(cursor, product_id):
+    """TRUE when the product is in ANY delivery_items row or in pr_items of
+    an Approved/Completed PR (locked history). Fail-safe returns TRUE so an
+    uncertain check protects history instead of overwriting it."""
+    try:
+        cursor.execute("SELECT 1 FROM delivery_items WHERE product_id = %s LIMIT 1",
+                       (product_id,))
+        if cursor.fetchone():
+            return True
+        cursor.execute(
+            """SELECT 1 FROM pr_items pri
+               JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
+               WHERE pri.product_id = %s
+                 AND pr.status IN ('Approved', 'Completed') LIMIT 1""",
+            (product_id,))
+        return cursor.fetchone() is not None
+    except Exception as err:
+        print(f"[is_product_established] DB error: {err}")
+        return True
+
+
+def _sync_product_specs(cursor, product_id, item):
+    """Normalizes a matched DRAFT product row to the submitted specs (price
+    EXCLUDED — catalog prices change only on PR approval, never on save).
+    Established rows are left untouched to protect history.
+    Returns True when the catalog was updated."""
+    if is_product_established(cursor, product_id):
+        return False
+    cursor.execute(
+        """UPDATE products
+           SET product_name = %s, category = %s, unit = %s,
+               details = %s, size = %s
+           WHERE product_id = %s""",
+        (item['item_name'],
+         (item.get('category') or '').strip() or 'General',
+         (item.get('unit') or '').strip() or 'pcs',
+         item.get('details') or '',
+         (item.get('size') or '').strip() or 'N/A',
+         product_id))
+    return True
+
+
 # --- 1. CREATE: Submit Purchase Request with Line Items ---
 def _resolve_product_id(cursor, item):
-    """Just-in-time product resolution (no DDL — SELECT/INSERT only).
+    """Composite-identity product resolution (variants; no DDL — SELECT/INSERT only).
 
-    Returns the products.product_id for a PR line: reuses the given
-    product_id when it exists, else matches by exact item_name, else
-    inserts a new Master Catalog row (lazy creation) and returns its id.
-    `cursor` may be a plain or dictionary cursor.
+    Matches on the 5-field composite key (item_name, category, unit, size,
+    details) — price is IGNORED. Exact match → existing product id; any
+    difference → INSERT a NEW product variant and return its id. A valid
+    legacy product_id is honored as an explicit link.
+    Returns (product_id, is_new). `cursor` may be plain or dictionary.
     """
     pid = item.get('product_id')
     if pid:
         try:
             cursor.execute("SELECT product_id FROM products WHERE product_id = %s", (int(pid),))
             if cursor.fetchone():
-                return int(pid)
+                return int(pid), False
         except Exception:
             pass
-    name = (item.get('item_name') or '').strip()
-    if name:
-        cursor.execute("SELECT product_id FROM products WHERE product_name = %s LIMIT 1", (name,))
-        row = cursor.fetchone()
-        if row:
-            try:
-                return int(row['product_id']) if isinstance(row, dict) else int(row[0])
-            except Exception:
-                pass
-    # Lazy creation: brand-new typed item becomes a catalog product (zero stock).
+    # Normalized composite key (same normalization used at INSERT time).
+    name = (item.get('item_name') or '').strip() or 'Unnamed Item'
+    category = (item.get('category') or '').strip() or 'General'
+    unit = (item.get('unit') or '').strip() or 'pcs'
+    size = (item.get('size') or '').strip() or 'N/A'
+    details = item.get('details') or ''
+    cursor.execute(
+        """SELECT product_id FROM products
+           WHERE product_name = %s
+             AND COALESCE(category, '') = %s
+             AND COALESCE(unit, '') = %s
+             AND COALESCE(size, '') = %s
+             AND COALESCE(details, '') = %s
+           LIMIT 1""",
+        (name, category, unit, size, details))
+    row = cursor.fetchone()
+    if row:
+        try:
+            return (int(row['product_id']) if isinstance(row, dict)
+                    else int(row[0])), False
+        except Exception:
+            pass
+    # No exact variant — create a NEW product variant (zero stock).
     cursor.execute(
         """INSERT INTO products
            (product_name, category, details, unit, size, price, quantity, current_stock)
            VALUES (%s, %s, %s, %s, %s, %s, 0, 0)""",
-        (name or 'Unnamed Item',
-         (item.get('category') or '').strip() or 'General',
-         item.get('details') or '',
-         (item.get('unit') or '').strip() or 'pcs',
-         (item.get('size') or '').strip() or 'N/A',
-         float(item.get('price', 0)))
-    )
-    return cursor.lastrowid
+        (name, category, details, unit, size, float(item.get('price', 0))))
+    return cursor.lastrowid, True
 
 
 def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_requested=None):
     """
     Inserts a purchase_requests header and pr_items line items in a single transaction.
     `items_list` expects a list of dicts with:
-    [{'product_id': 2 (optional — lazy-created when missing),
+    [{'product_id': 2 (optional legacy link),
       'item_name': 'Paper', 'category': 'Supplies',
       'unit': 'ream', 'details': '', 'size': 'A4', 'price': 250.00, 'quantity': 5}, ...]
+    Composite identity: lines link by exact (item_name, category, unit,
+    size, details) — price ignored; any spec difference creates a NEW
+    product variant. Matched draft rows are spec-normalized (established
+    rows untouched); catalog prices change only on PR approval.
     `fund_source` defaults to 'Fund 05'; `date_requested` ('YYYY-MM-DD' or
     'YYYY-MM-DD HH:MM:SS') defaults to the DB CURRENT_TIMESTAMP when omitted.
     NOTE: supplier_id is intentionally ignored (no supplier table; supplier captured
@@ -128,7 +183,10 @@ def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_req
             item_price = float(item.get('price', 0))
             item_qty = int(item.get('quantity', 1))
             item_total = item_price * item_qty
-            product_id = _resolve_product_id(cursor, item)
+            product_id, is_new = _resolve_product_id(cursor, item)
+            if not is_new:
+                # Draft-spec sync: normalize a matched draft row (established ignored).
+                _sync_product_specs(cursor, product_id, item)
 
             cursor.execute(sql_item, (
                 pr_id, user_id, product_id,
@@ -340,19 +398,10 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
             qty = int(item.get('quantity', 1))
             if qty < 1:
                 continue
-            pid = _resolve_product_id(cursor, item)
-            # Graceful master-product sync: catalog follows the edited line.
-            cursor.execute(
-                """UPDATE products
-                   SET product_name = %s, category = %s, unit = %s,
-                       details = %s, size = %s, price = %s
-                   WHERE product_id = %s""",
-                (item['item_name'],
-                 (item.get('category') or '').strip() or 'General',
-                 (item.get('unit') or '').strip() or 'pcs',
-                 item.get('details') or '',
-                 (item.get('size') or '').strip() or 'N/A',
-                 price, pid))
+            pid, is_new = _resolve_product_id(cursor, item)
+            if not is_new:
+                # Draft-spec sync only: established catalog rows ignore spec changes.
+                _sync_product_specs(cursor, pid, item)
             cursor.execute(
                 """INSERT INTO pr_items
                    (pr_id, user_id, product_id, item_name, category, unit,
@@ -376,18 +425,37 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
         if conn: conn.close()
 
 
-# --- 6. UPDATE: Approve or Reject PR ---
+# --- 6. UPDATE: Approve or Reject PR (approval syncs catalog prices) ---
 def update_pr_status(pr_id, new_status):
-    """Updates status of a PR to 'Approved' or 'Rejected'."""
+    """Updates status of a PR to 'Approved' or 'Rejected'.
+
+    On approval, loops through the PR's pr_items and writes each approved
+    price back to its linked master products row (market-fluctuation sync).
+    Rejections leave the catalog untouched.
+    """
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("UPDATE purchase_requests SET status = %s WHERE pr_id = %s;", (new_status, pr_id))
+        if cursor.rowcount == 0:
+            conn.rollback()
+            return False
+        if new_status == 'Approved':
+            cursor.execute("SELECT product_id, price FROM pr_items WHERE pr_id = %s;", (pr_id,))
+            for product_id, price in cursor.fetchall():
+                try:
+                    cursor.execute("UPDATE products SET price = %s WHERE product_id = %s;",
+                                   (float(price or 0), int(product_id)))
+                except Exception as perr:
+                    print(f"[update_pr_status price sync] item error: {perr}")
         conn.commit()
-        return cursor.rowcount > 0
+        return True
     except Exception as err:
+        if conn:
+            try: conn.rollback()
+            except: pass
         print(f"[update_pr_status] DB error: {err}")
         return False
     finally:

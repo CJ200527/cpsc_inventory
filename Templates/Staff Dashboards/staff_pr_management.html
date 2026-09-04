@@ -547,36 +547,86 @@
                     opt.dataset.size = p.size || '';
                     opt.dataset.details = p.details || '';
                     opt.dataset.price = p.price || 0;
+                    opt.dataset.established = p.is_established ? '1' : '0';
                     dl.appendChild(opt);
                 });
             } catch (e) { /* datalist is optional — manual entry always works */ }
         }
         document.addEventListener('DOMContentLoaded', loadProductDatalist);
 
-        /* When a catalog name is picked, backfill untouched fields from it (strict categories only). */
+        /* Strict PR categories (also used by the future Return module). */
         const PR_CATEGORIES = ['Consumables', 'Tools', 'Equipment'];
+
+        /* Exact catalog lookup for a typed item name (null = brand-new product). */
+        function matchCatalog(name) {
+            const dl = document.getElementById('product-list');
+            if (!dl || !name) return null;
+            for (const opt of dl.options) { if (opt.value === name) return opt; }
+            return null;
+        }
+
+        /* Smart lock: established category/unit/size/details go readonly
+           (+ category pinned); PRICE ALWAYS STAYS EDITABLE for market
+           fluctuations (catalog price updates only on PR approval).
+           Draft/new specs stay editable so typos can be fixed. */
+        function lockRowSpecs(tr, match) {
+            const catSel = tr.querySelector('select[name="category[]"]');
+            const fields = ['unit[]', 'size[]', 'details[]']
+                .map(n => tr.querySelector(`input[name="${n}"]`));
+            const locked = !!(match && match.dataset.established === '1');
+            fields.forEach(el => {
+                el.readOnly = locked;
+                el.style.backgroundColor = locked ? '#e9ecef' : '';
+            });
+            if (locked) catSel.dataset.locked = catSel.value;
+            else delete catSel.dataset.locked;
+        }
+
+        /* Pinned-category guard: a locked select snaps back with an explanation. */
+        document.addEventListener('change', function (e) {
+            const sel = e.target && e.target.closest ? e.target.closest('select[name="category[]"]') : null;
+            if (!sel || !sel.dataset.locked) return;
+            if (sel.value !== sel.dataset.locked) {
+                sel.value = sel.dataset.locked;
+                alert('Category is locked: this is an established catalog product.');
+            }
+        });
+
+        /* Item-name typing: match → backfill untouched fields + smart-lock;
+           no match → clear stale catalog specs + unlock for a new product. */
         function onPrItemNameInput(input) {
             const tr = input.closest('tr');
             const v = input.value.trim();
-            if (!v) return;
-            const dl = document.getElementById('product-list');
-            let match = null;
-            for (const opt of dl.options) { if (opt.value === v) { match = opt; break; } }
-            if (!match) return;
+            const match = matchCatalog(v);
             const unitEl = tr.querySelector('input[name="unit[]"]');
             const sizeEl = tr.querySelector('input[name="size[]"]');
             const detEl = tr.querySelector('input[name="details[]"]');
             const priceEl = tr.querySelector('input[name="price[]"]');
             const catSel = tr.querySelector('select[name="category[]"]');
+            if (!match) {
+                // Only wipe specs when leaving a previously matched product;
+                // otherwise preserve what the user already typed.
+                if (tr.dataset.lastMatch) {
+                    unitEl.value = ''; sizeEl.value = ''; detEl.value = ''; priceEl.value = '';
+                    catSel.value = 'Consumables';
+                    delete tr.dataset.lastMatch;
+                    calcPrRowTotal(priceEl);
+                }
+                lockRowSpecs(tr, null);
+                return;
+            }
+            tr.dataset.lastMatch = v;
             const untouched = [unitEl.value, sizeEl.value, detEl.value].every(s => (s || '').trim() === '')
                 && (priceEl.value.trim() === '' || parseFloat(priceEl.value) === 0);
-            if (!untouched) return;
-            if (match.dataset.category && PR_CATEGORIES.includes(match.dataset.category)) catSel.value = match.dataset.category;
-            unitEl.value = match.dataset.unit || '';
-            sizeEl.value = match.dataset.size || '';
-            detEl.value = match.dataset.details || '';
-            priceEl.value = match.dataset.price || '';
-            calcPrRowTotal(priceEl);
+            if (untouched) {
+                if (match.dataset.category && PR_CATEGORIES.includes(match.dataset.category)) catSel.value = match.dataset.category;
+                unitEl.value = match.dataset.unit || '';
+                sizeEl.value = match.dataset.size || '';
+                detEl.value = match.dataset.details || '';
+                priceEl.value = match.dataset.price || '';
+                calcPrRowTotal(priceEl);
+            }
+            lockRowSpecs(tr, match);
         }
 
         /* Builds one line-item row into the given tbody (optional prefill for Pending-edit). */
@@ -701,6 +751,13 @@
                     quantity: it.quantity
                 }));
                 if (!data.items || !data.items.length) addPrEditRow(null);
+                // Same smart-lock check as typing: established specs lock, drafts stay open.
+                tbody.querySelectorAll('.pr-item-row').forEach(tr => {
+                    const nm = tr.querySelector('input[name="item_name[]"]').value.trim();
+                    const m = matchCatalog(nm);
+                    if (m) tr.dataset.lastMatch = nm;
+                    lockRowSpecs(tr, m);
+                });
                 updateGrandTotalFor('pr-edit-items-body', 'pr-edit-grand-total');
             } catch (err) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#c62828;">Failed to load PR.</td></tr>';

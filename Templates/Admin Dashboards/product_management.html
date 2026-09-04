@@ -140,9 +140,12 @@
         }
         .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
-        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .btn-modal-save:hover { background: #3bb2e0; }
+        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .btn-modal-cancel:hover { background: linear-gradient(135deg, #e57373, #ef5350); color: #ffffff; transform: scale(1.05); box-shadow: 0 4px 12px rgba(239, 83, 80, 0.4); }
+        .btn-modal-cancel:active { background: #e53935; color: #ffffff; transform: scale(1.02); }
+        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease-in-out; }
+        .btn-modal-save:hover { background: linear-gradient(135deg, #81c784, #4caf50); color: #ffffff; transform: scale(1.05); box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4); }
+        .btn-modal-save:active { background: #66bb6a; color: #ffffff; transform: scale(1.02); }
     
         /* Global Floating Toast - Non-Disruptive Top-Center */
         .toast-container {
@@ -358,7 +361,11 @@
                 <div class="form-grid-2">
                     <div class="input-group">
                         <label>Category *:</label>
-                        <input type="text" name="category" list="categoryList" placeholder="Select or type category" required autocomplete="off">
+                        <select name="category" required>
+                            <option value="Consumables" selected>Consumables</option>
+                            <option value="Tools">Tools</option>
+                            <option value="Equipment">Equipment</option>
+                        </select>
                     </div>
                     <div class="input-group">
                         <label>Unit *:</label>
@@ -386,9 +393,6 @@
             </form>
         </div>
     </div>
-    <datalist id="categoryList">
-        <option value="Office Supplies"><option value="Laboratory"><option value="Equipment"><option value="Cleaning"><option value="Food"><option value="IT Supplies"><option value="Others">
-    </datalist>
     <datalist id="unitList">
         <option value="pcs"><option value="box"><option value="ream"><option value="kg"><option value="liter"><option value="pack"><option value="unit"><option value="set">
     </datalist>
