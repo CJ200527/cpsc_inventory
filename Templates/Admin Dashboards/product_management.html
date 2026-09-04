@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Product Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
@@ -107,8 +108,6 @@
         .price-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
         .action-cell { display: flex; align-items: center; gap: 8px; }
         .btn-action { width: 32px; height: 32px; border-radius: 6px; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: all 0.2s ease; }
-        .btn-edit { background: #e3f2fd; color: #1976d2; }
-        .btn-edit:hover { background: #1976d2; color: #ffffff; transform: scale(1.08); }
         .btn-delete { background: #ffebee; color: #c62828; }
         .btn-delete:hover { background: #c62828; color: #ffffff; transform: scale(1.08); }
         .alert-bar { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px; }
@@ -263,12 +262,10 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
                 <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
                 <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="/admin/suppliers" class="nav-btn"><span class="icon">🏬</span><span>Supplier</span></a>
                 <a href="{{ url_for('admin_products') }}" class="nav-btn active"><span class="icon">🏷️</span><span>Product</span></a>
                 <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
             </div>
@@ -284,11 +281,11 @@
         </div>
         <div class="dashboard-container">
             
-            <!-- ===== CONTROL BAR (Search input + Date Filter + Refresh + Add Supplier/Product) ===== -->
+            <!-- ===== CONTROL BAR (Search input + Date Filter + Refresh + Add Product) -->
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('admin_products') }}" class="search-form" id="filter-form">
-                    <div class="search-input-box"><span style="margin-right:8px;">🔍</span><input type="text" name="search" value="{{ search }}" placeholder="Search Product, Category, Supplier, Price..." autocomplete="off"></div>
+                    <div class="search-input-box"><span style="margin-right:8px;">🔍</span><input type="text" name="search" value="{{ search }}" placeholder="Search Product, Category, Price..." autocomplete="off"></div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
                 <div class="filter-controls">
@@ -304,7 +301,7 @@
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Add Product</button>
                 </div>
             </div>
-            <!-- ===== DATA TABLE (Suppliers/Products with badges, hover, responsive) ===== -->
+            <!-- ===== DATA TABLE (Products with badges, hover, responsive) -->
             <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
             <div class="table-card">
                 <table>
@@ -312,7 +309,6 @@
                         <tr>
                             <th>Product ID</th>
                             <th>Product Name</th>
-                            <th>Supplier</th>
                             <th>Category</th>
                             <th>Unit / Size</th>
                             <th>Specification</th>
@@ -326,16 +322,12 @@
                             <tr>
                                 <td><strong>PRD-{{ "%03d"|format(p.product_id) }}</strong></td>
                                 <td><strong>{{ p.product_name }}</strong></td>
-                                <td>{{ p.supplier_name or '—' }}</td>
                                 <td>{{ p.category or '-' }}</td>
                                 <td>{{ p.unit }}{% if p.size %} ({{ p.size }}){% endif %}</td>
                                 <td>{{ p.details or '-' }}</td>
                                 <td><span class="price-badge">₱{{ "%.2f"|format(p.price or 0) }}</span></td>
                                 <td>
                                     <div class="action-cell">
-                                        <button type="button" class="btn-action btn-edit" title="Edit Product"
-                                                data-id="{{ p.product_id }}" data-supplier="{{ p.supplier_id }}" data-name="{{ p.product_name }}" data-category="{{ p.category or '' }}" data-details="{{ p.details or '' }}" data-unit="{{ p.unit or '' }}" data-size="{{ p.size or '' }}" data-price="{{ p.price or 0 }}"
-                                                onclick="openEditModal(this)">✏️</button>
                                         <form method="POST" action="{{ url_for('admin_delete_product', target_id=p.product_id) }}?search={{ search }}&date_filter={{ date_filter }}" onsubmit="return confirm('Delete product {{ p.product_name }}?')">
                                             <button type="submit" class="btn-action btn-delete" title="Delete Product">✖</button>
                                         </form>
@@ -344,7 +336,7 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="8" style="text-align:center;color:#888;padding:25px;">No matching products found. Add a supplier first if needed!</td></tr>
+                            <tr><td colspan="7" style="text-align:center;color:#888;padding:25px;">No matching products found. Click "+ Add Product" to create a catalog item!</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -352,8 +344,8 @@
         </div>
     </div>
     <!-- ADD MODAL -->
-    <!-- ===== ADD MODAL (datalist autocomplete for Camiguin, static backdrop, hover/focus) ===== -->
-    <!-- ===== ADD MODAL (datalist Camiguin autocomplete, static backdrop, hover/focus) ===== -->
+    <!-- ===== ADD MODAL (static backdrop, hover/focus) ===== -->
+    <!-- ===== ADD MODAL (static backdrop, hover/focus) ===== -->
     <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box">
             <div class="modal-header"><h3>Add New Product</h3><button type="button" class="close-btn" onclick="closeAddModal()">✖</button></div>
@@ -361,23 +353,6 @@
                 <div class="input-group">
                     <label>Product ID (Auto-Generated):</label>
                     <input type="text" value="PRD-{{ '%03d'|format((products[0].product_id + 1) if products else 1) }}" readonly style="background-color: #e9ecef; cursor: not-allowed;">
-                </div>
-                <div class="input-group">
-                    <label>Supplier * — Searchable:</label>
-                    <input type="text" id="supplier-search-add" list="supplierDatalistAdd" placeholder="🔍 Type to search supplier..." autocomplete="off" oninput="syncSupplierDatalist('supplier-search-add', 'supplier-id-add', 'supplierDatalistAdd')">
-                    <datalist id="supplierDatalistAdd">
-                        {% for sup in suppliers_list %}
-                        <option value="{{ sup.supplier_name }}" data-id="{{ sup.id }}"></option>
-                        {% endfor %}
-                    </datalist>
-                    <input type="hidden" name="supplier_id" id="supplier-id-add" required>
-                    <select id="supplier-select-add" style="margin-top:6px; width:100%; padding:8px 12px; background-color:#f2f2f2; border:1.5px solid transparent; border-radius:6px; font-size:13px;" onchange="document.getElementById('supplier-id-add').value=this.value; document.getElementById('supplier-search-add').value=this.options[this.selectedIndex].text">
-                        <option value="" disabled selected>— Or select from dropdown fallback —</option>
-                        {% for sup in suppliers_list %}
-                        <option value="{{ sup.id }}">{{ sup.supplier_name }}</option>
-                        {% endfor %}
-                    </select>
-                    <small style="font-size:10px; color:#888; margin-top:4px;">Type supplier name above (datalist) or use dropdown fallback — both map to supplier_id</small>
                 </div>
                 <div class="input-group"><label>Product Name *:</label><input type="text" name="product_name" required autocomplete="off"></div>
                 <div class="form-grid-2">
@@ -411,57 +386,6 @@
             </form>
         </div>
     </div>
-    <!-- EDIT MODAL -->
-    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier, title-case) ===== -->
-    <!-- ===== EDIT MODAL (pre-filled via data-attributes, searchable supplier) ===== -->
-    <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box">
-            <div class="modal-header"><h3>Edit Product</h3><button type="button" class="close-btn" onclick="closeEditModal()">✖</button></div>
-            <form id="edit-form" method="POST" class="modal-form">
-                <div class="input-group"><label>Product ID:</label><input type="text" id="edit-id-display" readonly></div>
-                <div class="input-group">
-                    <label>Supplier * — Searchable:</label>
-                    <input type="text" id="supplier-search-edit" list="supplierDatalistEdit" placeholder="🔍 Type to search supplier..." autocomplete="off" oninput="syncSupplierDatalist('supplier-search-edit', 'supplier-id-edit', 'supplierDatalistEdit')">
-                    <datalist id="supplierDatalistEdit">
-                        {% for sup in suppliers_list %}
-                        <option value="{{ sup.supplier_name }}" data-id="{{ sup.id }}"></option>
-                        {% endfor %}
-                    </datalist>
-                    <input type="hidden" name="supplier_id" id="supplier-id-edit" required>
-                    <select id="edit-supplier" name="supplier_id_display" style="margin-top:6px; width:100%; padding:8px 12px; background-color:#f2f2f2; border:1.5px solid transparent; border-radius:6px; font-size:13px;" onchange="document.getElementById('supplier-id-edit').value=this.value; document.getElementById('supplier-search-edit').value=this.options[this.selectedIndex].text">
-                        <option value="" disabled selected>— Or select from dropdown fallback —</option>
-                        {% for sup in suppliers_list %}
-                        <option value="{{ sup.id }}">{{ sup.supplier_name }}</option>
-                        {% endfor %}
-                    </select>
-                    <small style="font-size:10px; color:#888; margin-top:4px;">Type supplier name above or use dropdown fallback</small>
-                </div>
-                <div class="input-group"><label>Product Name *:</label><input type="text" id="edit-name" name="product_name" required autocomplete="off"></div>
-                <div class="form-grid-2">
-                    <div class="input-group">
-                        <label>Category *:</label>
-                        <input type="text" id="edit-category" name="category" list="categoryList" placeholder="Select or type category" required autocomplete="off">
-                    </div>
-                    <div class="input-group">
-                        <label>Unit *:</label>
-                        <input type="text" id="edit-unit" name="unit" list="unitList" placeholder="Select or type unit" required autocomplete="off">
-                    </div>
-                </div>
-                <div class="form-grid-2">
-                    <div class="input-group">
-                        <label>Size *:</label>
-                        <input type="text" id="edit-size" name="size" list="sizeList" placeholder="Select or type size" required autocomplete="off">
-                    </div>
-                    <div class="input-group"><label>Price (₱) *:</label><input type="number" id="edit-price" name="price" step="0.01" min="0" required></div>
-                </div>
-                <div class="input-group">
-                    <label>Specification *:</label>
-                    <textarea id="edit-details" name="details" placeholder="Enter specification (e.g., 70gsm, Heavy Duty, Standard)" required rows="2"></textarea>
-                </div>
-                <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeEditModal()">Cancel</button><button type="submit" class="btn-modal-save">Save Changes</button></div>
-            </form>
-        </div>
-    </div>
     <datalist id="categoryList">
         <option value="Office Supplies"><option value="Laboratory"><option value="Equipment"><option value="Cleaning"><option value="Food"><option value="IT Supplies"><option value="Others">
     </datalist>
@@ -477,67 +401,12 @@
         const dp=document.getElementById('custom-date-picker'); if(dp){ dp.setAttribute('max', new Date().toISOString().split('T')[0]); }
         function toggleCustomDate(v){ const d=document.getElementById('custom-date-picker'); if(v==='Custom') d.classList.remove('hidden'); else { d.classList.add('hidden'); document.getElementById('filter-form').submit(); } }
 
-        function syncSupplierDatalist(inputId, hiddenId, datalistId) {
-            const input = document.getElementById(inputId);
-            const hidden = document.getElementById(hiddenId);
-            const datalist = document.getElementById(datalistId);
-            const val = input.value.trim();
-            let found = '';
-            for (const opt of datalist.options) {
-                if (opt.value === val) { found = opt.dataset.id; break; }
-            }
-            hidden.value = found;
-            // Also sync the fallback select
-            const fallbackSelect = inputId.includes('add') ? document.getElementById('supplier-select-add') : document.getElementById('edit-supplier');
-            if (fallbackSelect && found) fallbackSelect.value = found;
-        }
-        function filterSupplierSelect(searchId, selectId) {
-            const q = document.getElementById(searchId).value.toLowerCase();
-            const sel = document.getElementById(selectId);
-            if (!sel) return;
-            for (const opt of sel.options) {
-                if (!opt.value) continue;
-                const txt = opt.text.toLowerCase();
-                opt.hidden = q && !txt.includes(q);
-                opt.style.display = opt.hidden ? 'none' : '';
-            }
-        }
-
         function openAddModal(){ document.getElementById('add-modal').classList.remove('hidden'); }
         function closeAddModal(){ document.getElementById('add-modal').classList.add('hidden'); }
         function validateProductForm(f){
-            if(!f.supplier_id.value){ alert('Please select a supplier.'); return false; }
             const price=parseFloat(f.price.value); if(isNaN(price)||price<0){ alert('Price must be 0 or more.'); f.price.focus(); return false; }
             return true;
         }
-        function openEditModal(btn){
-            document.getElementById('edit-form').action = "/admin/products/update/" + btn.dataset.id + "?search={{ search }}&date_filter={{ date_filter }}";
-            document.getElementById('edit-id-display').value = "PRD-" + String(btn.dataset.id).padStart(3,'0');
-            // Sync searchable supplier fields (datalist + hidden + fallback select)
-            document.getElementById('supplier-id-edit').value = btn.dataset.supplier;
-            document.getElementById('edit-supplier').value = btn.dataset.supplier;
-            const searchEdit = document.getElementById('supplier-search-edit');
-            const fallback = document.getElementById('edit-supplier');
-            if (fallback && fallback.options[fallback.selectedIndex] && fallback.options[fallback.selectedIndex].value) {
-                searchEdit.value = fallback.options[fallback.selectedIndex].text;
-            } else {
-                const dl = document.getElementById('supplierDatalistEdit');
-                for (const opt of dl.options) {
-                    if (opt.dataset.id == btn.dataset.supplier) { searchEdit.value = opt.value; break; }
-                }
-            }
-            document.getElementById('edit-name').value = btn.dataset.name || '';
-            document.getElementById('edit-category').value = btn.dataset.category || 'Others';
-            document.getElementById('edit-unit').value = btn.dataset.unit || 'pcs';
-            document.getElementById('edit-size').value = btn.dataset.size || 'Standard';
-            document.getElementById('edit-price').value = btn.dataset.price || 0;
-            document.getElementById('edit-details').value = btn.dataset.details || 'Standard';
-            document.getElementById('edit-modal').classList.remove('hidden');
-        }
-        function closeEditModal(){ document.getElementById('edit-modal').classList.add('hidden'); }
-        document.getElementById('edit-form').addEventListener('submit', function(e){
-            const p=parseFloat(document.getElementById('edit-price').value); if(isNaN(p)||p<0){ e.preventDefault(); alert('Price must be 0 or more.'); }
-        });
         // Static backdrop: only close via .btn-close / Cancel (no backdrop click)
     </script>
 

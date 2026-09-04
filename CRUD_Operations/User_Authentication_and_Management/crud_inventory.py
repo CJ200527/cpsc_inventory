@@ -1,62 +1,27 @@
-"""crud_inventory.py — Live Inventory Ledger (Study Guide)
-Reads Products.current_stock (live ledger, not static quantity). Provides get_inventory_summary() (total_unique, asset_value, low/out counts) and get_inventory_items() with category/stock filters.
-Used by /admin/inventory and /staff/inventory dashboards.
+"""crud_inventory.py — Live Inventory Ledger (finalized schema)
+Reads products.current_stock (live ledger, not static quantity). Provides get_inventory_summary() and get_inventory_items().
+No DDL in this module — schema is finalized (products, no supplier table).
 """
 
 from db import get_db_connection
 
-def _ensure_inventory_schema(cursor):
-    """Ensure Products live columns exist — uses products.current_stock per spec, no legacy inventory table."""
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
-        if not cursor.fetchone():
-            cursor.execute("ALTER TABLE Products ADD COLUMN current_stock INT DEFAULT 0")
-            cursor.execute("UPDATE Products SET current_stock = quantity WHERE quantity IS NOT NULL")
-    except Exception:
-        pass
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'reorder_level'")
-        if not cursor.fetchone():
-            cursor.execute("ALTER TABLE Products ADD COLUMN reorder_level INT DEFAULT 10")
-            cursor.execute("UPDATE Products SET reorder_level = 10 WHERE reorder_level IS NULL")
-    except Exception:
-        pass
-    # NOTE: Legacy `inventory` table is deleted per cleanup — do NOT recreate. Live balances are in products.current_stock and physical ledger `items`.
-
-def _stock_column(cursor):
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
-        if cursor.fetchone():
-            return "COALESCE(p.current_stock, p.quantity, 0)"
-    except Exception:
-        pass
-    return "COALESCE(p.quantity, 0)"
+def _stock_expr():
+    return "COALESCE(p.current_stock, p.quantity, 0)"
 
 def get_inventory_summary():
     conn=None; cur=None
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_inventory_schema(cur)
-        conn.commit()
-        stock_expr = _stock_column(cur)
-        # Determine reorder expr
-        try:
-            cur.execute("SHOW COLUMNS FROM Products LIKE 'reorder_level'")
-            has_reorder = cur.fetchone() is not None
-        except Exception:
-            has_reorder=False
-        reorder_expr = "COALESCE(p.reorder_level, 10)" if has_reorder else "10"
-        # Total unique
-        cur.execute("SELECT COUNT(*) AS total FROM Products")
+        stock_expr = _stock_expr()
+        cur.execute("SELECT COUNT(*) AS total FROM products")
         total_unique = cur.fetchone()['total'] or 0
-        # Low/out counts and asset value need per-row evaluation
         cur.execute(f"""
-            SELECT 
+            SELECT
                 {stock_expr} AS cur_stock,
-                {reorder_expr} AS reorder_lvl,
+                COALESCE(p.reorder_level, 10) AS reorder_lvl,
                 p.price AS price
-            FROM Products p
+            FROM products p
         """)
         rows=cur.fetchall()
         low=out=in_stock=0
@@ -95,16 +60,9 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_inventory_schema(cur)
-        stock_expr = _stock_column(cur)
-        try:
-            cur.execute("SHOW COLUMNS FROM Products LIKE 'reorder_level'")
-            has_reorder = cur.fetchone() is not None
-        except Exception:
-            has_reorder=False
-        reorder_expr = "COALESCE(p.reorder_level, 10)" if has_reorder else "10"
+        stock_expr = _stock_expr()
         sql = f"""
-            SELECT 
+            SELECT
                 p.product_id,
                 p.product_name,
                 p.category,
@@ -113,21 +71,19 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
                 p.size,
                 p.price,
                 {stock_expr} AS current_stock,
-                {reorder_expr} AS reorder_level,
-                ({stock_expr} * p.price) AS total_value,
-                s.supplier_name
-            FROM Products p
-            LEFT JOIN Supplier s ON p.supplier_id = s.id
+                COALESCE(p.reorder_level, 10) AS reorder_level,
+                ({stock_expr} * p.price) AS total_value
+            FROM products p
             WHERE 1=1
         """
         params=[]
         if search_query:
             pat=f"%{search_query}%"
             sql += """ AND (
-                p.product_name LIKE %s OR p.category LIKE %s OR p.details LIKE %s 
-                OR p.unit LIKE %s OR s.supplier_name LIKE %s OR p.product_id LIKE %s
+                p.product_name LIKE %s OR p.category LIKE %s OR p.details LIKE %s
+                OR p.unit LIKE %s OR p.product_id LIKE %s
             )"""
-            params.extend([pat]*6)
+            params.extend([pat]*5)
         if category_filter and category_filter != "All":
             sql += " AND p.category = %s"
             params.append(category_filter)
@@ -157,6 +113,7 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
             except: r['price']=0.0
             try: r['total_value']=float(r['total_value'] or 0)
             except: r['total_value']=0.0
+            r['supplier_name'] = ""
             # derive status
             if r['current_stock']==0:
                 r['stock_status']="Out of Stock"
@@ -181,7 +138,7 @@ def get_inventory_categories():
     try:
         conn=get_db_connection()
         cur=conn.cursor()
-        cur.execute("SELECT DISTINCT category FROM Products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC")
+        cur.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC")
         return [row[0] for row in cur.fetchall()]
     except Exception:
         return []

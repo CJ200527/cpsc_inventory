@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Staff Delivery & IAR</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
@@ -246,12 +247,10 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('staff_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
                 <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn active"><span class="icon">🚚</span><span>Receive Delivery</span></a>
                 <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="{{ url_for('staff_suppliers') }}" class="nav-btn"><span class="icon">🏬</span><span>Supplier</span></a>
                 <a href="{{ url_for('staff_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
             </div>
         </div>
@@ -282,7 +281,7 @@
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" value="{{ search }}" placeholder="Search Delivery #, IAR #, PO #, Supplier..." autocomplete="off">
+                        <input type="text" name="search" value="{{ search }}" placeholder="Search Delivery #, IAR #, PR #, PO Ref #, Supplier..." autocomplete="off">
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
@@ -309,7 +308,8 @@
                         <tr>
                             <th>Delivery #</th>
                             <th>IAR #</th>
-                            <th>Ref PO # / PR #</th>
+                            <th>PR #</th>
+                            <th>PO Ref #</th>
                             <th>Supplier</th>
                             <th>Delivery Date</th>
                             <th>Status</th>
@@ -323,84 +323,84 @@
                             <tr>
                                 <td><strong>{{ d.delivery_number }}</strong></td>
                                 <td>{{ d.iar_number or '-' }}</td>
-                                <td>{{ d.po_number }}<br><small style="color:#666;">{{ d.pr_number }}</small></td>
+                                <td><strong>{{ d.pr_number }}</strong></td>
+                                <td>{{ d.po_reference_number or '-' }}</td>
                                 <td>{{ d.supplier_name or 'N/A' }}</td>
                                 <td>{{ d.delivery_date.strftime('%Y-%m-%d') if d.delivery_date else '' }}</td>
                                 <td><span class="badge badge-{{ d.status|lower }}">{{ d.status }}</span></td>
-                                <td>{% if d.is_partial %}<span class="badge badge-partial">Partial ({{ d.po_status }})</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
+                                <td>{% if d.is_partial %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
                                 <td>
                                     <div style="display:flex;gap:6px;align-items:center;">
                                         <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})">👁️ View</button>
                                         {% if d.show_complete == 1 %}
-                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.po_remaining }} still remaining for this PO)" onclick="openCompleteModal({{ d.delivery_id }})">➕ Complete</button>
+                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.delivery_id }})">➕ Complete</button>
                                         {% endif %}
                                     </div>
                                 </td>
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="8" style="text-align:center; color:#888; padding:25px;">No deliveries. Click "+ Receive Delivery" to start from an Approved PO.</td></tr>
+                            <tr><td colspan="9" style="text-align:center; color:#888; padding:25px;">No deliveries. Click "+ Receive Delivery" to start from an Approved PR.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
             </div>
-            <div class="helper-text" style="text-align:center;color:#666;">Eligible POs: ONLY Approved/Issued without prior deliveries. Completed POs disappear from selection. Use <strong>Complete</strong> on a partial delivery row to add remaining quantity — it shows REMAINING (not original ordered).</div>
+            <div class="helper-text" style="text-align:center;color:#666;">Eligible PRs: ONLY Approved PRs. Use <strong>Complete</strong> on a partial delivery row to add remaining quantity — it shows REMAINING (not original ordered).</div>
         </div>
     </div>
 
     <!-- RECEIVE MODAL -->
-    <div id="receive-modal" class="modal-overlay hidden">
+    <div id="receive-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box">
             <div class="modal-header">
                 <div>
                     <h3>Receive Delivery & Submit IAR</h3>
-                    <p style="font-size:11px;color:#666;margin-top:4px;">Search Approved PO, then enter Received Qty manually (empty by default). Partial auto-detected if any received ≠ ordered. Received &gt; ordered is blocked.</p>
                 </div>
                 <button type="button" class="close-btn" onclick="closeReceiveModal()">✖</button>
             </div>
 
             <form method="POST" action="{{ url_for('create_delivery_action') }}" id="receive-form" onsubmit="return validateReceiveForm()">
                 <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:12px;margin-bottom:12px;">
-                    <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:6px;">Search Approved PO (only Approved/Issued without deliveries)</label>
+                    <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:6px;">Search Approved PR</label>
                     <div class="search-input-box" style="background:#ffffff;max-width:100%;">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" id="receive-po-search" placeholder="Type PO #, PR #, Supplier..." autocomplete="off" oninput="filterReceivePOs()">
+                        <input type="text" id="receive-pr-search" placeholder="Type PR #, requestor..." autocomplete="off" oninput="filterReceivePRs()">
                     </div>
                     <div style="font-size:11px;color:#888;margin-top:6px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;">
-                        <span id="receive-po-count">{{ deliverable_pos|length }} Approved PO(s) available</span>
-                        <span style="color:#0277bd;">Type to filter — dropdown stays selectable</span>
+                        <span id="receive-pr-count">{{ deliverable_prs|default(deliverable_pos)|length }} Approved PR(s) available</span>
                     </div>
                 </div>
 
                 <div class="form-grid">
                     <div class="form-group full">
-                        <label>Select Purchase Order *</label>
-                        <select name="po_id" id="po-select" required onchange="loadPOForDelivery(this.value)" style="width:100%;padding:10px 12px;background:#f2f2f2;border:1.5px solid transparent;border-radius:6px;font-size:13px;">
-                            <option value="" disabled selected>— Choose PO —</option>
-                            {% for po in deliverable_pos %}
-                            <option value="{{ po.po_id }}">{{ po.po_number }} — {{ po.pr_number }} — {{ po.supplier_name or 'N/A' }} — {{ po.status }}</option>
+                        <label>Select Purchase Request (Approved) *</label>
+                        <select name="pr_id" id="pr-select" required onchange="loadPRForDelivery(this.value)" style="width:100%;padding:10px 12px;background:#f2f2f2;border:1.5px solid transparent;border-radius:6px;font-size:13px;">
+                            <option value="" disabled selected>— Choose Approved PR —</option>
+                            {% for pr in deliverable_prs|default(deliverable_pos) %}
+                            <option value="{{ pr.pr_id }}">{{ pr.pr_number }} — {{ pr.Firstname|default('') }} {{ pr.Lastname|default('') }} — {{ pr.status }}</option>
                             {% else %}
-                            <option disabled>No eligible Approved POs (completed/partial removed)</option>
+                            <option disabled>No eligible Approved PRs</option>
                             {% endfor %}
                         </select>
-                        <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;">No matching POs — try another search.</div>
-                        <div id="po-meta" class="hidden" style="margin-top:8px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;"></div>
+                        <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;">No matching PRs — try another search.</div>
                     </div>
-                    <div class="form-group"><label>Delivery Number *</label><input type="text" name="delivery_number" placeholder="DEL-2026-001" required></div>
+                    <div class="form-group"><label>Delivery Number (auto)</label><input type="text" name="delivery_number" id="delivery-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
                     <div class="form-group"><label>IAR Number *</label><input type="text" name="iar_number" placeholder="IAR-2026-001" required></div>
+                    <div class="form-group"><label>PR Total (auto)</label><input type="text" id="delivery-pr-total" value="₱ 0.00" readonly tabindex="-1" style="background-color:#e9ecef;font-weight:700;color:#2e7d32;"></div>
+                    <div class="form-group"><label>PO / Bidding Reference Number</label><input type="text" name="po_reference_number" placeholder="e.g. PO-2026-001 (optional)"></div>
+                    <div class="form-group"><label>Supplier Name *</label><input type="text" name="supplier_name" placeholder="Supplier name" required></div>
                     <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" placeholder="Inspector name" required></div>
                     <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" placeholder="Supply officer name" required></div>
-                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" required></div>
+                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" max="{{ current_date }}" required></div>
                     <div class="form-group"><label>Remarks</label><input type="text" name="remarks" placeholder="Optional"></div>
                 </div>
 
                 <div id="delivery-items-wrap" class="hidden">
-                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin:12px 0 6px;">Items — fill Received Qty (empty = must type). Max = Ordered.</p>
+                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin:12px 0 6px;">Items</p>
                     <table class="item-table">
                         <thead><tr><th>Item / Specs</th><th>Category</th><th>Unit</th><th>Unit Price</th><th>Ordered</th><th>Received *</th></tr></thead>
                         <tbody id="delivery-items-tbody"></tbody>
                     </table>
-                    <div style="background:#e8f5e9;border:1px solid #c8e6c9;border-radius:6px;padding:8px 10px;font-size:11px;color:#2e7d32;">Partial is <strong>automatic</strong> if any received ≠ ordered. Submit → <strong>Pending</strong> (stock not credited until Admin approves).</div>
                 </div>
 
                 <div class="modal-buttons">
@@ -412,23 +412,24 @@
     </div>
 
     <!-- COMPLETE REMAINING MODAL -->
-    <div id="complete-modal" class="modal-overlay hidden">
+    <div id="complete-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box">
             <div class="modal-header">
                 <div>
                     <h3>Complete Remaining Delivery</h3>
-                    <p style="font-size:11px;color:#666;margin-top:4px;">Shows <strong>REMAINING</strong> (ordered − already received) — enter how many just arrived. Received &gt; remaining is blocked.</p>
                 </div>
                 <button type="button" class="close-btn" onclick="closeCompleteModal()">✖</button>
             </div>
             <form method="POST" id="complete-form" onsubmit="return validateCompleteForm()">
-                <div id="complete-po-meta" style="margin-bottom:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PO remaining...</div>
+                <div id="complete-pr-meta" style="margin-bottom:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PR remaining...</div>
                 <div class="form-grid">
-                    <div class="form-group"><label>Delivery Number * (new)</label><input type="text" name="delivery_number" placeholder="DEL-2026-002" required></div>
+                    <div class="form-group"><label>Delivery Number (auto)</label><input type="text" name="delivery_number" id="complete-delivery-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
                     <div class="form-group"><label>IAR Number * (new)</label><input type="text" name="iar_number" placeholder="IAR-2026-002" required></div>
+                    <div class="form-group"><label>PO / Bidding Reference Number</label><input type="text" name="po_reference_number" id="complete-po-ref" placeholder="Inherited from original delivery" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
+                    <div class="form-group"><label>Supplier Name</label><input type="text" name="supplier_name" id="complete-supplier" placeholder="Defaults to original"></div>
                     <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" required></div>
                     <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" required></div>
-                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" required></div>
+                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" max="{{ current_date }}" required></div>
                     <div class="form-group"><label>Remarks</label><input type="text" name="remarks" placeholder="Completion of remaining"></div>
                 </div>
                 <table class="item-table">
@@ -437,7 +438,7 @@
                 </table>
                 <div class="modal-buttons">
                     <button type="button" class="btn-modal-cancel" onclick="closeCompleteModal()">Cancel</button>
-                    <button type="submit" class="btn-modal-save" style="background:#ef6c00;">Submit Completion (Pending)</button>
+                    <button type="submit" class="btn-modal-save">Submit Completion (Pending)</button>
                 </div>
             </form>
         </div>
@@ -457,25 +458,39 @@
 
     <script>
         function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+        function todayLocal(){ const n=new Date(); const p=x=>String(x).padStart(2,'0'); return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; }
+        /* Delivery Date guard: past/present only — future dates blocked (backend double-checks). */
+        function validateDeliveryDate(input){
+            if(!input) return true;
+            if(!input.max) input.max=todayLocal();
+            if(input.value && input.value > todayLocal()){ alert('Delivery Date cannot be in the future.'); input.focus(); return false; }
+            return true;
+        }
         function updateClock(){ const now=new Date(); document.getElementById('live-clock').innerText=`${now.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})} | ${now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}`; }
         setInterval(updateClock,1000); updateClock();
 
         function openReceiveModal(){
             document.getElementById('receive-modal').classList.remove('hidden');
-            const d=document.querySelector('#receive-modal input[name="delivery_date"]'); if(d && !d.value) d.valueAsDate=new Date();
-            const sel=document.getElementById('po-select'); if(sel) { sel.selectedIndex=0; for(let i=0;i<sel.options.length;i++){ sel.options[i].hidden=false; sel.options[i].style.display=''; } }
-            document.getElementById('receive-po-search').value='';
-            const cnt=document.getElementById('receive-po-count'); if(cnt) cnt.innerText='{{ deliverable_pos|length }} Approved PO(s) available';
+            const d=document.querySelector('#receive-modal input[name="delivery_date"]'); if(d && !d.value) d.valueAsDate=new Date(); if(d && !d.max) d.max=todayLocal();
+            // Auto-generated delivery number (readonly) + reset PR total.
+            const numEl=document.getElementById('delivery-number-auto');
+            if(numEl){ numEl.value=''; numEl.placeholder='Loading...'; }
+            fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
+                if(numEl){ if(dt.delivery_number) numEl.value=dt.delivery_number; else numEl.placeholder='Auto-generated'; }
+            }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
+            const tot=document.getElementById('delivery-pr-total'); if(tot) tot.value='₱ 0.00';
+            const sel=document.getElementById('pr-select'); if(sel) { sel.selectedIndex=0; for(let i=0;i<sel.options.length;i++){ sel.options[i].hidden=false; sel.options[i].style.display=''; } }
+            document.getElementById('receive-pr-search').value='';
+            const cnt=document.getElementById('receive-pr-count'); if(cnt) cnt.innerText='{{ deliverable_prs|default(deliverable_pos)|length }} Approved PR(s) available';
             document.getElementById('receive-no-results').classList.add('hidden');
-            const meta=document.getElementById('po-meta'); if(meta){meta.classList.add('hidden'); meta.innerHTML='';}
             const wrap=document.getElementById('delivery-items-wrap'); if(wrap) wrap.classList.add('hidden');
             const tbody=document.getElementById('delivery-items-tbody'); if(tbody) tbody.innerHTML='';
         }
         function closeReceiveModal(){ document.getElementById('receive-modal').classList.add('hidden'); }
 
-        function filterReceivePOs(){
-            const q=(document.getElementById('receive-po-search').value||'').toLowerCase().trim();
-            const sel=document.getElementById('po-select');
+        function filterReceivePRs(){
+            const q=(document.getElementById('receive-pr-search').value||'').toLowerCase().trim();
+            const sel=document.getElementById('pr-select');
             let vis=0;
             for(let i=1;i<sel.options.length;i++){
                 const txt=(sel.options[i].textContent||'').toLowerCase();
@@ -483,48 +498,55 @@
                 sel.options[i].hidden=!m; sel.options[i].style.display=m?'':'none';
                 if(m) vis++;
             }
-            const cnt=document.getElementById('receive-po-count');
+            const cnt=document.getElementById('receive-pr-count');
             if(cnt) cnt.innerText=vis+' matched'+(q? ' for "'+q+'"':' — '+ (sel.options.length-1)+' total');
             document.getElementById('receive-no-results').classList.toggle('hidden', vis>0 || !q);
             if(sel.selectedIndex>0 && sel.options[sel.selectedIndex].hidden){ sel.selectedIndex=0; const wrap=document.getElementById('delivery-items-wrap'); if(wrap) wrap.classList.add('hidden'); }
         }
 
-        function loadPOForDelivery(poId){
-            if(!poId) return;
-            const meta=document.getElementById('po-meta');
+        function loadPRForDelivery(prId){
+            if(!prId) return;
             const wrap=document.getElementById('delivery-items-wrap');
             const tbody=document.getElementById('delivery-items-tbody');
-            tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:12px;color:#888;">Loading PO items…</td></tr>';
+            tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:12px;color:#888;">Loading PR items…</td></tr>';
             wrap.classList.remove('hidden');
-            fetch('/po/details/'+poId).then(r=>r.json()).then(data=>{
+            fetch('/pr/details/'+prId).then(r=>r.json()).then(data=>{
                 if(data.error){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">'+data.error+'</td></tr>'; return; }
-                meta.innerHTML=`<strong>PO:</strong> ${data.header.po_number} | <strong>PR:</strong> ${data.header.pr_number} | <strong>Supplier:</strong> ${data.header.supplier_name||'N/A'} | <strong>Status:</strong> ${data.header.status}`;
-                meta.classList.remove('hidden');
+                // PR Total straight into the Delivery Header for financial visibility.
+                const tot=document.getElementById('delivery-pr-total');
+                if(tot) tot.value='₱ '+Number(data.header.total_price||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
                 tbody.innerHTML='';
                 data.items.forEach(item=>{
+                    const orderedQty = parseInt(item.quantity||0);
+                    const unitPrice = Number(item.price||0);
                     const tr=document.createElement('tr');
                     tr.innerHTML=`
                         <td class="readonly-cell"><strong>${item.item_name}</strong><br><small>${item.details||''} ${item.size? '('+item.size+')':''}</small><input type="hidden" name="product_id[]" value="${item.product_id}"></td>
                         <td class="readonly-cell">${item.category||'-'}</td>
                         <td class="readonly-cell">${item.unit||'pcs'}</td>
-                        <td class="readonly-cell">₱ ${Number(item.unit_price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
-                        <td class="readonly-cell" style="font-weight:700;">${item.ordered_quantity}</td>
-                        <td><input type="number" name="received_quantity[]" min="0" max="${item.ordered_quantity}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #53c5f1;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${item.ordered_quantity}){this.setCustomValidity('Cannot exceed ordered '+${item.ordered_quantity}); this.reportValidity();}else{this.setCustomValidity('');}"></td>
+                        <td class="readonly-cell">₱ ${unitPrice.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="readonly-cell" style="font-weight:700;">${orderedQty}</td>
+                        <td><input type="number" name="received_quantity[]" min="0" max="${orderedQty}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #53c5f1;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${orderedQty}){this.setCustomValidity('Cannot exceed ordered '+${orderedQty}); this.reportValidity();}else{this.setCustomValidity('');}"></td>
                     `;
                     tbody.appendChild(tr);
                 });
-            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">Failed to load PO items.</td></tr>'; });
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">Failed to load PR items.</td></tr>'; });
         }
 
         function validateReceiveForm(){
+            // Blank or 0 = zero arriving units for that row (partial shipment); both are valid.
+            if(!validateDeliveryDate(document.querySelector('#receive-form input[name="delivery_date"]'))) return false;
             const inputs=document.querySelectorAll('#delivery-items-tbody input[name="received_quantity[]"]');
-            let hasVal=false; let err='';
+            let hasPositive=false; let err='';
             inputs.forEach(inp=>{
-                const v=inp.value.trim();
-                if(v!==''){ hasVal=true; const n=parseInt(v||0); const mx=parseInt(inp.getAttribute('max')||0); if(n>mx) err=`Received ${n} exceeds ordered ${mx}.`;}
+                if(inp.value.trim()==='') inp.value='0';
+                const n=parseInt(inp.value||0); const mx=parseInt(inp.getAttribute('max')||0);
+                if(isNaN(n)||n<0) err='Received quantity must be a whole number 0 or more.';
+                else if(n>mx) err=`Received ${n} exceeds ordered ${mx}.`;
+                if(n>0) hasPositive=true;
             });
-            if(!hasVal){ alert('Please enter at least one received quantity.'); return false; }
             if(err){ alert(err); return false; }
+            if(!hasPositive){ alert('Enter a quantity greater than 0 for at least one item.'); return false; }
             return true;
         }
 
@@ -533,20 +555,28 @@
             currentCompleteDeliveryId=deliveryId;
             document.getElementById('complete-modal').classList.remove('hidden');
             const form=document.getElementById('complete-form'); form.action='/delivery/complete/'+deliveryId;
-            const dateInput=form.querySelector('input[name="delivery_date"]'); if(dateInput) dateInput.valueAsDate=new Date();
+            const dateInput=form.querySelector('input[name="delivery_date"]'); if(dateInput) dateInput.valueAsDate=new Date(); if(dateInput && !dateInput.max) dateInput.max=todayLocal();
+            // Auto-generated completion number (readonly) via the shared delivery sequence.
+            const numEl=document.getElementById('complete-delivery-number-auto');
+            if(numEl){ numEl.value=''; numEl.placeholder='Loading...'; }
+            fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
+                if(numEl){ if(dt.delivery_number) numEl.value=dt.delivery_number; else numEl.placeholder='Auto-generated'; }
+            }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
             // Clear prior
             document.getElementById('complete-items-tbody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:12px;color:#888;">Loading remaining quantities…</td></tr>';
-            document.getElementById('complete-po-meta').innerHTML='Loading…';
+            document.getElementById('complete-pr-meta').innerHTML='Loading…';
             fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(d=>{
-                if(d.error){ document.getElementById('complete-po-meta').innerHTML=d.error; return; }
-                const poId=d.header.po_id;
-                // Now fetch remaining for that PO
-                fetch('/delivery/remaining/'+poId).then(r=>r.json()).then(rem=>{
+                if(d.error){ document.getElementById('complete-pr-meta').innerHTML=d.error; return; }
+                const prId=d.header.pr_id;
+                const poRefInput=document.getElementById('complete-po-ref'); if(poRefInput) poRefInput.value=d.header.po_reference_number||'';
+                const supInput=document.getElementById('complete-supplier'); if(supInput && !supInput.value) supInput.value=d.header.supplier_name||'';
+                // Now fetch remaining for that PR
+                fetch('/delivery/remaining/'+prId).then(r=>r.json()).then(rem=>{
                     const header=rem.header;
                     const remaining=rem.remaining||[];
-                    let meta=`<strong>PO:</strong> ${header? header.po_number:'?'} — <strong>Remaining total:</strong> ${remaining.reduce((a,b)=>a+(b.remaining_quantity||0),0)} units`;
+                    let meta=`<strong>PR:</strong> ${header? header.pr_number:'?'} — <strong>Remaining total:</strong> ${remaining.reduce((a,b)=>a+(b.remaining_quantity||0),0)} units`;
                     if(remaining.length===0) meta+=' — <span style="color:#c62828;">No remaining items (already completed)</span>';
-                    document.getElementById('complete-po-meta').innerHTML=meta;
+                    document.getElementById('complete-pr-meta').innerHTML=meta;
                     const tbody=document.getElementById('complete-items-tbody');
                     tbody.innerHTML='';
                     if(remaining.length===0){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#c62828;">Nothing remaining to complete.</td></tr>'; return; }
@@ -562,16 +592,19 @@
         }
         function closeCompleteModal(){ document.getElementById('complete-modal').classList.add('hidden'); currentCompleteDeliveryId=null; }
         function validateCompleteForm(){
+            // Blank or 0 = zero arriving units for that row (partial shipment); both are valid.
+            if(!validateDeliveryDate(document.querySelector('#complete-form input[name="delivery_date"]'))) return false;
             const inputs=document.querySelectorAll('#complete-items-tbody input[name="received_quantity[]"]');
-            let hasVal=false; let err='';
+            let hasPositive=false; let err='';
             inputs.forEach(inp=>{
-                const v=inp.value.trim();
-                if(v!=='' && parseInt(v)>0) hasVal=true;
+                if(inp.value.trim()==='') inp.value='0';
                 const n=parseInt(inp.value||0); const mx=parseInt(inp.getAttribute('max')||0);
-                if(n>mx) err=`Received ${n} exceeds remaining ${mx}.`;
+                if(isNaN(n)||n<0) err='Received quantity must be a whole number 0 or more.';
+                else if(n>mx) err=`Received ${n} exceeds remaining ${mx}.`;
+                if(n>0) hasPositive=true;
             });
-            if(!hasVal){ alert('Enter at least one remaining quantity >0.'); return false; }
             if(err){ alert(err); return false; }
+            if(!hasPositive){ alert('Enter a quantity greater than 0 for at least one item.'); return false; }
             return true;
         }
 
@@ -583,7 +616,7 @@
                 if(data.error){ content.innerHTML='<span style="color:#c62828;">'+data.error+'</span>'; return; }
                 document.getElementById('view-delivery-title').innerText=`${data.header.delivery_number} — ${data.header.iar_number||''}`;
                 let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;">`;
-                html+=`<div><strong>PO:</strong> ${data.header.po_number} | <strong>PR:</strong> ${data.header.pr_number}</div><div><strong>Supplier:</strong> ${data.header.supplier_name||'N/A'}</div>`;
+                html+=`<div><strong>PR:</strong> ${data.header.pr_number}</div><div><strong>PO Ref #:</strong> ${data.header.po_reference_number||'-'}</div><div><strong>Supplier:</strong> ${data.header.supplier_name||'N/A'}</div>`;
                 html+=`<div><strong>IAR #:</strong> ${data.header.iar_number||'-'}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
                 html+=`<div><strong>Inspected By:</strong> ${data.header.inspected_by||'-'}</div><div><strong>Supply Officer:</strong> ${data.header.supply_officer||'-'}</div>`;
                 html+=`<div><strong>Partial:</strong> ${data.header.is_partial? 'Yes — auto (received ≠ ordered)':'No'}</div><div><strong>Date:</strong> ${data.header.delivery_date}</div>`;

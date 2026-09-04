@@ -1,5 +1,5 @@
-"""Database_Tables.py — Schema Builder (Study Guide)
-Creates all tables in dependency order: Users → Supplier → Products → purchase_requests/pr_items → purchase_orders/po_items → deliveries/delivery_items → inventory/withdraw/return.
+"""Database_Tables.py — Streamlined Schema Builder (PR to Delivery Flow)
+Creates all tables in dependency order: Users → Products → purchase_requests/pr_items → deliveries/delivery_items → inventory/withdraw/return.
 Run: python Tables/Database_Tables.py (requires XAMPP MySQL running).
 """
 
@@ -35,44 +35,25 @@ def create_all_tables():
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 2. SUPPLIER TABLE
+    # 2. PRODUCTS TABLE (Just-in-Time / Auto-populated Catalog)
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS supplier (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        supplier_name VARCHAR(100) NOT NULL,
-        contact_person VARCHAR(100) NOT NULL,
-        contact_number VARCHAR(11) NOT NULL,
-        email VARCHAR(100) NOT NULL,
-        street VARCHAR(100),
-        barangay VARCHAR(100),
-        municipality VARCHAR(100),
-        city VARCHAR(100),
-        country VARCHAR(100) DEFAULT 'Philippines',
+    CREATE TABLE IF NOT EXISTS products (
+        product_id INT AUTO_INCREMENT PRIMARY KEY,
+        product_name VARCHAR(100) NOT NULL,
+        category VARCHAR(50) DEFAULT 'General',
+        details TEXT,
+        unit VARCHAR(20) DEFAULT 'pcs',
+        starting_stock INT DEFAULT 0,
+        current_stock INT DEFAULT 0,
+        size VARCHAR(20) DEFAULT 'N/A',
+        price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        quantity INT NOT NULL DEFAULT 0,
+        reorder_level INT DEFAULT 10,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 3. PRODUCTS TABLE
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS products (
-        product_id INT AUTO_INCREMENT PRIMARY KEY,
-        supplier_id INT NOT NULL,
-        product_name VARCHAR(100) NOT NULL,
-        category VARCHAR(50) NOT NULL,
-        details TEXT,
-        unit VARCHAR(20) NOT NULL,
-        starting_stock INT DEFAULT 0,
-        current_stock INT DEFAULT 0,
-        size VARCHAR(20),
-        price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
-        quantity INT NOT NULL DEFAULT 0,
-        reorder_level INT DEFAULT 10,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """)
-
-    # 4. PURCHASE REQUEST TABLES
+    # 3. PURCHASE REQUEST TABLES (PR Flow)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS purchase_requests (
         pr_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -82,7 +63,6 @@ def create_all_tables():
         date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
         total_price DECIMAL(12, 2) DEFAULT 0.00,
-        has_po TINYINT(1) DEFAULT 0,
         FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
@@ -92,7 +72,6 @@ def create_all_tables():
         pr_item_id INT AUTO_INCREMENT PRIMARY KEY,
         pr_id INT NOT NULL,
         user_id INT NOT NULL,
-        supplier_id INT NOT NULL,
         product_id INT NOT NULL,
         item_name VARCHAR(100) NOT NULL,
         category VARCHAR(50),
@@ -104,64 +83,21 @@ def create_all_tables():
         total_price DECIMAL(12, 2) NOT NULL,
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id) ON DELETE CASCADE,
         FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id),
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 5. PURCHASE ORDER TABLES
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS purchase_orders (
-        po_id INT AUTO_INCREMENT PRIMARY KEY,
-        pr_id INT NOT NULL,
-        supplier_id INT NOT NULL,
-        user_id INT NOT NULL,
-        po_number VARCHAR(50) NOT NULL UNIQUE,
-        mode_of_procurement VARCHAR(50) DEFAULT 'RFQ',
-        date_ordered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status ENUM('Pending PO Approval', 'Approved', 'Issued', 'Delivered', 'Cancelled', 'Completed', 'Partial', 'Partially Delivered') DEFAULT 'Pending PO Approval',
-        total_price DECIMAL(12, 2) DEFAULT 0.00,
-        FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS po_items (
-        po_item_id INT AUTO_INCREMENT PRIMARY KEY,
-        po_id INT NOT NULL,
-        pr_id INT NOT NULL,
-        user_id INT NOT NULL,
-        supplier_id INT NOT NULL,
-        product_id INT NOT NULL,
-        item_name VARCHAR(100) NOT NULL,
-        category VARCHAR(50),
-        unit VARCHAR(20),
-        details TEXT,
-        size VARCHAR(20),
-        price DECIMAL(10, 2) NOT NULL,
-        quantity INT NOT NULL,
-        total_price DECIMAL(12, 2) NOT NULL,
-        FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id) ON DELETE CASCADE,
-        FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id),
-        FOREIGN KEY (product_id) REFERENCES products(product_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """)
-
-    # 6. DELIVERY TABLES
+    # 4. DELIVERY TABLES (Direct PR to Delivery, with external PO reference & supplier name)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS deliveries (
         delivery_id INT AUTO_INCREMENT PRIMARY KEY,
         approved_by INT,
-        po_id INT NOT NULL,
         pr_id INT NOT NULL,
         user_id INT NOT NULL,
-        supplier_id INT NOT NULL,
         delivery_number VARCHAR(50) NOT NULL UNIQUE,
         iar_number VARCHAR(50),
+        po_reference_number VARCHAR(50), 
+        supplier_name VARCHAR(100) NOT NULL,
         inspected_by VARCHAR(100),
         supply_officer VARCHAR(100),
         is_partial TINYINT(1) DEFAULT 0,
@@ -169,10 +105,8 @@ def create_all_tables():
         remarks TEXT,
         status ENUM('Pending', 'Received', 'Incomplete') DEFAULT 'Pending',
         FOREIGN KEY (approved_by) REFERENCES users(id),
-        FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id),
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
-        FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id)
+        FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
@@ -180,10 +114,8 @@ def create_all_tables():
     CREATE TABLE IF NOT EXISTS delivery_items (
         delivery_items_id INT AUTO_INCREMENT PRIMARY KEY,
         delivery_id INT NOT NULL,
-        po_id INT NOT NULL,
         pr_id INT NOT NULL,
         user_id INT NOT NULL,
-        supplier_id INT NOT NULL,
         product_id INT NOT NULL,
         item_name VARCHAR(100) NOT NULL,
         ordered_quantity INT NOT NULL,
@@ -195,23 +127,19 @@ def create_all_tables():
         price DECIMAL(10, 2) NOT NULL,
         total_price DECIMAL(12, 2) NOT NULL,
         FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id) ON DELETE CASCADE,
-        FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id),
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
         FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id),
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 7. PHYSICAL LEDGER TABLE (ITEMS)
+    # 5. PHYSICAL LEDGER TABLE (ITEMS)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
         item_id INT AUTO_INCREMENT PRIMARY KEY,
         delivery_id INT,
-        po_id INT,
         pr_id INT,
         user_id INT,
-        supplier_id INT,
         product_id INT NOT NULL,
         item_number VARCHAR(50),
         item_name VARCHAR(100) NOT NULL,
@@ -224,15 +152,13 @@ def create_all_tables():
         item_total_price DECIMAL(12, 2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id),
-        FOREIGN KEY (po_id) REFERENCES purchase_orders(po_id),
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
         FOREIGN KEY (user_id) REFERENCES users(id),
-        FOREIGN KEY (supplier_id) REFERENCES supplier(id),
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 8. WITHDRAW TABLES
+    # 6. WITHDRAW TABLES (RIS Workflow)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS withdraw (
         withdraw_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -264,8 +190,25 @@ def create_all_tables():
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
+    
 
-    # 9. RETURN TABLES
+    # 7. STOCK MOVEMENTS TABLE (Audit Trail)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS stock_movements (
+        movement_id INT AUTO_INCREMENT PRIMARY KEY,
+        product_id INT NOT NULL,
+        reference_type VARCHAR(20) NOT NULL,
+        reference_id INT NOT NULL,
+        quantity_change INT NOT NULL,
+        balance_after INT NOT NULL,
+        user_id INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (product_id) REFERENCES products(product_id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    """)
+    
+# 8. RETURN TABLES (Linked to Withdraw for equipment/asset returns)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS `return` (
         return_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -299,28 +242,11 @@ def create_all_tables():
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 10. STOCK MOVEMENTS TABLE
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS stock_movements (
-        movement_id INT AUTO_INCREMENT PRIMARY KEY,
-        product_id INT NOT NULL,
-        reference_type VARCHAR(20) NOT NULL,
-        reference_id INT NOT NULL,
-        quantity_change INT NOT NULL,
-        balance_after INT NOT NULL,
-        user_id INT DEFAULT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (product_id) REFERENCES products(product_id),
-        FOREIGN KEY (user_id) REFERENCES users(id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    """)
-
     conn.commit()
     cursor.close()
     conn.close()
-    print("Database & tables updated successfully!")
+    print("Streamlined PR-to-Delivery database & tables created successfully!")
 
 
-# Main guard: Only runs when executing 'python Tables.py' directly
 if __name__ == "__main__":
     create_all_tables()

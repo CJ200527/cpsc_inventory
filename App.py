@@ -1,14 +1,15 @@
 """
 Web-Based CPSC Production & Inventory Management System - Prototype 2
 ================================================================
-Migrated from MS Access to Flask + MySQL. Handles Procurement (PR/PO),
-Delivery/IAR, and Inventory with Role-Based Access Control.
+Migrated from MS Access to Flask + MySQL. Handles Procurement (PR),
+Delivery/IAR (PR-direct, no PO), and Inventory with Role-Based Access Control.
 
 Capstone Defense - Key Concepts:
 - Session Auth: Flask session stores user_id/username/role after login_user()
 - RBAC: Admin (full CRUD) vs Staff (Add/Edit only, Delete blocked)
-- PR/PO Price Variance: PR price = estimate; PO unit_price = vendor actual via adjusted_items
-- Address Learning: Supplier barangays/municipalities learned from DB distinct values
+- PR-to-Delivery: deliveries link directly to approved PRs via pr_id;
+  po_reference_number / supplier_name are free-text tracking columns.
+- Return module links back to withdraw via withdraw_id.
 
 Run: python App.py  (requires XAMPP MySQL, mysql-connector-python)
 """
@@ -40,50 +41,43 @@ from crud_users import (
     update_user_info,
     reset_password_verified,
 )
-from crud_suppliers import (
-    get_all_suppliers,
-    get_all_suppliers_filtered,
-    add_supplier,
-    update_supplier,
-    delete_supplier,
-)
+# Supplier module retired: supplier table removed; supplier captured as
+# free-text deliveries.supplier_name. No crud_suppliers import.
 from crud_products import (
     get_all_products,
     get_all_products_filtered,
-    get_suppliers_list,
     add_product,
     update_product,
     delete_product,
 )
 from crud_pr import (
     create_purchase_request,
+    update_purchase_request,
     get_all_purchase_requests,
     get_pr_details,
-    update_pr_status
+    update_pr_status,
+    get_approved_prs_for_delivery,
+    generate_pr_number,
 )
 
-# --- IMPORTS FOR PO MODULE ---
-from crud_po import (
-    create_po_from_pr,
-    get_approved_prs_without_po,
-    get_all_purchase_orders,
-    get_po_details,
-    update_po_status
-)
+# --- PO MODULE RETIRED (PR-to-Delivery workflow) ---
+# purchase_orders / po_items tables have been removed. Deliveries link directly
+# to purchase_requests via pr_id. The /po routes below are kept as redirects.
 
 # --- IMPORTS FOR IAR MODULE (legacy) ---
 from crud_iar import create_iar_record, get_iar_by_po
 
-# --- IMPORTS FOR DELIVERY/IAR MODULE (spec-compliant 2-step) ---
+# --- IMPORTS FOR DELIVERY/IAR MODULE (PR-direct 2-step) ---
 from crud_delivery import (
     create_delivery,
     create_completion_delivery,
     get_all_deliveries,
     get_delivery_details,
     approve_delivery,
-    get_deliverable_pos,
-    search_deliverable_pos,
-    get_po_remaining
+    get_deliverable_prs,
+    search_deliverable_prs,
+    get_pr_remaining,
+    generate_delivery_number,
 )
 
 # --- IMPORTS FOR INVENTORY MODULE (Live ledger) ---
@@ -222,13 +216,13 @@ def register():
     try:
         conn_check = get_db_connection()
         cur_check = conn_check.cursor()
-        cur_check.execute("SELECT id FROM Users WHERE BINARY username = %s", (username,))
+        cur_check.execute("SELECT id FROM users WHERE BINARY username = %s", (username,))
         if cur_check.fetchone():
             flash("Username already exists (case-sensitive). Please choose another username.", "error")
             cur_check.close()
             conn_check.close()
             return redirect(url_for("login"))
-        cur_check.execute("SELECT id FROM Users WHERE Contact_Number = %s", (contact_number,))
+        cur_check.execute("SELECT id FROM users WHERE Contact_Number = %s", (contact_number,))
         if cur_check.fetchone():
             flash("Contact number already registered. Please use another number.", "error")
             cur_check.close()
@@ -363,13 +357,13 @@ def admin_update_user_action(target_id):
         try:
             conn_check = get_db_connection()
             cur_check = conn_check.cursor()
-            cur_check.execute("SELECT id FROM Users WHERE BINARY username = %s AND id != %s", (username, target_id))
+            cur_check.execute("SELECT id FROM users WHERE BINARY username = %s AND id != %s", (username, target_id))
             if cur_check.fetchone():
                 flash(f"Failed to update user: Username '{username}' is already taken by another account.", "error")
                 cur_check.close()
                 conn_check.close()
                 return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
-            cur_check.execute("SELECT id FROM Users WHERE Contact_Number = %s AND id != %s", (contact_number, target_id))
+            cur_check.execute("SELECT id FROM users WHERE Contact_Number = %s AND id != %s", (contact_number, target_id))
             if cur_check.fetchone():
                 flash(f"Failed to update user: Contact number '{contact_number}' is already registered to another account.", "error")
                 cur_check.close()
@@ -401,173 +395,48 @@ def admin_update_user_action(target_id):
             flash(f"Update failed: {err}", "error")
     return redirect(url_for("admin_users", search=request.args.get("search", ""), date_filter=request.args.get("date_filter", "All")))
 
-# --- ROUTE: Admin Supplier Management View & Search ---
+# --- ROUTE: Admin Supplier Management View — RETIRED ---
+# Supplier table removed in finalized schema (supplier is free-text
+# deliveries.supplier_name). Route kept so old links don't 404.
 @app.route("/admin/suppliers")
 def admin_suppliers():
-    """Admin Supplier View: RBAC guard (Admin only), loads suppliers + distinct addresses for Camiguin autocomplete (dynamic learning from Supplier table)."""
-    if "user_id" not in session or session.get("role") != "Admin":  # RBAC: block non-Admin, redirect to login with flash
-        flash("Admin access required.", "error")
-        flash("Admin access required.", "error")
-        return redirect(url_for("login"))
-    search = request.args.get("search", "").strip()
-    date_filter = request.args.get("date_filter", "All")
-    custom_date = request.args.get("custom_date", "")
-    try:
-        suppliers = get_all_suppliers(search_query=search, date_filter=date_filter, custom_date=custom_date)
-    except Exception as err:
-        print(f"[admin_suppliers] DB error: {err}")
-        flash("Database error while loading suppliers.", "error")
-        suppliers = []
-    # Dynamic Address Learning: fetch distinct existing addresses
-    try:
-        conn2 = get_db_connection()
-        cur = conn2.cursor(dictionary=True)
-        cur.execute("SELECT DISTINCT street FROM Supplier WHERE street IS NOT NULL AND street != ''")
-        existing_streets = [r['street'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT barangay FROM Supplier WHERE barangay IS NOT NULL AND barangay != ''")
-        existing_barangays = [r['barangay'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT municipality FROM Supplier WHERE municipality IS NOT NULL AND municipality != ''")
-        existing_municipalities = [r['municipality'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT city FROM Supplier WHERE city IS NOT NULL AND city != ''")
-        existing_cities = [r['city'] for r in cur.fetchall()]
-        cur.close()
-        conn2.close()
-    except Exception as e:
-        print(f"[admin_suppliers address learning] DB error: {e}")
-        existing_streets = []
-        existing_barangays = []
-        existing_municipalities = []
-        existing_cities = []
-    return safe_render_template("Admin Dashboards/supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date, existing_streets=existing_streets, existing_barangays=existing_barangays, existing_municipalities=existing_municipalities, existing_cities=existing_cities)
+    flash("Supplier module retired: supplier is now a text field on Delivery (supplier_name).", "info")
+    return redirect(url_for("admin_dashboard"))
 
-# --- ROUTE: Staff Supplier Management View (Staff + Admin) ---
+# --- ROUTE: Staff Supplier Management View — RETIRED ---
 @app.route("/staff/suppliers")
 def staff_suppliers():
-    """Staff Supplier View: RBAC (Staff+Admin), same data as admin but renders staff_supplier_management.html with Add/Edit only (Delete hidden)."""
-    if "user_id" not in session:  # Session check: must be logged in, else redirect
-        flash("Please log in to access Supplier Directory.", "error")
-        flash("Please log in to access Supplier Directory.", "error")
-        return redirect(url_for("login"))
-    if session.get("role") not in ["Admin", "Staff"]:
-        flash("Staff access required.", "error")
-        return redirect(url_for("login"))
-    search = request.args.get("search", "").strip()
-    date_filter = request.args.get("date_filter", "All")
-    custom_date = request.args.get("custom_date", "")
-    try:
-        suppliers = get_all_suppliers(search_query=search, date_filter=date_filter, custom_date=custom_date)
-    except Exception as err:
-        print(f"[staff_suppliers] DB error: {err}")
-        flash("Database error while loading suppliers.", "error")
-        suppliers = []
-    # Dynamic Address Learning: fetch distinct existing addresses (same as admin)
-    try:
-        conn2 = get_db_connection()
-        cur = conn2.cursor(dictionary=True)
-        cur.execute("SELECT DISTINCT street FROM Supplier WHERE street IS NOT NULL AND street != ''")
-        existing_streets = [r['street'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT barangay FROM Supplier WHERE barangay IS NOT NULL AND barangay != ''")
-        existing_barangays = [r['barangay'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT municipality FROM Supplier WHERE municipality IS NOT NULL AND municipality != ''")
-        existing_municipalities = [r['municipality'] for r in cur.fetchall()]
-        cur.execute("SELECT DISTINCT city FROM Supplier WHERE city IS NOT NULL AND city != ''")
-        existing_cities = [r['city'] for r in cur.fetchall()]
-        cur.close()
-        conn2.close()
-    except Exception as e:
-        print(f"[staff_suppliers address learning] DB error: {e}")
-        existing_streets = []
-        existing_barangays = []
-        existing_municipalities = []
-        existing_cities = []
-    return safe_render_template("Staff Dashboards/staff_supplier_management.html", user=session, suppliers=suppliers, search=search, date_filter=date_filter, custom_date=custom_date, existing_streets=existing_streets, existing_barangays=existing_barangays, existing_municipalities=existing_municipalities, existing_cities=existing_cities)
+    flash("Supplier module retired: supplier is now a text field on Delivery (supplier_name).", "info")
+    if session.get("role") == "Admin":
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("staff_dashboard"))
 
-# --- ACTION ROUTE: Add New Supplier (Admin + Staff) ---
+# --- ACTION ROUTE: Add New Supplier — RETIRED ---
 @app.route("/admin/suppliers/add", methods=["POST"])
 @app.route("/suppliers/add", methods=["POST"])
 def admin_add_supplier_action():
-    if session.get("role") not in ["Admin", "Staff"]:
-        flash("Admin or Staff access required.", "error")
-        return redirect(url_for("login"))
-    _redir = "staff_suppliers" if session.get("role") == "Staff" else "admin_suppliers"
-    supplier_name = request.form.get("supplier_name", "").strip()
-    contact_person = request.form.get("contact_person", "").strip()
-    contact_number = request.form.get("contact_number", "").strip()
-    email = request.form.get("email", "").strip()
-    # Sanitization & Title-Casing for addresses
-    street = request.form.get("street", "").strip().title()
-    barangay = request.form.get("barangay", "").strip().title()
-    municipality = request.form.get("municipality", "").strip().title()
-    city = request.form.get("city", "").strip().title()
-    country = request.form.get("country", "Philippines").strip().title() or "Philippines"
-    if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
-        flash("All fields are required. Please fill every textbox.", "error")
-        return redirect(url_for(_redir, search=request.args.get("search","")))
-    if not re.fullmatch(r"09\d{9}", contact_number):
-        flash("Invalid contact number! Must be 11 digits starting with 09.", "error")
-        return redirect(url_for(_redir, search=request.args.get("search","")))
-    if "@" not in email or "." not in email:
-        flash("Invalid email address.", "error")
-        return redirect(url_for(_redir, search=request.args.get("search","")))
-    try:
-        ok = add_supplier(supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country)
-        flash(f"Supplier '{supplier_name}' added!" if ok else "Failed to add supplier.", "success" if ok else "error")
-    except Exception as err:
-        flash(f"Add failed: {err}", "error")
+    flash("Supplier module retired: enter supplier as text (supplier_name) when creating a Delivery.", "info")
     if session.get("role") == "Staff":
-        return redirect(url_for("staff_suppliers", search=request.args.get("search","")))
-    return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+        return redirect(url_for("staff_dashboard"))
+    return redirect(url_for("admin_dashboard"))
 
-# --- ACTION ROUTE: Update Supplier (Admin + Staff) ---
+# --- ACTION ROUTE: Update Supplier — RETIRED ---
 @app.route("/admin/suppliers/update/<int:target_id>", methods=["POST"])
 @app.route("/suppliers/update/<int:target_id>", methods=["POST"])
 def admin_update_supplier_action(target_id):
-    if session.get("role") not in ["Admin", "Staff"]:
-        flash("Admin or Staff access required.", "error")
-        return redirect(url_for("login"))
-    supplier_name = request.form.get("supplier_name", "").strip()
-    contact_person = request.form.get("contact_person", "").strip()
-    contact_number = request.form.get("contact_number", "").strip()
-    email = request.form.get("email", "").strip()
-    # Sanitization & Title-Casing for addresses
-    street = request.form.get("street", "").strip().title()
-    barangay = request.form.get("barangay", "").strip().title()
-    municipality = request.form.get("municipality", "").strip().title()
-    city = request.form.get("city", "").strip().title()
-    country = request.form.get("country", "Philippines").strip().title() or "Philippines"
-    _redir = "staff_suppliers" if session.get("role") == "Staff" else "admin_suppliers"
-    if not all([supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country]):
-        flash("All fields are required. Please fill every textbox.", "error")
-        return redirect(url_for(_redir, search=request.args.get("search","")))
-    if not re.fullmatch(r"09\d{9}", contact_number):
-        flash("Invalid contact number! Must be 11 digits starting with 09.", "error")
-        return redirect(url_for(_redir, search=request.args.get("search","")))
-    try:
-        ok = update_supplier(target_id, supplier_name, contact_person, contact_number, email, street, barangay, municipality, city, country)
-        flash(f"Supplier SUP-{target_id:03d} updated!" if ok else "Update failed.", "success" if ok else "error")
-    except Exception as err:
-        flash(f"Update failed: {err}", "error")
-    return redirect(url_for(_redir, search=request.args.get("search","")))
+    flash("Supplier module retired: enter supplier as text (supplier_name) when creating a Delivery.", "info")
+    if session.get("role") == "Staff":
+        return redirect(url_for("staff_dashboard"))
+    return redirect(url_for("admin_dashboard"))
 
-# --- ACTION ROUTE: Delete Supplier (Admin Only) ---
+# --- ACTION ROUTE: Delete Supplier — RETIRED ---
 @app.route("/admin/suppliers/delete/<int:target_id>", methods=["POST"])
 @app.route("/suppliers/delete/<int:target_id>", methods=["POST"])
 def admin_delete_supplier_action(target_id):
-    if session.get("role") != "Admin":
-        if session.get("role") == "Staff":
-            flash("Delete access denied: Only Admin can delete suppliers. Staff can only Add/Edit.", "error")
-            return redirect(url_for("staff_suppliers"))
-        flash("Admin access required.", "error")
-        return redirect(url_for("login"))
-    try:
-        ok = delete_supplier(target_id)
-        if ok:
-            flash(f"Supplier SUP-{target_id:03d} deleted.", "error")
-        else:
-            flash("Delete failed — supplier may be linked to products.", "error")
-    except Exception as err:
-        flash(f"Delete failed: {err}", "error")
-    return redirect(url_for("admin_suppliers", search=request.args.get("search","")))
+    flash("Supplier module retired: enter supplier as text (supplier_name) when creating a Delivery.", "info")
+    if session.get("role") == "Staff":
+        return redirect(url_for("staff_dashboard"))
+    return redirect(url_for("admin_dashboard"))
 
 # --- PRODUCT MANAGEMENT ---
 @app.route("/admin/products")
@@ -580,7 +449,7 @@ def admin_products():
     custom_date = request.args.get("custom_date", "")
     try:
         products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date)
-        suppliers_list = get_suppliers_list()
+        suppliers_list = []
     except Exception as err:
         print(f"[admin_products] DB error: {err}")
         flash("Database error while loading products.", "error")
@@ -601,7 +470,7 @@ def staff_products():
     custom_date = request.args.get("custom_date", "")
     try:
         products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date)
-        suppliers_list = get_suppliers_list()
+        suppliers_list = []
     except Exception as err:
         print(f"[staff_products] DB error: {err}")
         flash("Database error while loading products.", "error")
@@ -615,25 +484,23 @@ def admin_add_product():
         flash("Admin or Staff access required.", "error")
         return redirect(url_for("login"))
     _redir = "staff_products" if session.get("role") == "Staff" else "admin_products"
-    supplier_id = request.form.get("supplier_id", "").strip()
     product_name = request.form.get("product_name", "").strip()
     category = request.form.get("category", "").strip()
     details = request.form.get("details", "").strip()
     unit = request.form.get("unit", "").strip()
     size = request.form.get("size", "").strip()
     price = request.form.get("price", "").strip()
-    if not all([supplier_id, product_name, category, unit, size, details, price]):
+    if not all([product_name, category, unit, size, details, price]):
         flash("All fields are required (including price and specification).", "error")
         return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
-        supplier_id = int(supplier_id)
         price = float(price)
         if price < 0: raise ValueError
     except:
-        flash("Price must be a valid number (0 or more) and supplier must be selected.", "error")
+        flash("Price must be a valid number (0 or more).", "error")
         return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
-        ok = add_product(supplier_id, product_name, category, details, unit, size, price)
+        ok = add_product(None, product_name, category, details, unit, size, price)
         flash(f"Product '{product_name}' added!" if ok else "Failed to add product.", "success" if ok else "error")
     except Exception as err:
         flash(f"Add failed: {err}", "error")
@@ -646,24 +513,23 @@ def admin_update_product(target_id):
         flash("Admin or Staff access required.", "error")
         return redirect(url_for("login"))
     _redir = "staff_products" if session.get("role") == "Staff" else "admin_products"
-    supplier_id = request.form.get("supplier_id", "").strip()
     product_name = request.form.get("product_name", "").strip()
     category = request.form.get("category", "").strip()
     details = request.form.get("details", "").strip()
     unit = request.form.get("unit", "").strip()
     size = request.form.get("size", "").strip()
     price = request.form.get("price", "").strip()
-    if not all([supplier_id, product_name, category, unit, size, details, price]):
+    if not all([product_name, category, unit, size, details, price]):
         flash("All fields are required.", "error")
         return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
-        supplier_id = int(supplier_id); price = float(price)
+        price = float(price)
         if price < 0: raise ValueError
     except:
-        flash("Invalid price or supplier.", "error")
+        flash("Invalid price.", "error")
         return redirect(url_for(_redir, search=request.args.get("search","")))
     try:
-        ok = update_product(target_id, supplier_id, product_name, category, details, unit, size, price)
+        ok = update_product(target_id, None, product_name, category, details, unit, size, price)
         flash(f"Product PRD-{target_id:03d} updated!" if ok else "Update failed.", "success" if ok else "error")
     except Exception as err:
         flash(f"Update failed: {err}", "error")
@@ -679,8 +545,9 @@ def admin_delete_product(target_id):
         flash("Admin access required.", "error")
         return redirect(url_for("login"))
     try:
-        ok = delete_product(target_id)
-        flash(f"Product PRD-{target_id:03d} deleted." if ok else "Delete failed — may be referenced by inventory.", "error" if ok else "error")
+        ok, msg = delete_product(target_id)
+        # Blocked deletions surface as a clear warning; success confirms removal.
+        flash(msg, "success" if ok else "error")
     except Exception as err:
         flash(f"Delete failed: {err}", "error")
     return redirect(url_for("admin_products", search=request.args.get("search","")))
@@ -729,15 +596,16 @@ def pr_management():
         custom_date=custom_date
     )
 
-# --- ACTION ROUTE: Submit New PR (Supports Multiple Line Items) ---
-@app.route("/pr/add", methods=["POST"])
-def add_pr_action():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
+# --- ACTION ROUTE: Submit New PR — Master-Detail (Header + typed Line Items, JIT product creation) ---
+def _parse_pr_items():
+    """Parses the Master-Detail PR form into (fund_source, date_requested, items_payload).
 
-    user_id = session.get("user_id")
-    product_ids = request.form.getlist("product_id[]")
-    supplier_ids = request.form.getlist("supplier_id[]")
+    product_id[] is optional (legacy); rows without one are JIT-matched/created
+    by item_name in crud. Rows missing name/price/qty (or qty < 1) are skipped.
+    """
+    fund_source = request.form.get("fund_source", "Fund 05").strip() or "Fund 05"
+    date_requested = request.form.get("date_requested", "").strip()
+    product_ids = request.form.getlist("product_id[]")  # optional (legacy)
     item_names = request.form.getlist("item_name[]")
     categories = request.form.getlist("category[]")
     units = request.form.getlist("unit[]")
@@ -746,46 +614,78 @@ def add_pr_action():
     prices = request.form.getlist("price[]")
     quantities = request.form.getlist("quantity[]")
 
-    if not product_ids:
-        flash("Please add at least one item to your purchase request.", "error")
-        return redirect(url_for("pr_management"))
-
     def _safe(lst, idx, default=""):
         return lst[idx].strip() if idx < len(lst) and lst[idx] is not None else default
 
     items_payload = []
-    for i, pid_raw in enumerate(product_ids):
+    for i, raw_name in enumerate(item_names):
         try:
-            pid_str = pid_raw.strip() if pid_raw else ""
-            sid_str = _safe(supplier_ids, i)
-            iname = _safe(item_names, i)
+            iname = (raw_name or "").strip()
             price_str = _safe(prices, i)
             qty_str = _safe(quantities, i)
-            if not pid_str or not sid_str or not iname or not price_str or not qty_str:
+            if not iname or not price_str or not qty_str:
                 continue
-            items_payload.append({
-                "product_id": int(pid_str),
-                "supplier_id": int(sid_str),
+            qty = int(qty_str)
+            if qty < 1:
+                continue
+            row = {
                 "item_name": iname,
                 "category": _safe(categories, i),
                 "unit": _safe(units, i, "pcs"),
                 "size": _safe(sizes, i),
                 "details": _safe(details_list, i),
                 "price": float(price_str),
-                "quantity": int(qty_str)
-            })
+                "quantity": qty
+            }
+            if i < len(product_ids) and (product_ids[i] or "").strip():
+                row["product_id"] = int(product_ids[i].strip())
+            items_payload.append(row)
         except (ValueError, IndexError, AttributeError):
             continue
+    return fund_source, date_requested, items_payload
+
+
+@app.route("/pr/add", methods=["POST"])
+def add_pr_action():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session.get("user_id")
+    fund_source, date_requested, items_payload = _parse_pr_items()
 
     if not items_payload:
-        flash("Invalid item details submitted.", "error")
+        flash("Please add at least one valid item to your purchase request.", "error")
         return redirect(url_for("pr_management"))
 
-    success, result = create_purchase_request(user_id, items_payload)
+    success, result = create_purchase_request(user_id, items_payload,
+                                              fund_source=fund_source,
+                                              date_requested=date_requested or None)
     if success:
         flash(f"Purchase Request {result} submitted successfully!", "success")
     else:
         flash(f"Failed to submit PR: {result}", "error")
+
+    return redirect(url_for("pr_management"))
+
+# --- ACTION ROUTE: Update Pending PR — Master-Detail edit (Pending only, Approved locks) ---
+@app.route("/pr/update/<int:pr_id>", methods=["POST"])
+def update_pr_action(pr_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    fund_source, date_requested, items_payload = _parse_pr_items()
+
+    if not items_payload:
+        flash("A Purchase Request must keep at least one valid item.", "error")
+        return redirect(url_for("pr_management"))
+
+    success, result = update_purchase_request(pr_id, fund_source=fund_source,
+                                              date_requested=date_requested or None,
+                                              items_list=items_payload)
+    if success:
+        flash(f"Purchase Request {result} updated successfully!", "success")
+    else:
+        flash(f"Failed to update PR: {result}", "error")
 
     return redirect(url_for("pr_management"))
 
@@ -820,6 +720,55 @@ def get_pr_details_api(pr_id):
             item["total_price"] = 0.0
     return {"header": header, "items": items}
 
+# --- API ROUTE: Next available PR number (for live display in Create PR modal) ---
+@app.route("/pr/get_next_number")
+def get_next_pr_number_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        return {"pr_number": generate_pr_number()}
+    except Exception as err:
+        print(f"[get_next_pr_number_api] DB error: {err}")
+        return {"error": str(err)}, 500
+
+# --- API ROUTE: Master Catalog product list (for item-name datalist in Create PR modal) ---
+@app.route("/products/api/list")
+def products_list_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        products = get_all_products()
+    except Exception as err:
+        print(f"[products_list_api] DB error: {err}")
+        return {"error": str(err)}, 500
+    out = []
+    for p in products or []:
+        try:
+            price = float(p.get("price") or 0)
+        except Exception:
+            price = 0.0
+        out.append({
+            "product_id": p.get("product_id"),
+            "product_name": p.get("product_name") or "",
+            "category": p.get("category") or "",
+            "unit": p.get("unit") or "",
+            "size": p.get("size") or "",
+            "details": p.get("details") or "",
+            "price": price,
+        })
+    return {"products": out}
+
+# --- API ROUTE: Next available delivery number (for live display in Receive modal) ---
+@app.route("/delivery/get_next_number")
+def get_next_delivery_number_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        return {"delivery_number": generate_delivery_number()}
+    except Exception as err:
+        print(f"[get_next_delivery_number_api] DB error: {err}")
+        return {"error": str(err)}, 500
+
 # --- ACTION ROUTE: Approve PR (Admin Only) ---
 @app.route("/admin/pr/approve/<int:pr_id>", methods=["POST"])
 def approve_pr_action(pr_id):
@@ -848,161 +797,64 @@ def reject_pr_action(pr_id):
 
     return redirect(url_for("pr_management"))
 
-# --- ROUTE: Purchase Order Management (Role-Separated) ---
+# --- ROUTE: Purchase Order Management — RETIRED (PR-to-Delivery) ---
+# purchase_orders / po_items removed. Deliveries link directly to PRs via pr_id.
+# Route kept so old links don't 404; redirects to Delivery with approved PRs.
 @app.route("/po")
 def po_management():
-    if "user_id" not in session:
-        flash("Please log in to access Purchase Orders.", "error")
-        return redirect(url_for("login"))
+    flash("Purchase Order step removed: create a Delivery directly from an Approved PR.", "info")
+    return redirect(url_for("delivery_dashboard"))
 
-    search = request.args.get("search", "").strip()
-    status_filter = request.args.get("status_filter", "All")
-
-    user_role = session.get("role")
-    # Staff sees ALL POs regardless of creator
-    user_id_scope = None
-
-    try:
-        orders_list = get_all_purchase_orders(
-            search_query=search,
-            status_filter=status_filter,
-            user_id=user_id_scope
-        )
-        approved_prs = get_approved_prs_without_po()
-    except Exception as err:
-        print(f"[po_management] DB error: {err}")
-        flash("Database error loading Purchase Orders.", "error")
-        orders_list = []
-        approved_prs = []
-
-    template_file = "Admin Dashboards/admin_po_management.html" if user_role == "Admin" else "Staff Dashboards/staff_po_management.html"
-
-    return safe_render_template(
-        template_file,
-        user=session,
-        orders=orders_list,
-        approved_prs=approved_prs,
-        search=search,
-        status_filter=status_filter
-    )
-
-# --- ACTION ROUTE: Generate PO from Approved PR ---
-# CRITICAL FIX (Prototype 2): PR price = estimate, PO unit_price = vendor actual.
-# Modal shows PR Est. Price (read-only) vs Actual PO Price (editable); adjusted_items overrides po_items.
+# --- ACTION ROUTE: Generate PO — RETIRED ---
 @app.route("/admin/po/generate", methods=["POST"])
 @app.route("/po/generate", methods=["POST"])
 def generate_po_action():
-    """Generate PO: uses adjusted_items (vendor actuals) if provided, else falls back to PR items. Handles PR/PO price variance and marks has_po=1."""
-    if session.get("role") not in ["Admin", "Staff"]:  # RBAC: both roles can generate PO
-        flash("Login required to generate PO.", "error")
-        flash("Login required to generate PO.", "error")
-        return redirect(url_for("po_management"))
+    flash("Purchase Order step removed: create a Delivery directly from an Approved PR.", "info")
+    return redirect(url_for("delivery_dashboard"))
 
-    pr_id = request.form.get("pr_id")
-    if not pr_id:
-        flash("Please select an approved Purchase Request.", "error")
-        return redirect(url_for("po_management"))
-
-    product_ids = request.form.getlist("product_id[]")
-    supplier_ids = request.form.getlist("supplier_id[]")
-    item_names = request.form.getlist("item_name[]")
-    categories = request.form.getlist("category[]")
-    units = request.form.getlist("unit[]")
-    sizes = request.form.getlist("size[]")
-    details_list = request.form.getlist("details[]")
-    quantities = request.form.getlist("quantity[]")
-    unit_prices = request.form.getlist("unit_price[]") or request.form.getlist("price[]")
-
-    adjusted_items = []
-    if product_ids:
-        def _safe(lst, idx, default=""):
-            return lst[idx].strip() if idx < len(lst) and lst[idx] is not None else default
-        for i in range(len(product_ids)):
-            try:
-                pid_str = product_ids[i].strip() if product_ids[i] else ""
-                if not pid_str:
-                    continue
-                qty_str = _safe(quantities, i)
-                price_str = _safe(unit_prices, i)
-                if not qty_str or not price_str:
-                    continue
-                adjusted_items.append({
-                    "product_id": int(pid_str),
-                    "supplier_id": int(_safe(supplier_ids, i) or 1),
-                    "item_name": _safe(item_names, i),
-                    "category": _safe(categories, i),
-                    "unit": _safe(units, i, "pcs"),
-                    "size": _safe(sizes, i),
-                    "details": _safe(details_list, i),
-                    "quantity": int(qty_str),
-                    "unit_price": float(price_str)
-                })
-            except (ValueError, IndexError, AttributeError):
-                continue
-
-    success, result = create_po_from_pr(int(pr_id), session.get("user_id"), adjusted_items if adjusted_items else None)
-    if success:
-        flash(f"Purchase Order {result} generated successfully with updated vendor pricing!", "success")
-    else:
-        flash(f"Failed to generate PO: {result}", "error")
-
-    return redirect(url_for("po_management"))
-
-# --- Admin-Only PO Approval ---
+# --- Admin-Only PO Approval — RETIRED ---
 @app.route("/po/approve/<int:po_id>", methods=["POST"])
 def approve_po_action(po_id):
-    if session.get("role") != "Admin":
-        flash("Admin permission required.", "error")
-        return redirect(url_for("po_management"))
-    header, _ = get_po_details(po_id)
-    if not header:
-        flash("Purchase Order not found.", "error")
-        return redirect(url_for("po_management"))
-    if header.get("status") != "Pending PO Approval":
-        flash("Only POs with status 'Pending PO Approval' can be approved.", "error")
-        return redirect(url_for("po_management"))
-    if update_po_status(po_id, "Approved"):
-        flash(f"Purchase Order {header.get('po_number')} approved!", "success")
-    else:
-        flash("Failed to approve Purchase Order.", "error")
-    return redirect(url_for("po_management"))
+    flash("Purchase Order step removed: approve the PR, then create a Delivery.", "info")
+    return redirect(url_for("delivery_dashboard"))
 
-# --- ACTION ROUTE: Get PO Details API ---
+# --- ACTION ROUTE: Get PO Details API — RETIRED (serves PR details for compat) ---
 @app.route("/po/details/<int:po_id>")
 def get_po_details_api(po_id):
     if "user_id" not in session:
         return {"error": "Unauthorized"}, 401
-
-    header, items = get_po_details(po_id)
+    header, items = get_pr_details(po_id)
     if not header:
-        return {"error": "Purchase order not found"}, 404
-
-    header["date_issued"] = header["date_issued"].strftime("%Y-%m-%d %H:%M:%S") if header["date_issued"] else ""
-    header["total_amount"] = float(header["total_amount"])
-
+        return {"error": "Purchase request not found"}, 404
+    try:
+        header["date_issued"] = header["date_requested"].strftime("%Y-%m-%d %H:%M:%S") if header.get("date_requested") else ""
+    except Exception:
+        header["date_issued"] = str(header.get("date_requested", ""))
+    try:
+        header["total_amount"] = float(header.get("total_price") or 0)
+    except Exception:
+        header["total_amount"] = 0.0
     for item in items:
-        item["unit_price"] = float(item["unit_price"])
-        item["total_price"] = float(item["total_price"])
-        item["ordered_quantity"] = int(item["ordered_quantity"])
-        item["received_quantity"] = int(item["received_quantity"])
-
+        try:
+            item["unit_price"] = float(item.get("price") or 0)
+        except Exception:
+            item["unit_price"] = 0.0
+        try:
+            item["total_price"] = float(item.get("total_price") or 0)
+        except Exception:
+            item["total_price"] = 0.0
+        try:
+            item["ordered_quantity"] = int(item.get("quantity") or 0)
+        except Exception:
+            item["ordered_quantity"] = 0
+        item["received_quantity"] = 0
     return {"header": header, "items": items}
 
-# --- ACTION ROUTE: Update PO Status (Admin Only) ---
+# --- ACTION ROUTE: Update PO Status — RETIRED ---
 @app.route("/admin/po/status/<int:po_id>", methods=["POST"])
 def update_po_status_action(po_id):
-    if session.get("role") != "Admin":
-        flash("Admin permission required.", "error")
-        return redirect(url_for("po_management"))
-
-    new_status = request.form.get("status")
-    if new_status in ["Issued", "Partially Delivered", "Completed", "Cancelled"]:
-        if update_po_status(po_id, new_status):
-            flash(f"Purchase Order status updated to '{new_status}'.", "success")
-        else:
-            flash("Failed to update Purchase Order status.", "error")
-
-    return redirect(url_for("po_management"))
+    flash("Purchase Order step removed: approve the PR, then create a Delivery.", "info")
+    return redirect(url_for("delivery_dashboard"))
 
 
 
@@ -1034,20 +886,22 @@ def delivery_dashboard():
             custom_date=custom_date,
             user_id=user_id_scope
         )
-        # Deliverable POs: Approved/Issued without prior deliveries — visible to all roles
-        deliverable_pos = get_deliverable_pos(
+        # Deliverable PRs: Approved PRs ready for direct delivery — visible to all roles
+        deliverable_pos = get_deliverable_prs(
             search_query="",
             user_id=None
         )
+        deliverable_prs = deliverable_pos
         # Also fetch without scope for admin to see all
         if user_role == "Admin":
-            # Admin sees all deliverable POs
+            # Admin sees all deliverable PRs
             pass
     except Exception as err:
         print(f"[delivery_dashboard] DB error: {err}")
         flash("Database error loading Deliveries.", "error")
         deliveries = []
         deliverable_pos = []
+        deliverable_prs = []
 
     template_file = "Admin Dashboards/admin_delivery_dashboard.html" if user_role == "Admin" else "Staff Dashboards/staff_delivery_dashboard.html"
 
@@ -1056,46 +910,55 @@ def delivery_dashboard():
         user=session,
         deliveries=deliveries,
         deliverable_pos=deliverable_pos,
+        deliverable_prs=deliverable_pos,
         search=search,
         status_filter=status_filter,
         date_filter=date_filter,
-        custom_date=custom_date
+        custom_date=custom_date,
+        current_date=datetime.now().strftime("%Y-%m-%d")
     )
 
 
 @app.route("/delivery/create", methods=["POST"])
 def create_delivery_action():
-    """Step 1: Receiving & IAR — Pending, AUTO partial, guard received > ordered."""
+    """Step 1: Receiving & IAR — PR-direct, Pending, AUTO partial, guard received > ordered."""
     if "user_id" not in session:
         flash("Please log in to submit a delivery.", "error")
         return redirect(url_for("login"))
 
     user_id = session.get("user_id")
 
-    po_id = request.form.get("po_id", "").strip()
+    pr_id = request.form.get("pr_id", "").strip() or request.form.get("po_id", "").strip()
     delivery_number = request.form.get("delivery_number", "").strip()
     iar_number = request.form.get("iar_number", "").strip()
+    po_reference_number = request.form.get("po_reference_number", "").strip()
+    supplier_name = request.form.get("supplier_name", "").strip()
     inspected_by = request.form.get("inspected_by", "").strip()
     supply_officer = request.form.get("supply_officer", "").strip()
     delivery_date = request.form.get("delivery_date", "").strip()
     remarks = request.form.get("remarks", "").strip()
     # is_partial AUTO-computed inside create_delivery — checkbox removed per new spec
 
-    if not all([po_id, delivery_number, iar_number, inspected_by, supply_officer, delivery_date]):
-        flash("Delivery Number, IAR Number, Inspected By, Supply Officer, and Delivery Date are required.", "error")
+    if not all([pr_id, delivery_number, iar_number, supplier_name, inspected_by, supply_officer, delivery_date]):
+        flash("Purchase Request, Delivery Number, IAR Number, Supplier Name, Inspected By, Supply Officer, and Delivery Date are required.", "error")
+        return redirect(url_for("delivery_dashboard"))
+
+    # Delivery Date guard: past/present only — future dates are rejected.
+    if len(delivery_date) >= 10 and delivery_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("Delivery Date cannot be in the future.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     try:
-        po_id_int = int(po_id)
+        pr_id_int = int(pr_id)
     except:
-        flash("Invalid Purchase Order selected.", "error")
+        flash("Invalid Purchase Request selected.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     product_ids = request.form.getlist("product_id[]")
     received_qtys = request.form.getlist("received_quantity[]")
 
     if not product_ids:
-        flash("No items. Please select a PO and enter received quantities.", "error")
+        flash("No items. Please select a PR and enter received quantities.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     received_items = []
@@ -1104,12 +967,9 @@ def create_delivery_action():
             pid = int(pid_raw.strip()) if pid_raw else None
             if pid is None:
                 continue
-            # Empty input -> must be filled by user (no autofill) — treat empty as error
+            # Blank means zero arriving units for this row (partial shipment) — NOT an error.
             qty_raw = received_qtys[i].strip() if i < len(received_qtys) and received_qtys[i] is not None else ""
-            if qty_raw == "":
-                flash(f"Received quantity required for item row {i+1} — please enter a value (0 if none).", "error")
-                return redirect(url_for("delivery_dashboard"))
-            qty = int(qty_raw)
+            qty = int(qty_raw) if qty_raw != "" else 0
             if qty < 0:
                 raise ValueError
             received_items.append({"product_id": pid, "received_quantity": qty})
@@ -1122,10 +982,12 @@ def create_delivery_action():
         return redirect(url_for("delivery_dashboard"))
 
     success, result = create_delivery(
-        po_id=po_id_int,
+        pr_id=pr_id_int,
         user_id=user_id,
         delivery_number=delivery_number,
         iar_number=iar_number,
+        po_reference_number=po_reference_number or None,
+        supplier_name=supplier_name,
         inspected_by=inspected_by,
         supply_officer=supply_officer,
         delivery_date=delivery_date,
@@ -1181,9 +1043,8 @@ def approve_delivery_action(delivery_id):
     Step 2: Admin-only verification & stock ingestion (Study Guide - FIXED).
     - Guard: Only Pending can be approved; double-click/refresh blocked via crud_delivery
       check (status != Pending, approved_by not null, stock_movements exists).
-    - Exact Qty: Credits ONLY received_quantity per delivery_items to Products.current_stock
-      (not ordered qty, not PO total). Prevents ghost stock desync.
-    - Partial Handling: is_partial flag from delivery determines PO status Partial vs Delivered.
+    - Exact Qty: Credits ONLY received_quantity per delivery_items to products.current_stock
+      (not ordered qty). Prevents ghost stock desync.
     """
     if session.get("role") != "Admin":
         flash("Admin permission required to approve deliveries.", "error")
@@ -1221,48 +1082,52 @@ def approve_delivery_action(delivery_id):
     return redirect(url_for("delivery_dashboard"))
 
 
-# --- LIVE SEARCH for Approved POs in Receive modal ---
+# --- LIVE SEARCH for Approved PRs in Receive modal (PR-direct) ---
 @app.route("/delivery/search_pos")
+@app.route("/delivery/search_prs")
 def search_pos_api():
     if "user_id" not in session:
         return {"error": "Unauthorized"}, 401
     q = request.args.get("q", "").strip()
     user_role = session.get("role")
-    scope = None  # all roles see same Approved POs
-    rows = search_deliverable_pos(search_query=q, user_id=scope)
-    # Minimal payload
+    scope = None  # all roles see same Approved PRs
+    rows = search_deliverable_prs(search_query=q, user_id=scope)
+    # Minimal payload (keeps legacy po_* keys for old templates + new pr_* keys)
     out = []
     for r in rows:
         out.append({
-            "po_id": r["po_id"],
-            "po_number": r["po_number"],
+            "pr_id": r["pr_id"],
+            "po_id": r["pr_id"],
             "pr_number": r["pr_number"],
-            "supplier_name": r.get("supplier_name") or "N/A",
+            "po_number": r["pr_number"],
+            "supplier_name": "",
             "status": r["status"],
             "total_amount": float(r.get("total_amount") or 0)
         })
     return {"results": out}
 
 
-# --- Remaining quantities for a PO (for Complete action) ---
-@app.route("/delivery/remaining/<int:po_id>")
-def get_remaining_api(po_id):
+# --- Remaining quantities for a PR (for Complete action) ---
+@app.route("/delivery/remaining/<int:pr_id>")
+@app.route("/delivery/remaining_po/<int:pr_id>")
+def get_remaining_api(pr_id):
     if "user_id" not in session:
         return {"error": "Unauthorized"}, 401
-    data = get_po_remaining(po_id)
-    # Also fetch PO header for context
-    header, _ = get_po_details(po_id) if po_id else (None, [])
+    data = get_pr_remaining(pr_id)
+    # Also fetch PR header for context
+    header, _ = get_pr_details(pr_id) if pr_id else (None, [])
     if header:
         try:
-            header["total_amount"] = float(header.get("total_amount") or 0)
+            header["total_amount"] = float(header.get("total_price") or 0)
         except: pass
         try:
-            header["date_issued"] = header["date_issued"].strftime("%Y-%m-%d %H:%M:%S") if header.get("date_issued") else ""
+            raw = header.get("date_requested")
+            header["date_issued"] = raw.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw, "strftime") else str(raw or "")
         except: pass
     return {"header": header, "remaining": data}
 
 
-# --- COMPLETE REMAINING: create follow-up delivery for same PO ---
+# --- COMPLETE REMAINING: create follow-up delivery for same PR ---
 @app.route("/delivery/complete/<int:delivery_id>", methods=["POST"])
 def complete_delivery_action(delivery_id):
     if "user_id" not in session:
@@ -1272,6 +1137,8 @@ def complete_delivery_action(delivery_id):
     user_id = session.get("user_id")
     delivery_number = request.form.get("delivery_number", "").strip()
     iar_number = request.form.get("iar_number", "").strip()
+    po_reference_number = request.form.get("po_reference_number", "").strip()
+    supplier_name = request.form.get("supplier_name", "").strip()
     inspected_by = request.form.get("inspected_by", "").strip()
     supply_officer = request.form.get("supply_officer", "").strip()
     delivery_date = request.form.get("delivery_date", "").strip()
@@ -1279,6 +1146,11 @@ def complete_delivery_action(delivery_id):
 
     if not all([delivery_number, iar_number, inspected_by, supply_officer, delivery_date]):
         flash("Delivery Number, IAR Number, Inspected By, Supply Officer, Delivery Date required for completion.", "error")
+        return redirect(url_for("delivery_dashboard"))
+
+    # Delivery Date guard: past/present only — future dates are rejected.
+    if len(delivery_date) >= 10 and delivery_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("Delivery Date cannot be in the future.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     product_ids = request.form.getlist("product_id[]")
@@ -1293,11 +1165,9 @@ def complete_delivery_action(delivery_id):
         try:
             pid = int(pid_raw.strip()) if pid_raw else None
             if pid is None: continue
+            # Blank means zero arriving units for this row (partial shipment) — NOT an error.
             qty_raw = received_qtys[i].strip() if i < len(received_qtys) and received_qtys[i] else ""
-            if qty_raw == "":
-                flash(f"Received quantity required for item row {i+1}.", "error")
-                return redirect(url_for("delivery_dashboard"))
-            qty = int(qty_raw)
+            qty = int(qty_raw) if qty_raw != "" else 0
             if qty < 0: raise ValueError
             received_items.append({"product_id": pid, "received_quantity": qty})
         except (ValueError, IndexError, AttributeError):
@@ -1309,6 +1179,8 @@ def complete_delivery_action(delivery_id):
         user_id=user_id,
         delivery_number=delivery_number,
         iar_number=iar_number,
+        po_reference_number=po_reference_number or None,
+        supplier_name=supplier_name or None,
         inspected_by=inspected_by,
         supply_officer=supply_officer,
         delivery_date=delivery_date,

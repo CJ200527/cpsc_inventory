@@ -1,0 +1,163 @@
+/* ==========================================================================
+   input_box_enlargement.css — PR item-row focus-expansion + PR cancel buttons
+   --------------------------------------------------------------------------
+   Loaded globally via base.html (every page) and linked in the PR and
+   Product templates.
+
+   1) ENLARGEMENT IS STRICTLY SCOPED to the PR creation/edit modals'
+      dynamic item rows (#pr-items-body, #pr-edit-items-body). Search bars,
+      dashboard filters, header inputs, and all other modals/forms are
+      intentionally NOT affected.
+
+   2) CANCEL / DISMISS BUTTONS inside the PR creation modal (.pr-modal)
+      get a red-gradient hover state and a solid-red active state.
+   ========================================================================== */
+
+/* --- Base transition: PR item-row controls ONLY --- */
+#pr-items-body input[type="text"],
+#pr-items-body input[type="number"],
+#pr-items-body select,
+#pr-items-body textarea,
+#pr-edit-items-body input[type="text"],
+#pr-edit-items-body input[type="number"],
+#pr-edit-items-body select,
+#pr-edit-items-body textarea {
+    transition: transform 0.18s ease-in-out,
+                box-shadow 0.18s ease-in-out,
+                border-color 0.18s ease-in-out,
+                min-height 0.25s ease-in-out;
+}
+
+/* --- Focus-expansion: PR item-row controls ONLY --- */
+#pr-items-body input[type="text"]:focus,
+#pr-items-body input[type="number"]:focus,
+#pr-items-body select:focus,
+#pr-items-body textarea:focus,
+#pr-edit-items-body input[type="text"]:focus,
+#pr-edit-items-body input[type="number"]:focus,
+#pr-edit-items-body select:focus,
+#pr-edit-items-body textarea:focus {
+    transform: scale(1.2);
+    transform-origin: left center;
+    border-color: #53c5f1;
+    box-shadow: 0 4px 12px rgba(83, 197, 241, 0.35),
+                0 0 0 3px rgba(83, 197, 241, 0.25);
+    outline: none;
+    position: relative;
+    z-index: 9999;
+}
+
+/* --- PR item-row textareas: comfortable editing height on focus --- */
+#pr-items-body textarea,
+#pr-edit-items-body textarea {
+    min-height: 38px;
+    resize: vertical;
+}
+
+#pr-items-body textarea:focus,
+#pr-edit-items-body textarea:focus {
+    min-height: 140px;
+    border-color: #53c5f1;
+    box-shadow: 0 4px 12px rgba(83, 197, 241, 0.35),
+                0 0 0 3px rgba(83, 197, 241, 0.25);
+    outline: none;
+    position: relative;
+    z-index: 9999;
+}
+
+/* --- PR creation modal Submit button: soft-green gradient hover, solid click --- */
+.pr-modal .btn-modal-save {
+    transition: all 0.2s ease-in-out;
+}
+
+.pr-modal .btn-modal-save:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.pr-modal .btn-modal-save:active {
+    background: #66bb6a;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+/* --- PR creation modal Cancel button: soft-red gradient hover, solid click --- */
+.pr-modal .btn-modal-cancel {
+    transition: all 0.2s ease-in-out;
+}
+
+.pr-modal .btn-modal-cancel:hover {
+    background: linear-gradient(135deg, #e57373, #ef5350);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(239, 83, 80, 0.4);
+}
+
+.pr-modal .btn-modal-cancel:active {
+    background: #e53935;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(229, 57, 53, 0.4);
+}
+
+/* --- PR creation modal dismiss (X) button: matching red states --- */
+.pr-modal .close-btn {
+    transition: background 0.18s ease-in-out,
+                color 0.18s ease-in-out,
+                transform 0.12s ease-in-out;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.pr-modal .close-btn:hover {
+    background: linear-gradient(135deg, #ff4d4d, #cc0000);
+    color: #ffffff;
+}
+
+.pr-modal .close-btn:active {
+    background: #990000;
+    color: #ffffff;
+    transform: scale(0.95);
+}
+
+/* --- Delivery creation modal Submit button: soft-green gradient hover, solid click ---
+   Scoped to .delivery-modal (#receive-modal) ONLY — other modals unaffected. */
+.delivery-modal .btn-modal-save {
+    transition: all 0.2s ease-in-out;
+}
+
+.delivery-modal .btn-modal-save:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+
+.delivery-modal .btn-modal-save:active {
+    background: #66bb6a;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+/* --- Delivery creation modal Cancel button: soft-red gradient hover, solid click --- */
+.delivery-modal .btn-modal-cancel {
+    transition: all 0.2s ease-in-out;
+}
+
+.delivery-modal .btn-modal-cancel:hover {
+    background: linear-gradient(135deg, #e57373, #ef5350);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(239, 83, 80, 0.4);
+}
+
+.delivery-modal .btn-modal-cancel:active {
+    background: #e53935;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(229, 57, 53, 0.4);
+}

@@ -1,136 +1,27 @@
-"""crud_returns.py — Return Slip Workflow (FIXED 2026-09-03)
-Return = taking items OUT of inventory (like Withdrawal) — defective return to supplier/supply office.
-Staff creates return directly from Products (SELECT product_id, product_name, category, unit, current_stock FROM products),
-Admin approves → deducts exact returned_quantity from products.current_stock (not adds), logs stock_movements.
-Uses get_return_products() for modal; get_issued_withdrawals() kept for legacy but not required for new flow.
-All queries use correct singular tables `return` and `return_items`.
+"""crud_returns.py — Return Slip Workflow (finalized schema)
+Return = taking items OUT of inventory (like Withdrawal).
+Staff creates return directly from products,
+Admin approves → deducts exact returned_quantity from products.current_stock, logs stock_movements.
+`return` linked back to `withdraw` via withdraw_id (optional reference to an Approved RIS).
+No DDL in this module — schema is finalized, DO NOT create/modify tables.
+All queries use finalized singular tables `return` and `return_items`.
 """
 
 from db import get_db_connection
 from datetime import datetime
 
-def _ensure_return_schema(cursor):
-    # Ensure Products columns
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
-        if not cursor.fetchone():
-            cursor.execute("ALTER TABLE Products ADD COLUMN current_stock INT DEFAULT 0")
-            cursor.execute("UPDATE Products SET current_stock = quantity WHERE current_stock IS NULL")
-    except: pass
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'reorder_level'")
-        if not cursor.fetchone():
-            cursor.execute("ALTER TABLE Products ADD COLUMN reorder_level INT DEFAULT 10")
-    except: pass
-    # Returns header - create if not exists, else add missing columns
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS `return` (
-                return_id INT AUTO_INCREMENT PRIMARY KEY,
-                return_number VARCHAR(50) NOT NULL UNIQUE,
-                withdraw_id INT NULL,
-                user_id INT NOT NULL,
-                department VARCHAR(100) NOT NULL,
-                reason TEXT NOT NULL,
-                status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
-                approved_by INT NULL,
-                date_returned TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES Users(id),
-                FOREIGN KEY (approved_by) REFERENCES Users(id),
-                FOREIGN KEY (withdraw_id) REFERENCES `withdraw`(withdraw_id)
-            )
-        """)
-    except Exception as e:
-        print(f"[returns ensure] {e}")
-    # Add missing columns to existing returns table (legacy has different schema)
-    for col, ddl in [
-        ("return_number", "ALTER TABLE `return` ADD COLUMN return_number VARCHAR(50)"),
-        ("withdraw_id", "ALTER TABLE `return` ADD COLUMN withdraw_id INT NULL"),
-        ("department", "ALTER TABLE `return` ADD COLUMN department VARCHAR(100)"),
-        ("reason", "ALTER TABLE `return` ADD COLUMN reason TEXT"),
-        ("status", "ALTER TABLE `return` ADD COLUMN status ENUM('Pending','Approved','Rejected') DEFAULT 'Pending'"),
-        ("approved_by", "ALTER TABLE `return` ADD COLUMN approved_by INT NULL"),
-        ("date_returned", "ALTER TABLE `return` ADD COLUMN date_returned TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
-        ("user_id", "ALTER TABLE `return` ADD COLUMN user_id INT"),
-    ]:
-        try:
-            cursor.execute(f"SHOW COLUMNS FROM `return` LIKE '{col}'")
-            if not cursor.fetchone():
-                # Need to handle UNIQUE for return_number if adding
-                if col == "return_number":
-                    # First check if return_number already exists as unique, if not add
-                    try:
-                        cursor.execute("ALTER TABLE `return` ADD COLUMN return_number VARCHAR(50)")
-                        cursor.execute("UPDATE `return` SET return_number = return_number WHERE return_number IS NULL")
-                    except: pass
-                else:
-                    cursor.execute(ddl)
-        except: pass
-    # Handle legacy column renames: return_number vs return_number, reason_return vs reason, status_return vs status
-    # Ensure return_number is populated from legacy return_number if needed
-    try:
-        cursor.execute("SHOW COLUMNS FROM `return` LIKE 'return_number'")
-        has_new = cursor.fetchone()
-        cursor.execute("SHOW COLUMNS FROM `return` LIKE 'return_number'")
-        # legacy check: already handled
-    except: pass
-    # return_items
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS return_items (
-                return_item_id INT AUTO_INCREMENT PRIMARY KEY,
-                return_id INT NOT NULL,
-                product_id INT NOT NULL,
-                item_name VARCHAR(100) NOT NULL,
-                returned_quantity INT NOT NULL,
-                condition_status ENUM('Serviceable','Unserviceable') DEFAULT 'Serviceable',
-                unit VARCHAR(20),
-                unit_price DECIMAL(10,2) DEFAULT 0.00,
-                total_price DECIMAL(12,2) DEFAULT 0.00,
-                FOREIGN KEY (return_id) REFERENCES `return`(return_id) ON DELETE CASCADE,
-                FOREIGN KEY (product_id) REFERENCES Products(product_id)
-            )
-        """)
-    except Exception as e:
-        print(f"[return_items ensure] {e}")
-    # stock_movements
-    try:
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS stock_movements (
-                movement_id INT AUTO_INCREMENT PRIMARY KEY,
-                product_id INT NOT NULL,
-                reference_type VARCHAR(20) NOT NULL,
-                reference_id INT NOT NULL,
-                quantity_change INT NOT NULL,
-                balance_after INT NOT NULL,
-                user_id INT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (product_id) REFERENCES Products(product_id),
-                FOREIGN KEY (user_id) REFERENCES Users(id)
-            )
-        """)
-    except: pass
-
-def _stock_col(cursor):
-    try:
-        cursor.execute("SHOW COLUMNS FROM Products LIKE 'current_stock'")
-        if cursor.fetchone():
-            return "current_stock"
-    except: pass
-    return "quantity"
+STOCK_COL = "current_stock"
 
 def get_issued_withdrawals():
     conn=None; cur=None
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_return_schema(cur)
         cur.execute("""
             SELECT w.withdraw_id, w.ris_number, w.department, w.purpose,
                    u.Firstname, u.Lastname
             FROM `withdraw` w
-            JOIN Users u ON w.user_id = u.id
+            JOIN users u ON w.user_id = u.id
             WHERE w.status='Approved'
             ORDER BY w.withdraw_id DESC
         """)
@@ -151,12 +42,10 @@ def get_return_products():
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_return_schema(cur)
         cur.execute("""
             SELECT p.product_id, p.product_name, p.category, p.details, p.unit, p.size, p.price,
-                   COALESCE(p.current_stock, p.quantity,0) AS current_stock, s.supplier_name
-            FROM Products p
-            LEFT JOIN Supplier s ON p.supplier_id=s.id
+                   COALESCE(p.current_stock, p.quantity,0) AS current_stock
+            FROM products p
             ORDER BY p.product_name ASC
         """)
         return cur.fetchall()
@@ -174,28 +63,21 @@ def get_return_products():
 def create_return(user_id, return_number, withdraw_id, department, reason, date_returned, items_list):
     """
     items_list: [{'product_id':1,'returned_quantity':2,'condition_status':'Serviceable'}, ...]
-    Validates returned <= issued if withdraw_id provided, inserts Pending.
+    withdraw_id: optional reference to an Approved `withdraw` row (kept for traceability).
+    Validates returned <= current_stock, inserts Pending.
     """
     conn=None; cur=None
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_return_schema(cur)
         if not return_number or not department or not reason:
             return False, "Return Slip Number, Department and Reason are required."
         if not items_list:
             return False, "Add at least one item."
-        # Unique return_number - check both new and legacy column
-        try:
-            cur.execute("SELECT return_id FROM `return` WHERE return_number=%s", (return_number,))
-            if cur.fetchone():
-                return False, f"Return Number '{return_number}' already exists."
-        except:
-            # Fallback legacy column
-            cur.execute("SELECT return_id FROM `return` WHERE return_number=%s", (return_number,))
-            if cur.fetchone():
-                return False, f"Return Number '{return_number}' already exists."
-        # Handle withdraw_id empty string
+        cur.execute("SELECT return_id FROM `return` WHERE return_number=%s", (return_number,))
+        if cur.fetchone():
+            return False, f"Return Number '{return_number}' already exists."
+        # Handle withdraw_id empty string — must reference Approved withdraw if given
         wid = None
         if withdraw_id:
             try:
@@ -207,9 +89,7 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
                 return False, "Invalid RIS reference."
         else:
             wid=None
-        # Validate items - NEW LOGIC: Return is OUT of inventory, like Withdrawal
-        # Pull directly from Products, validate qty <= current_stock (not issued withdrawals)
-        # withdraw_id is optional and ignored for stock check (kept for legacy, but not required)
+        # Validate items - Return is OUT of inventory, like Withdrawal
         for it in items_list:
             try:
                 pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
@@ -219,40 +99,25 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
                 return False, "Returned quantity must be >0."
             if cond not in ('Serviceable','Unserviceable'):
                 return False, "Invalid condition."
-            cur.execute("SELECT product_name, COALESCE(current_stock, quantity, 0) AS cur_stock FROM Products WHERE product_id=%s", (pid,))
+            cur.execute("SELECT product_name, COALESCE(current_stock, quantity, 0) AS cur_stock FROM products WHERE product_id=%s", (pid,))
             prod = cur.fetchone()
             if not prod:
                 return False, f"Product {pid} not found."
-            # For returns OUT of inventory, ensure sufficient stock to deduct (like withdrawal)
             cur_stock = int(prod['cur_stock'] or 0)
             if qty > cur_stock:
                 return False, f"Insufficient stock for '{prod['product_name']}': trying to return {qty} but only {cur_stock} available in inventory."
-            # If no withdrawal reference, no issued check
         if not date_returned:
             date_returned=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         elif len(date_returned)==10:
             date_returned+=" 00:00:00"
-        # Insert returns header - handle both legacy and new column names
-        # Try new schema first
-        try:
-            cur.execute("""
-                INSERT INTO `return` (return_number, withdraw_id, user_id, department, reason, status, date_returned)
-                VALUES (%s,%s,%s,%s,%s,'Pending',%s)
-            """, (return_number, wid, user_id, department, reason, date_returned))
-        except Exception as e:
-            # Fallback try legacy columns
-            try:
-                cur.execute("""
-                    INSERT INTO `return` (return_number, withdraw_id, user_id, department, reason, status, date_returned)
-                    VALUES (%s,%s,%s,%s,%s,'Pending',%s)
-                """, (return_number, wid, user_id, department, reason, date_returned))
-            except Exception as e2:
-                print(f"[create_return insert] {e} / {e2}")
-                return False, str(e2)
+        cur.execute("""
+            INSERT INTO `return` (return_number, withdraw_id, user_id, department, reason, status, date_returned)
+            VALUES (%s,%s,%s,%s,%s,'Pending',%s)
+        """, (return_number, wid, user_id, department, reason, date_returned))
         rid=cur.lastrowid
         for it in items_list:
             pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
-            cur.execute("SELECT product_name, unit, price FROM Products WHERE product_id=%s", (pid,))
+            cur.execute("SELECT product_name, unit, price FROM products WHERE product_id=%s", (pid,))
             prod=cur.fetchone()
             iname=prod['product_name']; unit=prod['unit'] or 'pcs'; price=float(prod['price'] or 0)
             total=qty*price
@@ -281,7 +146,6 @@ def get_all_returns(search_query="", status_filter="All", user_id=None):
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_return_schema(cur)
         sql="""
             SELECT r.return_id, r.return_number, r.withdraw_id, r.department, r.reason, r.status, r.approved_by, r.date_returned,
                    u.Firstname, u.Lastname, u.username,
@@ -290,8 +154,8 @@ def get_all_returns(search_query="", status_filter="All", user_id=None):
                    (SELECT COALESCE(SUM(ri.returned_quantity),0) FROM return_items ri WHERE ri.return_id=r.return_id) AS total_qty,
                    (SELECT COALESCE(SUM(ri.total_price),0) FROM return_items ri WHERE ri.return_id=r.return_id) AS total_amount
             FROM `return` r
-            JOIN Users u ON r.user_id = u.id
-            LEFT JOIN Users au ON r.approved_by = au.id
+            JOIN users u ON r.user_id = u.id
+            LEFT JOIN users au ON r.approved_by = au.id
             LEFT JOIN `withdraw` w ON r.withdraw_id = w.withdraw_id
             WHERE 1=1
         """
@@ -333,8 +197,8 @@ def get_return_details(return_id):
                    au.Firstname AS approver_first, au.Lastname AS approver_last,
                    w.ris_number, w.department AS w_department
             FROM `return` r
-            JOIN Users u ON r.user_id = u.id
-            LEFT JOIN Users au ON r.approved_by = au.id
+            JOIN users u ON r.user_id = u.id
+            LEFT JOIN users au ON r.approved_by = au.id
             LEFT JOIN `withdraw` w ON r.withdraw_id = w.withdraw_id
             WHERE r.return_id=%s
         """, (return_id,))
@@ -345,7 +209,7 @@ def get_return_details(return_id):
             SELECT ri.*, p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
                    COALESCE(p.current_stock, p.quantity,0) AS cur_stock
             FROM return_items ri
-            LEFT JOIN Products p ON ri.product_id = p.product_id
+            LEFT JOIN products p ON ri.product_id = p.product_id
             WHERE ri.return_id=%s
         """, (return_id,))
         items=cur.fetchall()
@@ -366,8 +230,6 @@ def approve_return(return_id, admin_user_id):
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
-        _ensure_return_schema(cur)
-        stock_col=_stock_col(cur)
         cur.execute("SELECT * FROM `return` WHERE return_id=%s", (return_id,))
         header=cur.fetchone()
         if not header:
@@ -381,27 +243,25 @@ def approve_return(return_id, admin_user_id):
         for it in items:
             pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it['condition_status']
             if cond == 'Serviceable':
-                # DEDUCT stock (Return OUT of inventory, like Withdrawal) - FIXED 2026-09-03
-                # Validate sufficient stock before deducting
-                cur.execute(f"SELECT COALESCE({stock_col},0) AS chk_stock FROM Products WHERE product_id=%s", (pid,))
+                # DEDUCT stock (Return OUT of inventory, like Withdrawal)
+                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS chk_stock FROM products WHERE product_id=%s", (pid,))
                 chk = int(cur.fetchone()['chk_stock'] or 0)
                 if qty > chk:
                     return False, f"Insufficient stock to return '{it['item_name']}': need {qty}, have {chk}."
-                cur.execute(f"UPDATE Products SET {stock_col} = {stock_col} - %s WHERE product_id=%s", (qty, pid))
+                cur.execute(f"UPDATE products SET {STOCK_COL} = {STOCK_COL} - %s WHERE product_id=%s", (qty, pid))
                 try:
-                    cur.execute("UPDATE Products SET quantity = current_stock WHERE product_id=%s", (pid,))
+                    cur.execute("UPDATE products SET quantity = current_stock WHERE product_id=%s", (pid,))
                 except: pass
                 # Balance after
-                cur.execute(f"SELECT COALESCE({stock_col},0) AS bal FROM Products WHERE product_id=%s", (pid,))
+                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
                 bal=int(cur.fetchone()['bal'] or 0)
                 cur.execute("""
                     INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
                     VALUES (%s,'Return',%s,%s,%s,%s)
                 """, (pid, return_id, -qty, bal, admin_user_id))
             else:
-                # Unserviceable: Do NOT credit, but log for audit with 0 change or separate?
-                # Log with 0 change to flag waste, but still record
-                cur.execute(f"SELECT COALESCE({stock_col},0) AS bal FROM Products WHERE product_id=%s", (pid,))
+                # Unserviceable: log for audit with 0 change
+                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
                 bal=int(cur.fetchone()['bal'] or 0)
                 cur.execute("""
                     INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)

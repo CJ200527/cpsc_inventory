@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Admin Purchase Requests</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
         body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
@@ -269,12 +270,10 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn active"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('po_management') }}" class="nav-btn"><span class="icon">📝</span><span>Track PO</span></a>
                 <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
                 <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="/admin/suppliers" class="nav-btn"><span class="icon">🏬</span><span>Supplier</span></a>
                 <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
                 <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
             </div>
@@ -357,6 +356,7 @@
                                     <div class="action-cell">
                                         <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})">👁️</button>
                                         {% if r.status == 'Pending' %}
+                                            <button type="button" class="btn-action btn-view" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})">✏️</button>
                                             <form method="POST" action="/admin/pr/approve/{{ r.pr_id }}" style="display:inline;">
                                                 <button type="submit" class="btn-action btn-approve" title="Approve PR">✔️</button>
                                             </form>
@@ -377,38 +377,126 @@
         </div>
     </div>
 
-    <!-- CREATE PR MODAL -->
-    <!-- ===== ADD MODAL (datalist Camiguin autocomplete, static backdrop, hover/focus) ===== -->
-    <div id="add-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box">
+    <!-- CREATE PR MODAL : Master-Detail (Header + dynamic Line Items, just-in-time product creation) -->
+    <div id="add-modal" class="modal-overlay hidden pr-modal" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box" style="width:960px;">
             <div class="modal-header">
                 <h3>Create Purchase Request</h3>
                 <button type="button" class="close-btn" onclick="closeAddModal()">✖</button>
             </div>
 
-            <form method="POST" action="/pr/add" id="pr-form">
-                <table class="item-table" id="items-table">
+            <form method="POST" action="/pr/add" id="pr-form" onsubmit="return submitPrForm(event)">
+                <!-- ===== SECTION 1: PR HEADER ===== -->
+                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:14px;margin-bottom:14px;">
+                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin-bottom:10px;">Section 1 — PR Header</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
+                            <input type="text" id="pr-number-preview" placeholder="Auto-generated upon saving" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Fund Source</label>
+                            <input type="text" name="fund_source" value="Fund 05" required style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Date Requested</label>
+                            <input type="text" name="date_requested" id="pr-date-requested" readonly required tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Grand Total (auto)</label>
+                            <input type="text" id="pr-grand-total" value="₱ 0.00" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:13px;background-color:#e9ecef;font-weight:700;color:#2e7d32;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== SECTION 2: PR LINE ITEMS (type new or existing product details) ===== -->
+                <p style="font-size:12px;font-weight:700;color:#0d233a;margin:4px 0 6px;">Section 2 — PR Line Items</p>
+                <table class="item-table" id="pr-items-table">
                     <thead>
                         <tr>
-                            <th>Product *</th>
+                            <th>Item Name *</th>
+                            <th>Category</th>
                             <th>Unit</th>
-                            <th>Price (₱)</th>
+                            <th>Size</th>
+                            <th>Specification</th>
+                            <th>Price (₱) *</th>
                             <th>Qty *</th>
-                            <th>Subtotal (₱)</th>
-                            <th>Action</th>
+                            <th>Total (₱)</th>
+                            <th></th>
                         </tr>
                     </thead>
-                    <tbody id="items-body"></tbody>
+                    <tbody id="pr-items-body"></tbody>
                 </table>
 
-                <button type="button" class="icon-btn" onclick="addPRRow()">+ Add Item Row</button>
-                <div style="text-align:right; margin-top:10px; font-weight:700; font-size:14px;">
-                    Grand Total: <span id="grand-total-display" class="price-badge">₱ 0.00</span>
-                </div>
+                <!-- Shared catalog picker: existing product names (manual entry still allowed) -->
+                <datalist id="product-list"></datalist>
+
+                <button type="button" class="icon-btn" onclick="addPrItemRow()">+ Add Another Item</button>
 
                 <div class="modal-buttons">
                     <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>
-                    <button type="submit" class="btn-modal-save">Submit Request</button>
+                    <button type="submit" class="btn-modal-save" id="pr-submit-btn">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT PR MODAL : Pending only (Approved locks as an immutable historical record) -->
+    <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box" style="width:960px;">
+            <div class="modal-header">
+                <h3>Edit Purchase Request (Pending)</h3>
+                <button type="button" class="close-btn" onclick="closeEditPrModal()">✖</button>
+            </div>
+
+            <form method="POST" id="pr-edit-form" onsubmit="return submitPrEditForm(event)">
+                <!-- ===== SECTION 1: PR HEADER ===== -->
+                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:14px;margin-bottom:14px;">
+                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin-bottom:10px;">Section 1 — PR Header</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
+                            <input type="text" id="edit-pr-number" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Fund Source</label>
+                            <input type="text" name="fund_source" id="edit-fund-source" value="Fund 05" required style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Date Requested</label>
+                            <input type="text" name="date_requested" id="edit-date-requested" readonly required tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        </div>
+                        <div>
+                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Grand Total (auto)</label>
+                            <input type="text" id="pr-edit-grand-total" value="₱ 0.00" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:13px;background-color:#e9ecef;font-weight:700;color:#2e7d32;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== SECTION 2: PR LINE ITEMS ===== -->
+                <p style="font-size:12px;font-weight:700;color:#0d233a;margin:4px 0 6px;">Section 2 — PR Line Items</p>
+                <table class="item-table" id="pr-edit-items-table">
+                    <thead>
+                        <tr>
+                            <th>Item Name *</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th>Size</th>
+                            <th>Specification</th>
+                            <th>Price (₱) *</th>
+                            <th>Qty *</th>
+                            <th>Total (₱)</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="pr-edit-items-body"></tbody>
+                </table>
+
+                <button type="button" class="icon-btn" onclick="addPrEditRow()">+ Add Another Item</button>
+
+                <div class="modal-buttons">
+                    <button type="button" class="btn-modal-cancel" onclick="closeEditPrModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save" id="pr-edit-submit-btn">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -416,7 +504,7 @@
 
     <!-- VIEW PR DETAILS MODAL -->
     <div id="view-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box">
+        <div class="modal-box" style="width:960px;">
             <div class="modal-header">
                 <h3 id="view-pr-number">PR Details</h3>
                 <button type="button" class="close-btn" onclick="closeViewModal()">✖</button>
@@ -429,80 +517,235 @@
     </div>
 
     <script>
-        const availableProducts = [
-            {% for p in products %}
-            { id: {{ p.product_id }}, supplier_id: {{ p.supplier_id }}, name: "{{ p.product_name }}", category: "{{ p.category or '' }}", unit: "{{ p.unit or 'pcs' }}", size: "{{ p.size or '' }}", details: "{{ p.details or '' }}", price: {{ p.price or 0.0 }} }
-            {% if not loop.last %},{% endif %}
-            {% endfor %}
-        ];
-
         function updateClock() {
             const now = new Date();
-            document.getElementById('live-clock').innerText = 
+            document.getElementById('live-clock').innerText =
                 `${now.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})} | ${now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true})}`;
         }
         setInterval(updateClock, 1000); updateClock();
 
-        function openAddModal() { document.getElementById('items-body').innerHTML = ''; addPRRow(); document.getElementById('add-modal').classList.remove('hidden'); }
+        /* ===== CREATE PR — Master-Detail (Header + dynamic Line Items) ===== */
+        function prNowStr() {
+            const n = new Date();
+            const p = x => String(x).padStart(2, '0');
+            return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
+        }
+        function openAddModal() {
+            document.getElementById('pr-items-body').innerHTML = '';
+            // Locked header: live next PR number + exact current datetime (both readonly).
+            const numEl = document.getElementById('pr-number-preview');
+            numEl.value = '';
+            numEl.placeholder = 'Loading...';
+            fetch('/pr/get_next_number').then(r => r.json()).then(d => {
+                if (d.pr_number) numEl.value = d.pr_number;
+                else numEl.placeholder = 'Auto-generated upon saving';
+            }).catch(() => { numEl.placeholder = 'Auto-generated upon saving'; });
+            document.getElementById('pr-date-requested').value = prNowStr();
+            addPrItemRow();
+            updateGrandTotal();
+            document.getElementById('add-modal').classList.remove('hidden');
+        }
         function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
 
-        function addPRRow() {
-            const tbody = document.getElementById('items-body');
-            const rowId = tbody.rows.length;
-            const tr = document.createElement('tr');
+        /* Loads the Master Catalog once per page view into the shared product datalist. */
+        async function loadProductDatalist() {
+            try {
+                const res = await fetch('/products/api/list');
+                const data = await res.json();
+                const dl = document.getElementById('product-list');
+                if (!dl) return;
+                dl.innerHTML = '';
+                (data.products || []).forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.product_name;
+                    opt.dataset.category = p.category || '';
+                    opt.dataset.unit = p.unit || '';
+                    opt.dataset.size = p.size || '';
+                    opt.dataset.details = p.details || '';
+                    opt.dataset.price = p.price || 0;
+                    dl.appendChild(opt);
+                });
+            } catch (e) { /* datalist is optional — manual entry always works */ }
+        }
+        document.addEventListener('DOMContentLoaded', loadProductDatalist);
 
-            let optionsHtml = '<option value="" disabled selected>Select Product</option>';
-            availableProducts.forEach((p, idx) => { optionsHtml += `<option value="${idx}">${p.name} (${p.unit})</option>`; });
-
-            tr.innerHTML = `
-                <td>
-                    <select onchange="onProductSelect(this, ${rowId})" required>${optionsHtml}</select>
-                    <input type="hidden" name="product_id[]" id="prod-id-${rowId}">
-                    <input type="hidden" name="supplier_id[]" id="supp-id-${rowId}">
-                    <input type="hidden" name="item_name[]" id="item-name-${rowId}">
-                    <input type="hidden" name="category[]" id="cat-${rowId}">
-                    <input type="hidden" name="size[]" id="size-${rowId}">
-                    <input type="hidden" name="details[]" id="det-${rowId}">
-                </td>
-                <td><input type="text" name="unit[]" id="unit-${rowId}" readonly></td>
-                <td><input type="number" step="0.01" name="price[]" id="price-${rowId}" oninput="calcSubtotal(${rowId})" required></td>
-                <td><input type="number" name="quantity[]" id="qty-${rowId}" value="1" min="1" oninput="calcSubtotal(${rowId})" required></td>
-                <td><input type="text" id="subtotal-${rowId}" value="0.00" readonly></td>
-                <td><button type="button" class="btn-remove-row" onclick="removeRow(this)">✖</button></td>
-            `;
-            tbody.appendChild(tr);
+        /* When a catalog name is picked, backfill untouched fields from it (strict categories only). */
+        const PR_CATEGORIES = ['Consumables', 'Tools', 'Equipment'];
+        function onPrItemNameInput(input) {
+            const tr = input.closest('tr');
+            const v = input.value.trim();
+            if (!v) return;
+            const dl = document.getElementById('product-list');
+            let match = null;
+            for (const opt of dl.options) { if (opt.value === v) { match = opt; break; } }
+            if (!match) return;
+            const unitEl = tr.querySelector('input[name="unit[]"]');
+            const sizeEl = tr.querySelector('input[name="size[]"]');
+            const detEl = tr.querySelector('input[name="details[]"]');
+            const priceEl = tr.querySelector('input[name="price[]"]');
+            const catSel = tr.querySelector('select[name="category[]"]');
+            const untouched = [unitEl.value, sizeEl.value, detEl.value].every(s => (s || '').trim() === '')
+                && (priceEl.value.trim() === '' || parseFloat(priceEl.value) === 0);
+            if (!untouched) return;
+            if (match.dataset.category && PR_CATEGORIES.includes(match.dataset.category)) catSel.value = match.dataset.category;
+            unitEl.value = match.dataset.unit || '';
+            sizeEl.value = match.dataset.size || '';
+            detEl.value = match.dataset.details || '';
+            priceEl.value = match.dataset.price || '';
+            calcPrRowTotal(priceEl);
         }
 
-        function onProductSelect(selectElem, rowId) {
-            const p = availableProducts[selectElem.value];
-            if (!p) return;
-            document.getElementById(`prod-id-${rowId}`).value = p.id;
-            document.getElementById(`supp-id-${rowId}`).value = p.supplier_id;
-            document.getElementById(`item-name-${rowId}`).value = p.name;
-            document.getElementById(`cat-${rowId}`).value = p.category;
-            document.getElementById(`size-${rowId}`).value = p.size;
-            document.getElementById(`det-${rowId}`).value = p.details;
-            document.getElementById(`unit-${rowId}`).value = p.unit;
-            document.getElementById(`price-${rowId}`).value = p.price.toFixed(2);
-            calcSubtotal(rowId);
+        /* Builds one line-item row into the given tbody (optional prefill for Pending-edit). */
+        function escAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
+        function buildPrRow(tbodyId, item) {
+            const tbody = document.getElementById(tbodyId);
+            const tr = document.createElement('tr');
+            tr.className = 'pr-item-row';
+            const it = item || {};
+            const cat = it.category || 'Consumables';
+            const catOpts = PR_CATEGORIES.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
+            const priceVal = (it.price === undefined || it.price === null || it.price === '') ? '' : it.price;
+            tr.innerHTML = `
+                <td><input type="text" name="item_name[]" list="product-list" placeholder="Select or type new item" required autocomplete="off" value="${escAttr(it.name || '')}" oninput="onPrItemNameInput(this)"></td>
+                <td><select name="category[]" required>${catOpts}</select></td>
+                <td><input type="text" name="unit[]" placeholder="pcs" autocomplete="off" value="${escAttr(it.unit || '')}"></td>
+                <td><input type="text" name="size[]" placeholder="Size" autocomplete="off" value="${escAttr(it.size || '')}"></td>
+                <td><input type="text" name="details[]" placeholder="Specification" autocomplete="off" value="${escAttr(it.details || '')}"></td>
+                <td><input type="number" name="price[]" step="0.01" min="0" placeholder="0.00" required value="${priceVal}" oninput="calcPrRowTotal(this)"></td>
+                <td><input type="number" name="quantity[]" value="${it.quantity || 1}" min="1" step="1" required oninput="calcPrRowTotal(this)"></td>
+                <td><input type="text" class="pr-row-total" value="0.00" readonly tabindex="-1"></td>
+                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)">✖</button>
+            `;
+            tbody.appendChild(tr);
+            calcPrRowTotal(tr.querySelector('input[name="price[]"]'));
+        }
+        /* Appends a blank line-item row: datalist product picker + strict category select (JIT creation). */
+        function addPrItemRow() { buildPrRow('pr-items-body', null); }
+        /* Appends a pre-filled row inside the Pending-edit modal. */
+        function addPrEditRow(item) { buildPrRow('pr-edit-items-body', item || null); }
+
+        /* Auto-calculates the row total (Price x Quantity) on every keystroke. */
+        function editIdsFor(input) {
+            const tb = input.closest('tbody');
+            return (tb && tb.id === 'pr-edit-items-body')
+                ? { tbody: 'pr-edit-items-body', total: 'pr-edit-grand-total' }
+                : { tbody: 'pr-items-body', total: 'pr-grand-total' };
+        }
+        function calcPrRowTotal(input) {
+            const tr = input.closest('tr');
+            const price = parseFloat(tr.querySelector('input[name="price[]"]').value) || 0;
+            const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value) || 0;
+            tr.querySelector('.pr-row-total').value = (price * qty).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const ids = editIdsFor(input);
+            updateGrandTotalFor(ids.tbody, ids.total);
+        }
+
+        /* Sums every row total and updates the Header grand-total field in real time. */
+        function updateGrandTotalFor(tbodyId, totalId) {
+            let grand = 0;
+            document.querySelectorAll('#' + tbodyId + ' .pr-row-total').forEach(el => {
+                grand += parseFloat(el.value.replace(/,/g, '')) || 0;
+            });
+            document.getElementById(totalId).value = '₱ ' + grand.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        }
+        function updateGrandTotal() { updateGrandTotalFor('pr-items-body', 'pr-grand-total'); }
+
+        function removePrRow(btn) {
+            const ids = editIdsFor(btn);
+            btn.closest('tr').remove();
+            updateGrandTotalFor(ids.tbody, ids.total);
+        }
+
+        /* Shared row validation for create + Pending-edit submits. */
+        function validatePrRows(tbodyId) {
+            const rows = document.querySelectorAll('#' + tbodyId + ' .pr-item-row');
+            if (rows.length === 0) { alert('Please add at least one item.'); return false; }
+            for (const [idx, tr] of [...rows].entries()) {
+                const name = tr.querySelector('input[name="item_name[]"]').value.trim();
+                const price = parseFloat(tr.querySelector('input[name="price[]"]').value);
+                const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value);
+                if (!name) { alert(`Row ${idx + 1}: Item Name is required.`); return false; }
+                if (isNaN(price) || price < 0) { alert(`Row ${idx + 1}: Price must be 0 or more.`); return false; }
+                if (isNaN(qty) || qty < 1) { alert(`Row ${idx + 1}: Quantity must be at least 1.`); return false; }
+            }
+            return true;
+        }
+
+        /* Collects Header + Item array and submits via Fetch to the PR creation route. */
+        async function submitPrForm(e) {
+            e.preventDefault();
+            if (!validatePrRows('pr-items-body')) return false;
+            const btn = document.getElementById('pr-submit-btn');
+            btn.disabled = true;
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Submitting...';
+            try {
+                // /pr/add follows the app flash + redirect pattern; reload to display the result.
+                await fetch('/pr/add', { method: 'POST', body: new FormData(document.getElementById('pr-form')) });
+                window.location.href = '/pr';
+            } catch (err) {
+                alert('Submit failed (network error). Your entries are kept — please try again.');
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+            return false;
+        }
+
+        /* ===== PENDING-EDIT: prefill the edit modal (Approved PRs stay locked) ===== */
+        let editingPrId = null;
+        async function openEditPrModal(prId) {
+            editingPrId = prId;
+            const tbody = document.getElementById('pr-edit-items-body');
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:12px;color:#888;">Loading PR...</td></tr>';
+            document.getElementById('edit-modal').classList.remove('hidden');
+            try {
+                const res = await fetch('/pr/details/' + prId);
+                const data = await res.json();
+                if (data.error) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c62828;">${data.error}</td></tr>`; return; }
+                if (data.header.status !== 'Pending') {
+                    alert(`PR ${data.header.pr_number} is '${data.header.status}' and locked as an immutable record. Only Pending PRs can be edited.`);
+                    closeEditPrModal();
+                    return;
+                }
+                document.getElementById('edit-pr-number').value = data.header.pr_number || '';
+                document.getElementById('edit-fund-source').value = data.header.fund_source || 'Fund 05';
+                document.getElementById('edit-date-requested').value = data.header.date_requested || '';
+                tbody.innerHTML = '';
+                (data.items || []).forEach(it => addPrEditRow({
+                    name: it.item_name, category: it.category, unit: it.unit,
+                    size: it.size, details: it.details, price: it.price,
+                    quantity: it.quantity
+                }));
+                if (!data.items || !data.items.length) addPrEditRow(null);
+                updateGrandTotalFor('pr-edit-items-body', 'pr-edit-grand-total');
+            } catch (err) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#c62828;">Failed to load PR.</td></tr>';
+            }
+        }
+        function closeEditPrModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            editingPrId = null;
+        }
+        async function submitPrEditForm(e) {
+            e.preventDefault();
+            if (!editingPrId) return false;
+            if (!validatePrRows('pr-edit-items-body')) return false;
+            const btn = document.getElementById('pr-edit-submit-btn');
+            btn.disabled = true;
+            const orig = btn.innerHTML;
+            btn.innerHTML = '⏳ Saving...';
+            try {
+                await fetch('/pr/update/' + editingPrId, { method: 'POST', body: new FormData(document.getElementById('pr-edit-form')) });
+                window.location.href = '/pr';
+            } catch (err) {
+                alert('Save failed (network error). Your entries are kept — please try again.');
+                btn.disabled = false;
+                btn.innerHTML = orig;
+            }
+            return false;
         }
 
         function fmtPeso(n){ return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-        function calcSubtotal(rowId) {
-            const price = parseFloat(document.getElementById(`price-${rowId}`).value) || 0;
-            const qty = parseInt(document.getElementById(`qty-${rowId}`).value) || 0;
-            document.getElementById(`subtotal-${rowId}`).value = fmtPeso(price * qty);
-            let grandTotal = 0;
-            document.querySelectorAll('[id^="subtotal-"]').forEach(input => { let v = input.value.replace(/,/g,''); grandTotal += parseFloat(v) || 0; });
-            document.getElementById('grand-total-display').innerText = '₱ ' + fmtPeso(grandTotal);
-        }
-
-        function removeRow(btn) {
-            btn.closest('tr').remove();
-            let grandTotal = 0;
-            document.querySelectorAll('[id^="subtotal-"]').forEach(input => { let v = input.value.replace(/,/g,''); grandTotal += parseFloat(v) || 0; });
-            document.getElementById('grand-total-display').innerText = '₱ ' + fmtPeso(grandTotal);
-        }
 
         function openViewModal(prId) {
             const content = document.getElementById('view-modal-content');
@@ -514,14 +757,21 @@
                 .then(data => {
                     if (data.error) { content.innerHTML = data.error; return; }
                     document.getElementById('view-pr-number').innerText = data.header.pr_number + " Details";
-                    let html = `<p><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname} (${data.header.username})</p>`;
-                    html += `<p><strong>Date Requested:</strong> ${data.header.date_requested}</p>`;
-                    html += `<p><strong>Status:</strong> ${data.header.status}</p><br>`;
-                    html += `<table class="item-table"><thead><tr><th>Supplier</th><th>Item</th><th>Category</th><th>Unit / Size</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead><tbody>`;
+                    /* Master header (read-only) */
+                    let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;">`;
+                    html += `<div><strong>PR Number:</strong> ${data.header.pr_number}</div>`;
+                    html += `<div><strong>Fund Source:</strong> ${data.header.fund_source || 'Fund 05'}</div>`;
+                    html += `<div><strong>Date Requested:</strong> ${data.header.date_requested}</div>`;
+                    html += `<div><strong>Total Price:</strong> <span class="price-badge">₱ ${fmtPeso(data.header.total_price)}</span></div>`;
+                    html += `<div><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname} (${data.header.username})</div>`;
+                    html += `<div><strong>Status:</strong> <span class="badge badge-${(data.header.status || '').toLowerCase()}">${data.header.status}</span></div>`;
+                    html += `</div>`;
+                    /* Detail: full line-items table */
+                    html += `<table class="item-table"><thead><tr><th>Item Name</th><th>Category</th><th>Unit</th><th>Specification</th><th>Size</th><th>Price (₱)</th><th>Qty</th><th>Total (₱)</th></tr></thead><tbody>`;
                     data.items.forEach(i => {
-                        html += `<tr><td>${i.supplier_name || '-'}</td><td>${i.item_name}</td><td>${i.category || '-'}</td><td>${i.unit} ${i.size ? '('+i.size+')' : ''}</td><td>${i.quantity}</td><td>₱ ${fmtPeso(i.price)}</td><td>₱ ${fmtPeso(i.total_price)}</td></tr>`;
+                        html += `<tr><td><strong>${i.item_name}</strong></td><td>${i.category || '-'}</td><td>${i.unit || '-'}</td><td>${i.details || '-'}</td><td>${i.size || '-'}</td><td>₱ ${fmtPeso(i.price)}</td><td>${i.quantity}</td><td>₱ ${fmtPeso(i.total_price)}</td></tr>`;
                     });
-                    html += `</tbody></table><p style="text-align:right; font-weight:700;">Grand Total: ₱ ${fmtPeso(data.header.total_price)}</p>`;
+                    html += `</tbody></table>`;
                     content.innerHTML = html;
                 });
         }
