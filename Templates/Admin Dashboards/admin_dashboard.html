@@ -45,6 +45,11 @@
                     <div class="skeleton-block" style="height: 100%; min-height: 280px; border-radius: 12px;"></div>
                     <div class="skeleton-block" style="height: 100%; min-height: 280px; border-radius: 12px;"></div>
                 </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+                    <div class="skeleton-block" style="height: 220px; border-radius: 12px;"></div>
+                    <div class="skeleton-block" style="height: 220px; border-radius: 12px;"></div>
+                </div>
+                <div class="skeleton-block" style="height: 120px; border-radius: 12px;"></div>
             </div>
         </div>
     </div>
@@ -124,94 +129,369 @@
             </div>
         </div>
 
-        <!-- Dashboard Content Grid -->
+        <!-- Dashboard Content Grid (4-tier 360-degree control center) -->
         <div class="dashboard-container">
-            
-            <!-- Row 1: Top 4 Metric Stat Cards -->
-            <div class="cards-grid">
-                <div class="metric-card">
-                    <div class="metric-title">TOTAL PRODUCTS</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">📦</div>
-                        <div class="metric-value">{{ summary.total_unique if summary else 0 }}</div>
+
+            <!-- ROW 1: Global KPI Cards (4-Column Grid) -->
+            <section class="dashboard-card-container transparent-section">
+                <div class="cards-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Total Asset Value</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">💰</div>
+                            <div class="metric-value asset-value">{{ admin_kpi.total_asset_value | default('₱ 0.00') }}</div>
+                        </div>
+                        <div class="metric-sub">Stock × Price</div>
+                    </div>
+
+                    <div class="metric-card metric-warning">
+                        <div class="metric-title">Low Stock Alerts</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">⚠️</div>
+                            <div class="metric-value">{{ admin_kpi.low_stock_alerts | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Needs replenishment</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Pending PRs for Approval</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">📋</div>
+                            <div class="metric-value">{{ admin_kpi.pending_prs | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Awaiting admin action</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">Active Users</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">👥</div>
+                            <div class="metric-value">{{ admin_kpi.active_users | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Approved accounts</div>
                     </div>
                 </div>
+            </section>
 
-                <div class="metric-card">
-                    <div class="metric-title">IN STOCK</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">✅</div>
-                        <div class="metric-value">{{ summary.in_stock_count if summary else 0 }}</div>
-                    </div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-title">OUT OF STOCK</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">❌</div>
-                        <div class="metric-value">{{ summary.out_of_stock_count if summary else 0 }}</div>
-                    </div>
-                </div>
-
-                <div class="metric-card">
-                    <div class="metric-title">TOTAL ASSET VALUE</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">💰</div>
-                        <div class="metric-value">₱ {{ "{:,.2f}".format(summary.total_asset_value or 0) if summary else "0.00" }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 2: Controls & Actions Header -->
-            <div class="action-bar-card">
-                <div class="action-bar-title">System Statistics on Withdrawals</div>
-                
-                <div class="action-bar-controls">
-                    <button class="action-btn">
+            <!-- ROW 2: The Admin Toolbelt (Single Horizontal Card Box) -->
+            <section class="dashboard-card-container toolbelt">
+                <div class="toolbelt-left">
+                    <button type="button" class="btn-import" title="Import Inventory — functionality to be added later">
                         <span>📥</span> Import Inventory
                     </button>
-                    <button class="action-btn">
-                        <span>📊</span> Comparative Report
-                    </button>
+                </div>
+                <form id="chart-filter-form" method="GET" action="{{ url_for('admin_dashboard') }}" class="toolbelt-right">
+                    <label id="filter-dropdown-label">Comparative Report &amp; Chart Filters:</label>
+                    <div class="custom-dropdown-wrap filter-dropdown-wrap" id="filter-dropdown">
+                        <button type="button" class="filter-dropdown-btn" id="filter-dropdown-btn"
+                                aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-dropdown-label">
+                            <span class="filter-selected" id="filter-selected">{{ active_filter_label | default('All Time') }}</span>
+                            <span class="filter-chevron" aria-hidden="true">▾</span>
+                        </button>
+                        <ul class="custom-dropdown-list filter-dropdown-list hidden" id="filter-dropdown-list" role="listbox">
+                            <li class="filter-group-label">Range</li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="All Time" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">All Time</span><span class="cd-specs">Last 6 months overview</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="This Month" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">This Month</span><span class="cd-specs">Daily breakdown · current month</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="This Year" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">This Year</span><span class="cd-specs">Jan – Dec · current year</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Last Year" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">Last Year</span><span class="cd-specs">Jan – Dec · previous year</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="filter-group-label">Quarter</li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q1" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">Q1</span><span class="cd-specs">January – March</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q2" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">Q2</span><span class="cd-specs">April – June</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q3" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">Q3</span><span class="cd-specs">July – September</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q4" data-kind="preset">
+                                <span class="cd-text"><span class="cd-name">Q4</span><span class="cd-specs">October – December</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            <li class="filter-group-label">Month</li>
+                            {% for m in ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="{{ m }}" data-kind="month">
+                                <span class="cd-text"><span class="cd-name">{{ m }}</span><span class="cd-specs">Monthly view · year auto-resolved</span></span><span class="cd-tick">✔</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <button type="button" class="btn-gear" id="btn-custom-range" title="Custom Date Range">⚙️</button>
+                    <input type="hidden" name="chart_filter" id="chart_filter_input" value="{{ chart_filter | default('All Time') }}">
+                    <input type="hidden" name="filter_year" id="filter_year_input" value="{{ filter_year | default('') }}">
+                    <input type="hidden" name="date_from" id="date_from_input" value="{{ date_from | default('') }}">
+                    <input type="hidden" name="date_to" id="date_to_input" value="{{ date_to | default('') }}">
+                    <button type="submit" class="btn-refresh" title="Refresh Data">🔄 Refresh</button>
+                </form>
+            </section>
 
-                    <div class="filter-group">
-                        <label>Filters:</label>
-                        <select class="filter-select">
-                            <option>All Time</option>
-                            <option>This Month</option>
-                            <option>This Year</option>
-                        </select>
+            <!-- ROW 3: Withdrawal Analytics (2-Column Grid) -->
+            <section class="dashboard-card-container transparent-section">
+                <div class="analytics-grid">
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Monthly Withdrawals</h3>
+                            <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            {% if chart_labels is defined and chart_labels %}
+                            <canvas id="monthlyWithdrawalsChart" height="220"></canvas>
+                            {% else %}
+                            <div class="chart-empty">
+                                <span class="empty-icon">📊</span>
+                                <p>No withdrawal data for this period yet.</p>
+                            </div>
+                            {% endif %}
+                        </div>
                     </div>
 
-                    <button class="icon-circle-btn" title="Refresh Data">🔄</button>
-                </div>
-            </div>
-
-            <!-- Row 3: Bottom Charts Containers Placeholders -->
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>Monthly Withdrawals</h3>
-                    <div class="chart-placeholder">
-                        [ Monthly Withdrawals Chart Placeholder ]
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Top Withdrawn Products</h3>
+                            <a href="{{ url_for('admin_inventory_dashboard') }}" class="card-link">View Full Stock →</a>
+                        </div>
+                        {% if top_products is defined and top_products %}
+                        <ul class="top-products-list">
+                            {% for p in top_products %}
+                            <li class="tp-row">
+                                <div class="tp-meta">
+                                    <span class="tp-rank">{{ loop.index }}</span>
+                                    <span class="tp-name">{{ p.name }}</span>
+                                    <span class="tp-qty">{{ p.qty }} withdrawn</span>
+                                </div>
+                                <div class="tp-bar">
+                                    <div class="tp-fill" style="width: {{ ((p.qty / (top_max | default(1))) * 100) | round(1) }}%;"></div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="chart-empty">
+                            <span class="empty-icon">📦</span>
+                            <p>No withdrawn products for this period yet.</p>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
+            </section>
 
-                <div class="chart-card">
-                    <h3>Top Withdrawn Products</h3>
-                    <div class="chart-placeholder">
-                        [ Top Withdrawn Products Chart Placeholder ]
+            <!-- ROW 4: Return Analytics (2-Column Grid) -->
+            <section class="dashboard-card-container transparent-section">
+                <div class="analytics-grid">
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Monthly Returned Items</h3>
+                            <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            {% if return_labels is defined and return_labels %}
+                            <canvas id="monthlyReturnsChart" height="220"></canvas>
+                            {% else %}
+                            <div class="chart-empty">
+                                <span class="empty-icon">🔄</span>
+                                <p>No return data for this period yet.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Top Returned Products</h3>
+                            <a href="{{ url_for('admin_return_dashboard') }}" class="card-link">View Returns →</a>
+                        </div>
+                        {% if top_returned is defined and top_returned %}
+                        <ul class="top-products-list">
+                            {% for p in top_returned %}
+                            <li class="tp-row">
+                                <div class="tp-meta">
+                                    <span class="tp-rank tp-rank-return">{{ loop.index }}</span>
+                                    <span class="tp-name">{{ p.name }}</span>
+                                    <span class="tp-qty">{{ p.qty }} returned</span>
+                                </div>
+                                <div class="tp-bar">
+                                    <div class="tp-fill tp-fill-return" style="width: {{ ((p.qty / (top_returned_max | default(1))) * 100) | round(1) }}%;"></div>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <div class="chart-empty">
+                            <span class="empty-icon">📦</span>
+                            <p>No returned products for this period yet.</p>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <!-- ROW 5: Global System Activity Ledger -->
+            <section class="dashboard-card-container">
+                <div class="card-header">
+                    <h3>Recent System Activity (Admin &amp; Staff)</h3>
+                    <span class="card-count">{{ system_activity | length if system_activity is defined else 0 }} events</span>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Reference</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if system_activity is defined and system_activity %}
+                                {% for e in system_activity %}
+                                <tr>
+                                    <td>{{ e.date }}</td>
+                                    <td>{{ e.user }}</td>
+                                    <td>{{ e.action }}</td>
+                                    <td class="ref-cell">{{ e.ref }}</td>
+                                    <td><span class="status-badge status-{{ e.status | lower }}">{{ e.status }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="5" class="table-empty">[ System activity will appear here — connect `system_activity` query ]</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
         </div>
 
     </div>
     </div> <!-- /#main-dashboard-content -->
 
+    <!-- Custom Date Range Modal (droplet entrance, no X — Cancel/Apply only) -->
+    <div id="custom-date-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box modal-small">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-circle">📅</div>
+                    <div>
+                        <h3>Custom Date Range</h3>
+                        <p class="modal-sub">Filter charts by a specific period</p>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row-2">
+                <div class="form-field">
+                    <label for="custom-from">From</label>
+                    <input type="date" id="custom-from" class="modal-input">
+                </div>
+                <div class="form-field">
+                    <label for="custom-to">To</label>
+                    <input type="date" id="custom-to" class="modal-input">
+                </div>
+            </div>
+            <p class="modal-error hidden" id="custom-date-error"></p>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal-cancel" id="custom-date-cancel">Cancel</button>
+                <button type="button" class="btn-modal-save" id="custom-date-apply">Apply Range</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Specify Year Modal (future-month guard, no X — Cancel/Confirm only) -->
+    <div id="specify-year-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box modal-small">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-circle">🗓️</div>
+                    <div>
+                        <h3>Specify Year</h3>
+                        <p class="modal-sub"><span id="specify-year-month">This month</span> has not occurred yet this year — which year do you mean?</p>
+                    </div>
+                </div>
+            </div>
+            <div class="form-field">
+                <label for="specify-year-input">Year (YYYY)</label>
+                <input type="number" id="specify-year-input" class="modal-input" min="2000" placeholder="e.g. 2025">
+            </div>
+            <p class="modal-error hidden" id="specify-year-error"></p>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal-cancel" id="specify-year-cancel">Cancel</button>
+                <button type="button" class="btn-modal-save" id="specify-year-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Future Date Error Modal (no X — Confirm re-opens Specify Year) -->
+    <div id="future-date-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box modal-small">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-circle modal-icon-error">⛔</div>
+                    <div>
+                        <h3>Invalid Date</h3>
+                        <p class="modal-sub">That period cannot be reported on</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-error-box">
+                That is the future. There is no data available for that period yet.
+            </div>
+            <div class="modal-buttons modal-buttons-single">
+                <button type="button" class="btn-modal-save" id="future-date-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Skeleton Screen Transition (Modular - disable via SKELETON_ENABLED=false) + Progressive Cascade Unveil -->
-    
+
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        if (typeof Chart === 'undefined') return;
+        function makeChart(id, labels, values, label, bg, border) {
+            var el = document.getElementById(id);
+            if (!el || !labels || !labels.length) return;
+            new Chart(el, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        backgroundColor: bg,
+                        borderColor: border,
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+        makeChart('monthlyWithdrawalsChart',
+            {{ chart_labels | default([]) | tojson }},
+            {{ chart_values | default([]) | tojson }},
+            'Withdrawals', 'rgba(83, 197, 241, 0.65)', '#0277bd');
+        makeChart('monthlyReturnsChart',
+            {{ return_labels | default([]) | tojson }},
+            {{ return_values | default([]) | tojson }},
+            'Returns', 'rgba(46, 125, 50, 0.55)', '#2e7d32');
+    })();
+    </script>
+    <script src="{{ url_for('static', filename='js/admin_dashboard_logic.js') }}"></script>
 
 
 </body>

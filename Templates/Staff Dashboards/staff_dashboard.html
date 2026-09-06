@@ -118,75 +118,175 @@
         </div>
 
         <div class="dashboard-container">
-            
-            <!-- Staff Operational Metrics -->
-            <div class="cards-grid">
-                <div class="metric-card">
-                    <div class="metric-title">AVAILABLE ITEMS</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">📦</div>
-                        <div class="metric-value">0</div>
+
+            <!-- ROW 1: KPI Analytics Cards (4-Column Grid) -->
+            <section class="dashboard-card-container kpi-section">
+                <div class="cards-grid">
+                    <div class="metric-card">
+                        <div class="metric-title">Available Items</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">📦</div>
+                            <div class="metric-value">{{ kpi.available_items | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">In-stock products</div>
+                    </div>
+
+                    <div class="metric-card metric-warning">
+                        <div class="metric-title">Low Stock Alerts</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">⚠️</div>
+                            <div class="metric-value">{{ kpi.low_stock_count | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Needs replenishment</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">My Pending PRs</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">📋</div>
+                            <div class="metric-value">{{ kpi.my_pending_prs | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Awaiting approval</div>
+                    </div>
+
+                    <div class="metric-card">
+                        <div class="metric-title">My Pending Withdrawals</div>
+                        <div class="metric-body">
+                            <div class="metric-icon-box">📤</div>
+                            <div class="metric-value">{{ kpi.my_pending_withdrawals | default(0) }}</div>
+                        </div>
+                        <div class="metric-sub">Awaiting release</div>
                     </div>
                 </div>
+            </section>
 
-                <div class="metric-card">
-                    <div class="metric-title">LOW STOCK ALERTS</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">⚠️</div>
-                        <div class="metric-value">0</div>
-                    </div>
+            <!-- ROW 2: Actionable Alerts & Pending Tasks (replaces Quick Actions) -->
+            <section class="dashboard-card-container">
+                <div class="card-header">
+                    <h3>Actionable Alerts &amp; Pending Tasks</h3>
+                    <span class="card-count">{{ alerts | length if alerts is defined else 0 }} needing attention</span>
                 </div>
+                <ul class="alert-list">
+                    {% if alerts is defined and alerts %}
+                        {% for alert in alerts %}
+                        <li class="alert-item alert-{{ alert.severity | default('info') }}">
+                            <span class="alert-icon">{{ alert.icon | default('ℹ️') }}</span>
+                            <div class="alert-text">
+                                <strong>{{ alert.title }}</strong>
+                                <span>{{ alert.detail }}</span>
+                            </div>
+                            <a href="{{ alert.link | default('#') }}" class="alert-link">View →</a>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <!-- Placeholder alerts until backend queries are wired -->
+                        <li class="alert-item alert-success">
+                            <span class="alert-icon">✅</span>
+                            <div class="alert-text">
+                                <strong>Approved PRs ready for Delivery</strong>
+                                <span>{{ approved_prs_ready | default(0) }} approved request(s) can now proceed to delivery.</span>
+                            </div>
+                            <a href="{{ url_for('pr_management') }}" class="alert-link">View →</a>
+                        </li>
+                        <li class="alert-item alert-info">
+                            <span class="alert-icon">📤</span>
+                            <div class="alert-text">
+                                <strong>Withdrawals ready for pickup</strong>
+                                <span>{{ withdrawals_ready | default(0) }} approved withdrawal(s) waiting for release.</span>
+                            </div>
+                            <a href="{{ url_for('staff_withdraw_dashboard') }}" class="alert-link">View →</a>
+                        </li>
+                        <li class="alert-item alert-warning">
+                            <span class="alert-icon">⚠️</span>
+                            <div class="alert-text">
+                                <strong>Low stock items to monitor</strong>
+                                <span>{{ kpi.low_stock_count | default(0) }} item(s) at or below reorder level.</span>
+                            </div>
+                            <a href="{{ url_for('staff_inventory_dashboard') }}" class="alert-link">View →</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </section>
 
-                <div class="metric-card">
-                    <div class="metric-title">MY PENDING PRs</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">📋</div>
-                        <div class="metric-value">0</div>
-                    </div>
+            <!-- ROW 3: Live Inventory Summary -->
+            <section class="dashboard-card-container">
+                <div class="card-header">
+                    <h3>Available Inventory Snapshot</h3>
+                    <a href="{{ url_for('staff_inventory_dashboard') }}" class="card-link">View Full Stock →</a>
                 </div>
+                <div class="table-scroll inventory-scroll">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product Code</th>
+                                <th>Item Name</th>
+                                <th>Category</th>
+                                <th>Available Stock</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if inventory_snapshot is defined and inventory_snapshot %}
+                                {% for item in inventory_snapshot %}
+                                <tr>
+                                    <td>{{ item.product_code }}</td>
+                                    <td>{{ item.item_name }}</td>
+                                    <td>{{ item.category }}</td>
+                                    <td>{{ item.available_stock }}</td>
+                                    <td>
+                                        {% if item.available_stock == 0 %}
+                                            <span class="status-badge status-out">Out of Stock</span>
+                                        {% elif item.available_stock <= item.reorder_level %}
+                                            <span class="status-badge status-low">Low Stock</span>
+                                        {% else %}
+                                            <span class="status-badge status-available">Available</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Placeholder rows until backend query is wired -->
+                                <tr><td colspan="5" class="table-empty">[ Live inventory data will appear here — connect `inventory_snapshot` query ]</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
-                <div class="metric-card">
-                    <div class="metric-title">MY PENDING WITHDRAWALS</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">📤</div>
-                        <div class="metric-value">0</div>
-                    </div>
+            <!-- ROW 4: My Recent Submissions -->
+            <section class="dashboard-card-container">
+                <div class="card-header">
+                    <h3>My Recent Activity</h3>
+                    <span class="card-subtitle">Last 5 requests (PRs, Withdrawals, Returns)</span>
                 </div>
-            </div>
-
-            <!-- Staff Quick Actions Bar -->
-            <div class="action-bar-card">
-                <div class="action-bar-title">Quick Operational Actions</div>
-                
-                <div class="action-bar-controls">
-                    <button class="action-btn-primary">
-                        <span>📋</span> + New Purchase Request
-                    </button>
-                    <button class="action-btn-primary">
-                        <span>📤</span> + Request Withdrawal
-                    </button>
-                    <button class="action-btn-primary">
-                        <span>🔄</span> + Return Item
-                    </button>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Reference #</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if recent_activity is defined and recent_activity %}
+                                {% for row in recent_activity[:5] %}
+                                <tr>
+                                    <td>{{ row.date }}</td>
+                                    <td><span class="type-pill type-{{ row.type | lower }}">{{ row.type }}</span></td>
+                                    <td class="ref-cell">{{ row.reference_no }}</td>
+                                    <td><span class="status-badge status-{{ row.status | lower }}">{{ row.status }}</span></td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Placeholder rows until backend query is wired -->
+                                <tr><td colspan="4" class="table-empty">[ Your 5 most recent PR / Withdrawal / Return requests will appear here — connect `recent_activity` query ]</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
-
-            <!-- Main Work Area -->
-            <div class="workspace-grid">
-                <div class="content-card">
-                    <h3>Available Inventory Stock</h3>
-                    <div class="card-placeholder">
-                        [ Live Inventory Stock Table Placeholder ]
-                    </div>
-                </div>
-
-                <div class="content-card">
-                    <h3>My Recent Submissions</h3>
-                    <div class="card-placeholder">
-                        [ Pending Requests List Placeholder ]
-                    </div>
-                </div>
-            </div>
+            </section>
 
         </div>
 

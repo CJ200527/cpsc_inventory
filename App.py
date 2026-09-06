@@ -18,7 +18,7 @@ Run: python App.py  (requires XAMPP MySQL, mysql-connector-python)
 import os
 import sys
 import re
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 # --- Third-Party Imports ---
 from flask import Flask, render_template, request, redirect, url_for, session, flash  # Flask = micro-framework, Jinja2 templating, session
@@ -265,7 +265,128 @@ def logout():
         flash("Successfully logged out 😢", "info")
     return redirect(url_for("login"))
 
-# --- ROUTE 5: Admin Dashboard ---
+# --- Helpers: Admin Dashboard advanced reporting periods ---
+_ADMIN_MONTHS = ("January", "February", "March", "April", "May", "June",
+                 "July", "August", "September", "October", "November", "December")
+_ADMIN_FILTERS = (("All Time", "This Month", "This Year", "Last Year",
+                   "Q1", "Q2", "Q3", "Q4") + _ADMIN_MONTHS + ("Custom",))
+
+
+def _admin_period_range(chart_filter, filter_year, date_from, date_to):
+    """Resolve a toolbelt filter to (start_date, end_date, granularity, bounded).
+
+    Future periods resolve to an empty window (today..today with no rows),
+    so charts render their empty state instead of crashing.
+    """
+    from calendar import monthrange
+    today = datetime.now().date()
+    first_of = lambda y, m: date(y, m, 1)
+    last_of = lambda y, m: date(y, m, monthrange(y, m)[1])
+    if chart_filter == "Custom" and date_from and date_to:
+        gran = "day" if (date_to - date_from).days <= 40 else "month"
+        return date_from, date_to, gran, True
+    if chart_filter == "This Month":
+        return first_of(today.year, today.month), today, "day", True
+    if chart_filter == "This Year":
+        return first_of(today.year, 1), today, "month", True
+    if chart_filter == "Last Year":
+        return first_of(today.year - 1, 1), last_of(today.year - 1, 12), "month", True
+    if chart_filter in ("Q1", "Q2", "Q3", "Q4"):
+        sm = (int(chart_filter[1]) - 1) * 3 + 1
+        s, e = first_of(today.year, sm), last_of(today.year, sm + 2)
+        if s > today:  # future quarter — no data yet
+            return today, today, "month", True
+        return s, min(e, today), "month", True
+    if chart_filter in _ADMIN_MONTHS:
+        m = _ADMIN_MONTHS.index(chart_filter) + 1
+        y = filter_year or today.year
+        s, e = first_of(y, m), last_of(y, m)
+        if s > today:  # future month — no data yet
+            return today, today, "month", True
+        return s, min(e, today), "day", True
+    # All Time — last 6 calendar months including current (unbounded tops)
+    m, y = today.month, today.year
+    for _ in range(5):
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return first_of(y, m), today, "month", False
+
+
+def _admin_period_counts(cur, table, date_col, start, end, granularity):
+    """Zero-filled (labels, values) for withdrawals or returns in a period."""
+    labels, values = [], []
+    lo = start.strftime("%Y-%m-%d 00:00:00")
+    hi = end.strftime("%Y-%m-%d 23:59:59")
+    if granularity == "day":
+        cur.execute(
+            f"SELECT DAY({date_col}) AS k, MONTH({date_col}) AS mo, "
+            f"YEAR({date_col}) AS yr, COUNT(*) AS c FROM {table} "
+            f"WHERE {date_col} BETWEEN %s AND %s "
+            f"GROUP BY YEAR({date_col}), MONTH({date_col}), DAY({date_col})",
+            (lo, hi),
+        )
+        got = {}
+        for r in cur.fetchall() or []:
+            try:
+                got[(int(r["yr"]), int(r["mo"]), int(r["k"]))] = int(r["c"])
+            except (TypeError, ValueError):
+                continue
+        d = start
+        while d <= end:
+            labels.append(f"{d.strftime('%b')} {d.day}")
+            values.append(got.get((d.year, d.month, d.day), 0))
+            d += timedelta(days=1)
+    else:
+        cur.execute(
+            f"SELECT DATE_FORMAT({date_col}, '%Y-%m') AS k, COUNT(*) AS c "
+            f"FROM {table} WHERE {date_col} BETWEEN %s AND %s "
+            f"GROUP BY DATE_FORMAT({date_col}, '%Y-%m') ORDER BY k ASC",
+            (lo, hi),
+        )
+        got = {}
+        for r in cur.fetchall() or []:
+            try:
+                got[str(r["k"])] = int(r["c"])
+            except (TypeError, ValueError):
+                continue
+        # Count buckets to decide whether year disambiguation is needed
+        buckets = []
+        y, m = start.year, start.month
+        while (y, m) <= (end.year, end.month):
+            buckets.append((y, m))
+            m += 1
+            if m == 13:
+                m, y = 1, y + 1
+        multi_year = len({b[0] for b in buckets}) > 1
+        for y, m in buckets:
+            key = f"{y:04d}-{m:02d}"
+            labels.append(datetime(y, m, 1).strftime("%b '%y" if multi_year else "%b"))
+            values.append(got.get(key, 0))
+    return labels, values
+
+
+def _admin_top_items(cur, items_table, parent_table, parent_pk, fk_col, qty_col,
+                     parent_date_col, start, end, bounded):
+    """Top 5 items by quantity, optionally restricted to a period."""
+    if bounded:
+        cur.execute(
+            f"SELECT i.item_name AS name, SUM(i.{qty_col}) AS qty "
+            f"FROM {items_table} i JOIN {parent_table} p ON p.{parent_pk} = i.{fk_col} "
+            f"WHERE p.{parent_date_col} BETWEEN %s AND %s "
+            f"GROUP BY i.item_name ORDER BY qty DESC LIMIT 5",
+            (start.strftime("%Y-%m-%d 00:00:00"), end.strftime("%Y-%m-%d 23:59:59")),
+        )
+    else:
+        cur.execute(
+            f"SELECT i.item_name AS name, SUM(i.{qty_col}) AS qty "
+            f"FROM {items_table} i GROUP BY i.item_name ORDER BY qty DESC LIMIT 5"
+        )
+    return [{"name": r.get("name") or "—", "qty": int(r.get("qty") or 0)}
+            for r in (cur.fetchall() or [])]
+
+
+# --- ROUTE 5: Admin Dashboard (5-tier control center: withdrawals + returns) ---
 @app.route("/admin_dashboard")
 def admin_dashboard():
     if "user_id" not in session:
@@ -274,15 +395,181 @@ def admin_dashboard():
     if session.get("role") != "Admin":
         flash("You do not have permission to access the admin dashboard.", "error")
         return redirect(url_for("login"))
-    # Live inventory metrics for dashboard cards
-    try:
-        summary = get_inventory_summary()
-    except Exception as err:
-        print(f"[admin_dashboard] summary error: {err}")
-        summary = {"total_unique":0,"total_asset_value":0,"low_stock_count":0,"out_of_stock_count":0,"in_stock_count":0}
-    return safe_render_template("Admin Dashboards/admin_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"), summary=summary)
 
-# --- ROUTE 6: Staff Dashboard ---
+    # --- Advanced filter params (validated; invalid input falls back safely) ---
+    chart_filter = (request.args.get("chart_filter", "All Time") or "All Time").strip()
+    if chart_filter not in _ADMIN_FILTERS:
+        chart_filter = "All Time"
+    today = datetime.now().date()
+    try:
+        filter_year = int((request.args.get("filter_year", "") or "").strip())
+        filter_year = filter_year if 2000 <= filter_year <= today.year else None
+    except (TypeError, ValueError):
+        filter_year = None
+    date_from = date_to = None
+    try:
+        raw_from = (request.args.get("date_from", "") or "").strip()
+        raw_to = (request.args.get("date_to", "") or "").strip()
+        if raw_from and raw_to:
+            date_from = datetime.strptime(raw_from, "%Y-%m-%d").date()
+            date_to = datetime.strptime(raw_to, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        date_from = date_to = None
+    if chart_filter == "Custom" and not (
+            date_from and date_to and date_from <= date_to and date_to <= today):
+        chart_filter, date_from, date_to = "All Time", None, None
+
+    # --- Cleared defaults: empty analytics until live DB data fills them ---
+    summary = {"total_unique": 0, "total_asset_value": 0, "low_stock_count": 0,
+               "out_of_stock_count": 0, "in_stock_count": 0}
+    admin_kpi = {"total_asset_value": "₱ 0.00", "low_stock_alerts": 0,
+                 "pending_prs": 0, "active_users": 0}
+    top_products, top_max = [], 1
+    top_returned, top_returned_max = [], 1
+    system_activity = []
+    chart_labels, chart_values = [], []
+    return_labels, return_values = [], []
+
+    try:
+        # --- Global inventory health (existing helper, db.py-backed) ---
+        try:
+            summary = get_inventory_summary() or summary
+        except Exception as err:
+            print(f"[admin_dashboard] summary error: {err}")
+
+        conn = get_db_connection()
+        cur = conn.cursor(dictionary=True)
+
+        # --- Pending PRs for approval + active (approved) users ---
+        try:
+            cur.execute("SELECT COUNT(*) AS c FROM purchase_requests WHERE status = 'Pending'")
+            pending_prs = int((cur.fetchone() or {}).get("c", 0) or 0)
+        except Exception as err:
+            print(f"[admin_dashboard] pending PRs error: {err}")
+            pending_prs = 0
+        try:
+            cur.execute("SELECT COUNT(*) AS c FROM users WHERE Approved_By = 1")
+            active_users = int((cur.fetchone() or {}).get("c", 0) or 0)
+        except Exception as err:
+            print(f"[admin_dashboard] active users error: {err}")
+            active_users = 0
+
+        try:
+            asset_value = float(summary.get("total_asset_value", 0) or 0)
+        except (TypeError, ValueError):
+            asset_value = 0.0
+        admin_kpi = {
+            "total_asset_value": f"₱ {asset_value:,.2f}",
+            "low_stock_alerts": int(summary.get("low_stock_count", 0) or 0),
+            "pending_prs": pending_prs,
+            "active_users": active_users,
+        }
+
+        # --- Resolve the reporting period once; both modules share it ---
+        start, end, granularity, bounded = _admin_period_range(
+            chart_filter, filter_year, date_from, date_to)
+
+        # --- Withdrawal analytics (Row 3) ---
+        try:
+            chart_labels, chart_values = _admin_period_counts(
+                cur, "`withdraw`", "date_requested", start, end, granularity)
+        except Exception as err:
+            print(f"[admin_dashboard] withdrawal chart error: {err}")
+            chart_labels, chart_values = [], []
+        try:
+            top_products = _admin_top_items(
+                cur, "withdraw_items", "`withdraw`", "withdraw_id", "withdraw_id",
+                "quantity", "date_requested", start, end, bounded)
+            top_max = max((p["qty"] for p in top_products), default=1) or 1
+        except Exception as err:
+            print(f"[admin_dashboard] top products error: {err}")
+            top_products, top_max = [], 1
+
+        # --- Return analytics (Row 4) ---
+        try:
+            return_labels, return_values = _admin_period_counts(
+                cur, "`return`", "date_returned", start, end, granularity)
+        except Exception as err:
+            print(f"[admin_dashboard] return chart error: {err}")
+            return_labels, return_values = [], []
+        try:
+            top_returned = _admin_top_items(
+                cur, "return_items", "`return`", "return_id", "return_id",
+                "returned_quantity", "date_returned", start, end, bounded)
+            top_returned_max = max((p["qty"] for p in top_returned), default=1) or 1
+        except Exception as err:
+            print(f"[admin_dashboard] top returned error: {err}")
+            top_returned, top_returned_max = [], 1
+
+        # --- Global system activity ledger (Admin + Staff, newest 8) ---
+        try:
+            cur.execute("""
+                (SELECT pr.date_requested AS d, u.username AS u, 'Created PR' AS a,
+                        pr.pr_number AS r, pr.status AS s
+                 FROM purchase_requests pr JOIN users u ON pr.user_id = u.id)
+                UNION ALL
+                (SELECT w.date_requested AS d, u.username AS u, 'Withdrew Item' AS a,
+                        w.ris_number AS r, w.status AS s
+                 FROM `withdraw` w JOIN users u ON w.user_id = u.id)
+                UNION ALL
+                (SELECT rt.date_returned AS d, u.username AS u, 'Returned Item' AS a,
+                        rt.return_number AS r, rt.status AS s
+                 FROM `return` rt JOIN users u ON rt.user_id = u.id)
+                UNION ALL
+                (SELECT dl.delivery_date AS d, u.username AS u, 'Received Delivery' AS a,
+                        dl.delivery_number AS r, dl.status AS s
+                 FROM deliveries dl JOIN users u ON dl.user_id = u.id)
+                ORDER BY d DESC
+                LIMIT 8
+            """)
+            rows = cur.fetchall() or []
+            system_activity = [{
+                "date": str(r.get("d") or "—")[:10],
+                "user": r.get("u") or "—",
+                "action": r.get("a") or "—",
+                "ref": r.get("r") or "—",
+                "status": str(r.get("s") or "Pending"),
+            } for r in rows]
+        except Exception as err:
+            print(f"[admin_dashboard] system activity error: {err}")
+            system_activity = []
+
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+    except Exception as err:
+        # Never crash the dashboard — cleared defaults above still render.
+        print(f"[admin_dashboard] backend error: {err}")
+
+    # --- Human-readable label for the active filter pill ---
+    if chart_filter == "Custom" and date_from and date_to:
+        active_filter_label = f"Custom: {date_from} → {date_to}"
+    elif chart_filter in _ADMIN_MONTHS and filter_year:
+        active_filter_label = f"{chart_filter} {filter_year}"
+    else:
+        active_filter_label = chart_filter
+
+    return safe_render_template(
+        "Admin Dashboards/admin_dashboard.html",
+        username=session.get("username"),
+        role=session.get("role"),
+        full_name=session.get("full_name"),
+        summary=summary,
+        admin_kpi=admin_kpi,
+        top_products=top_products, top_max=top_max,
+        top_returned=top_returned, top_returned_max=top_returned_max,
+        system_activity=system_activity,
+        chart_labels=chart_labels, chart_values=chart_values,
+        return_labels=return_labels, return_values=return_values,
+        chart_filter=chart_filter, filter_year=filter_year or "",
+        date_from=date_from.isoformat() if date_from else "",
+        date_to=date_to.isoformat() if date_to else "",
+        active_filter_label=active_filter_label,
+    )
+
+# --- ROUTE 6: Staff Dashboard (data-driven analytics, no Quick Actions) ---
 @app.route("/staff_dashboard")
 def staff_dashboard():
     if "user_id" not in session:
@@ -291,7 +578,177 @@ def staff_dashboard():
     if session.get("role") != "Staff":
         flash("You do not have permission to access this page.", "error")
         return redirect(url_for("login"))
-    return safe_render_template("Staff Dashboards/staff_dashboard.html", username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"))
+
+    user_id = session.get("user_id")
+
+    # Safe defaults — guarantee template never sees an UndefinedError
+    kpi = {
+        "available_items": 0,
+        "low_stock_count": 0, "stock_alerts": 0,
+        "my_pending_prs": 0, "pending_prs": 0,
+        "my_pending_withdrawals": 0, "pending_withdrawals": 0,
+    }
+    actionable_alerts = []
+    inventory_snapshot = []
+    recent_activity = []
+    approved_prs_ready = 0
+    withdrawals_ready = 0
+
+    try:
+        # --- KPI 1 & 2: global inventory health (via db.py-backed helpers) ---
+        try:
+            summary = get_inventory_summary() or {}
+        except Exception as err:
+            print(f"[staff_dashboard] inventory summary error: {err}")
+            summary = {}
+        available_items = int(summary.get("in_stock_count", 0) or 0)
+        low_stock_count = int(summary.get("low_stock_count", 0) or 0)
+
+        # --- KPI 3 & 4 + alerts: this user's own PRs / withdrawals ---
+        try:
+            my_prs = get_all_purchase_requests(user_id=user_id) or []
+        except Exception as err:
+            print(f"[staff_dashboard] PR fetch error: {err}")
+            my_prs = []
+        try:
+            my_withdrawals = get_all_withdrawals(user_id=user_id) or []
+        except Exception as err:
+            print(f"[staff_dashboard] withdrawal fetch error: {err}")
+            my_withdrawals = []
+        try:
+            my_returns = get_all_returns(user_id=user_id) or []
+        except Exception as err:
+            print(f"[staff_dashboard] return fetch error: {err}")
+            my_returns = []
+
+        pending_prs = sum(1 for r in my_prs if str(r.get("status", "")) == "Pending")
+        pending_withdrawals = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Pending")
+        approved_prs_ready = sum(1 for r in my_prs if str(r.get("status", "")) == "Approved")
+        withdrawals_ready = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Approved")
+
+        # kpi carries BOTH key styles: template uses my_pending_* / low_stock_count,
+        # spec asks for pending_* / stock_alerts — keep them in sync.
+        kpi = {
+            "available_items": available_items,
+            "low_stock_count": low_stock_count, "stock_alerts": low_stock_count,
+            "my_pending_prs": pending_prs, "pending_prs": pending_prs,
+            "my_pending_withdrawals": pending_withdrawals, "pending_withdrawals": pending_withdrawals,
+        }
+
+        # --- Row 2: Actionable Alerts & Pending Tasks ---
+        def _link(endpoint, fallback):
+            try:
+                return url_for(endpoint)
+            except Exception:
+                return fallback
+
+        actionable_alerts = []
+        if approved_prs_ready:
+            actionable_alerts.append({
+                "icon": "✅",
+                "title": "Approved PRs ready for Delivery",
+                "detail": f"{approved_prs_ready} approved request(s) can now proceed to delivery.",
+                "severity": "success",
+                "link": _link("pr_management", "/pr"),
+            })
+        if withdrawals_ready:
+            actionable_alerts.append({
+                "icon": "📤",
+                "title": "Withdrawals ready for pickup",
+                "detail": f"{withdrawals_ready} approved withdrawal(s) waiting for release.",
+                "severity": "info",
+                "link": _link("staff_withdraw_dashboard", "/staff/withdraw"),
+            })
+        if low_stock_count:
+            actionable_alerts.append({
+                "icon": "⚠️",
+                "title": "Low stock items to monitor",
+                "detail": f"{low_stock_count} item(s) at or below reorder level.",
+                "severity": "warning",
+                "link": _link("staff_inventory_dashboard", "/staff/inventory"),
+            })
+        if pending_prs:
+            actionable_alerts.append({
+                "icon": "📋",
+                "title": "PRs awaiting approval",
+                "detail": f"{pending_prs} purchase request(s) still pending.",
+                "severity": "info",
+                "link": _link("pr_management", "/pr"),
+            })
+
+        # --- Row 3: Available Inventory Snapshot (top in-stock items) ---
+        try:
+            items = get_inventory_items() or []
+        except Exception as err:
+            print(f"[staff_dashboard] inventory items error: {err}")
+            items = []
+        for row in items:
+            try:
+                stock = int(row.get("current_stock", 0) or 0)
+            except (TypeError, ValueError):
+                stock = 0
+            if stock <= 0:
+                continue  # snapshot shows available stock only
+            try:
+                reorder = int(row.get("reorder_level", 10) or 10)
+            except (TypeError, ValueError):
+                reorder = 10
+            pid = row.get("product_id", "")
+            inventory_snapshot.append({
+                "product_code": f"PRD-{int(pid):04d}" if str(pid).isdigit() else str(pid or "—"),
+                "item_name": row.get("product_name", "—"),
+                "category": row.get("category", "General") or "General",
+                "available_stock": stock,
+                "reorder_level": reorder,
+            })
+            if len(inventory_snapshot) >= 10:
+                break
+
+        # --- Row 4: My Recent Activity (merge PRs + Withdrawals + Returns, newest 5) ---
+        merged = []
+        for r in my_prs:
+            merged.append({
+                "sort_key": str(r.get("date_requested", "")),
+                "date": str(r.get("date_requested", "—")),
+                "type": "PR",
+                "reference_no": r.get("pr_number", "—"),
+                "status": str(r.get("status", "Pending")),
+            })
+        for w in my_withdrawals:
+            merged.append({
+                "sort_key": str(w.get("date_requested", "")),
+                "date": str(w.get("date_requested", "—")),
+                "type": "Withdrawal",
+                "reference_no": w.get("ris_number", "—"),
+                "status": str(w.get("status", "Pending")),
+            })
+        for rt in my_returns:
+            merged.append({
+                "sort_key": str(rt.get("date_returned", "")),
+                "date": str(rt.get("date_returned", "—")),
+                "type": "Return",
+                "reference_no": rt.get("return_number", "—"),
+                "status": str(rt.get("status", "Pending")),
+            })
+        merged.sort(key=lambda x: x["sort_key"], reverse=True)
+        recent_activity = [
+            {"date": m["date"], "type": m["type"], "reference_no": m["reference_no"], "status": m["status"]}
+            for m in merged[:5]
+        ]
+    except Exception as err:
+        # Never crash the dashboard — fall back to safe defaults above.
+        print(f"[staff_dashboard] backend error: {err}")
+
+    # `alerts` is the name the template iterates; `actionable_alerts` is the
+    # spec-required alias — pass both (same list) plus the fallback counters.
+    return safe_render_template(
+        "Staff Dashboards/staff_dashboard.html",
+        username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"),
+        kpi=kpi,
+        alerts=actionable_alerts, actionable_alerts=actionable_alerts,
+        inventory_snapshot=inventory_snapshot, recent_activity=recent_activity,
+        approved_prs_ready=approved_prs_ready, withdrawals_ready=withdrawals_ready,
+    )
 
 # --- ROUTE: Admin User Management View & Filters ---
 @app.route("/admin/users")

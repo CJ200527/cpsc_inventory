@@ -198,7 +198,9 @@
         }
 
         /* ==========================================
-           3. DASHBOARD CONTENT GRID
+           3. DASHBOARD CONTENT GRID (4-tier 360-degree control center)
+           Unified with staff card-box theme: white cards, #e0e0e0
+           borders, 20px row gaps, clean header typography.
            ========================================== */
         .dashboard-container {
             padding: 22px 28px;
@@ -209,7 +211,64 @@
             gap: 20px;
         }
 
-        /* Top 4 Stat Cards Row */
+        /* Shared card-box wrapper for each dashboard row */
+        .dashboard-card-container {
+            background-color: #ffffff;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+            padding: 20px 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* Rows 1 & 3 are transparent — inner cards carry the card styling */
+        .dashboard-card-container.transparent-section {
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eef2f5;
+        }
+
+        .card-header h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0d233a;
+            margin: 0;
+        }
+
+        .card-count {
+            font-size: 12px;
+            font-weight: 500;
+            color: #666666;
+            background: #f4f7f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            padding: 3px 12px;
+            white-space: nowrap;
+        }
+
+        .card-link {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #0277bd;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .card-link:hover { text-decoration: underline; }
+
+        /* ROW 1: Global KPI Cards (4-column grid) */
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -221,21 +280,22 @@
             border-radius: 12px;
             padding: 18px 20px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid #eef2f5;
+            border: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
+            gap: 6px;
             min-height: 125px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.07);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
         }
 
         .metric-title {
-            font-size: 12px;
+            font-size: 11.5px;
             font-weight: 700;
             text-transform: uppercase;
             text-align: center;
@@ -251,7 +311,7 @@
         }
 
         .metric-icon-box {
-            font-size: 38px;
+            font-size: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -264,32 +324,78 @@
             color: #2c3e50;
         }
 
-        /* Action Controls Header Bar */
-        .action-bar-card {
-            background-color: #ffffff;
-            border-radius: 12px;
-            padding: 14px 22px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid #eef2f5;
-            display: flex;
-            justify-content: space-between;
+        .metric-value.asset-value { font-size: 19px; }
+
+        .metric-warning .metric-value { color: #856404; }
+
+        .metric-sub {
+            font-size: 11.5px;
+            color: #888888;
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        /* ROW 2: The Admin Toolbelt (single horizontal card box) */
+        .toolbelt {
+            flex-direction: row;
             align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
         }
 
-        .action-bar-title {
-            font-size: 18px;
-            font-weight: 700;
-            color: #0d233a;
-        }
-
-        .action-bar-controls {
+        .toolbelt-left,
+        .toolbelt-right {
             display: flex;
             align-items: center;
             gap: 12px;
+            flex-wrap: wrap;
         }
 
-        /* Action Buttons */
-        .action-btn {
+        .toolbelt-right label {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #0d233a;
+        }
+
+        .btn-import {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(180deg, #53c5f1 0%, #3bb2e0 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 12.5px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            color: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .btn-import:hover {
+            background: #2ea3d1;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 12px rgba(83, 197, 241, 0.5);
+        }
+
+        .filter-select {
+            padding: 7px 12px;
+            border: 1px solid #cccccc;
+            border-radius: 8px;
+            font-size: 12.5px;
+            font-family: 'Poppins', sans-serif;
+            outline: none;
+            background-color: #ffffff;
+            color: #333333;
+            cursor: pointer;
+        }
+
+        .filter-select:focus { border-color: #53c5f1; }
+
+        .btn-refresh {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -297,89 +403,58 @@
             border: 1px solid #d0d0d0;
             border-radius: 8px;
             padding: 7px 14px;
-            font-size: 12px;
+            font-size: 12.5px;
             font-weight: 600;
+            font-family: 'Poppins', sans-serif;
             color: #333333;
             cursor: pointer;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
             transition: all 0.2s ease;
         }
 
-        .action-btn:hover {
+        .btn-refresh:hover {
             background: #ffffff;
             border-color: #53c5f1;
             color: #0277bd;
             transform: translateY(-1px);
         }
 
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            color: #555555;
-            font-weight: 500;
-        }
-
-        .filter-select {
-            padding: 6px 12px;
-            border: 1px solid #cccccc;
-            border-radius: 6px;
-            font-size: 12px;
-            outline: none;
-            background-color: #ffffff;
-            cursor: pointer;
-        }
-
-        .icon-circle-btn {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            border: 1px solid #cccccc;
-            background: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }
-
-        .icon-circle-btn:hover {
-            background-color: #e1f3fe;
-            border-color: #53c5f1;
-            transform: rotate(45deg);
-        }
-
-        /* Bottom Charts Section */
-        .charts-grid {
+        /* ROW 3: Visual Analytics (2-column grid) */
+        .analytics-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 18px;
         }
 
-        .chart-card {
+        .chart-box {
             background-color: #ffffff;
             border-radius: 12px;
-            padding: 22px;
+            padding: 20px 22px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-            border: 1px solid #eef2f5;
+            border: 1px solid #e0e0e0;
             min-height: 280px;
             display: flex;
             flex-direction: column;
-            align-items: center;
+            gap: 14px;
         }
 
-        .chart-card h3 {
-            font-size: 15px;
-            font-weight: 700;
-            color: #0d233a;
-            margin-bottom: 20px;
+        .chart-canvas-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 220px;
+        }
+
+        .chart-canvas-wrap canvas {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
         }
 
         .chart-placeholder {
             width: 100%;
-            height: 200px;
+            min-height: 200px;
+            flex: 1;
             border: 2px dashed #e0e8f0;
             border-radius: 8px;
             display: flex;
@@ -388,6 +463,166 @@
             color: #a0aec0;
             font-size: 13px;
             font-style: italic;
+        }
+
+        /* Top withdrawn products — ranked bar list */
+        .top-products-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .tp-row { display: flex; flex-direction: column; gap: 6px; }
+
+        .tp-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .tp-rank {
+            width: 24px;
+            height: 24px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            background: #e1f3fe;
+            border: 1px solid #53c5f1;
+            color: #0277bd;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tp-name {
+            flex: 1;
+            font-weight: 600;
+            color: #0d233a;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .tp-qty {
+            font-size: 12px;
+            color: #666666;
+            white-space: nowrap;
+        }
+
+        .tp-bar {
+            height: 10px;
+            background: #eef2f5;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .tp-fill {
+            height: 100%;
+            min-width: 4px;
+            background: linear-gradient(90deg, #53c5f1 0%, #0277bd 100%);
+            border-radius: 6px;
+            transition: width 0.4s ease;
+        }
+
+        /* ROW 4: Global System Activity Ledger */
+        .table-wrap {
+            border: 1px solid #eef2f5;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .data-table thead th {
+            background: #f4f7f9;
+            color: #0d233a;
+            font-size: 11.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .data-table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f0f3f5;
+            color: #333333;
+        }
+
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover { background: #f8fbfd; }
+
+        .table-empty {
+            text-align: center;
+            color: #a0aec0;
+            font-style: italic;
+            padding: 22px 14px !important;
+        }
+
+        .ref-cell { font-weight: 600; color: #0d233a; }
+
+        /* Status badges */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-weight: 600;
+            white-space: nowrap;
+            border: 1px solid transparent;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        .status-completed, .status-received, .status-issued {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+
+        .status-incomplete {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+
+        /* Responsive: stack KPIs + analytics on narrow screens */
+        @media (max-width: 1100px) {
+            .cards-grid { grid-template-columns: repeat(2, 1fr); }
+            .analytics-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .cards-grid { grid-template-columns: 1fr; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+            .toolbelt { flex-direction: column; align-items: stretch; }
         }
     
         /* Global Floating Toast - Non-Disruptive Top-Center */
@@ -536,6 +771,316 @@
         .cascade-lock {
             pointer-events: none !important;
             user-select: none !important;
+        }
+
+        /* ==========================================
+           4. ADVANCED FILTER DROPDOWN (Row 2 toolbelt)
+           Rich-text list reusing the PR/Delivery dropdown
+           language; ~5 visible items, then scroll.
+           ========================================== */
+        .hidden { display: none !important; }
+
+        .filter-dropdown-wrap { position: relative; }
+
+        .filter-dropdown-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 240px;
+            max-width: 320px;
+            padding: 7px 12px;
+            background: #ffffff;
+            border: 1px solid #cccccc;
+            border-radius: 8px;
+            font-size: 12.5px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            color: #0d233a;
+            cursor: pointer;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .filter-dropdown-btn:hover,
+        .filter-dropdown-btn[aria-expanded="true"] {
+            border-color: #53c5f1;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+        }
+
+        .filter-selected {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .filter-chevron {
+            flex-shrink: 0;
+            color: #0277bd;
+            font-size: 13px;
+            transition: transform 0.2s ease;
+        }
+
+        .filter-dropdown-btn[aria-expanded="true"] .filter-chevron {
+            transform: rotate(180deg);
+        }
+
+        /* Scoped overrides: narrower than the product picker, taller scroll. */
+        .filter-dropdown-list {
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .filter-group-label {
+            position: sticky;
+            top: 0;
+            background: #f4f7f9;
+            color: #0277bd;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 6px 10px;
+            border-bottom: 1px solid #e0e0e0;
+            list-style: none;
+        }
+
+        .filter-dropdown-item .cd-tick {
+            flex-shrink: 0;
+            display: none;
+            color: #2e7d32;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .filter-dropdown-item.selected { background: #eaf6fd; }
+
+        .filter-dropdown-item.selected .cd-tick { display: inline; }
+
+        .btn-gear {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            border-radius: 8px;
+            border: 1px solid #d0d0d0;
+            background: linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 16px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .btn-gear:hover {
+            border-color: #53c5f1;
+            transform: translateY(-1px);
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+        }
+
+        /* ==========================================
+           5. DROPLET MODALS (filter logic)
+           Overlay/box/header/button language matches the
+           Delivery confirm modal; entrance via dropletBounce.
+           ========================================== */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .modal-box {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 26px 30px;
+            width: 860px;
+            max-width: 95%;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .modal-box.modal-small { width: 520px; }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-icon-circle {
+            width: 38px;
+            height: 38px;
+            flex-shrink: 0;
+            background: #e1f3fe;
+            border: 1px solid #53c5f1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .modal-icon-error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+        }
+
+        .modal-header h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0d233a;
+            margin: 0;
+        }
+
+        .modal-sub {
+            font-size: 11px;
+            color: #666666;
+            margin: 2px 0 0;
+        }
+
+        .form-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+
+        .form-field { display: flex; flex-direction: column; gap: 6px; }
+
+        .form-field label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #0d233a;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cccccc;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Poppins', sans-serif;
+            color: #333333;
+            background: #ffffff;
+        }
+
+        .modal-error {
+            font-size: 12px;
+            font-weight: 600;
+            color: #721c24;
+            margin: 10px 0 0;
+        }
+
+        .modal-error-box {
+            background: #fdf7f7;
+            border: 1px solid #f5c6cb;
+            border-radius: 10px;
+            padding: 14px;
+            font-size: 13px;
+            color: #721c24;
+            margin-bottom: 4px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            margin-top: 15px;
+        }
+
+        .modal-buttons-single { justify-content: center; }
+
+        .btn-modal-cancel {
+            padding: 8px 18px;
+            background: #e0e0e0;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            color: #333333;
+        }
+
+        .btn-modal-cancel:hover { background: #d0d0d0; }
+
+        .btn-modal-save {
+            padding: 8px 22px;
+            background: #53c5f1;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35);
+        }
+
+        .btn-modal-save:hover { background: #2ea3d1; }
+
+        /* ==========================================
+           6. ANALYTICS EMPTY STATES + RETURN ACCENTS
+           ========================================== */
+        .chart-empty {
+            flex: 1;
+            min-height: 200px;
+            border: 2px dashed #e0e8f0;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #a0aec0;
+            font-size: 13px;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .chart-empty .empty-icon { font-size: 30px; font-style: normal; }
+
+        .chart-empty p { margin: 0; }
+
+        .tp-rank-return {
+            background: #e8f5e9;
+            border-color: #2e7d32;
+            color: #2e7d32;
+        }
+
+        .tp-fill-return {
+            background: linear-gradient(90deg, #81c784 0%, #2e7d32 100%);
+        }
+
+        /* Responsive additions for toolbelt + modals */
+        @media (max-width: 640px) {
+            .filter-dropdown-btn { min-width: 0; width: 100%; }
+            .filter-dropdown-wrap { flex: 1; }
+            .form-row-2 { grid-template-columns: 1fr; }
         }
 
     
