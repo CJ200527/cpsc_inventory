@@ -6,229 +6,8 @@
     <title>CPSC Inventory - Submit Purchase Request</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-        body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
-        .hidden { display: none !important; }
-
-        /* SIDEBAR NAVIGATION (STAFF VERSION) */
-        .sidebar {
-    width: 260px;
-    background-color: #f7f0e8;
-    border-right: 1px solid #e2d7ca;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 16px 14px;
-    overflow-y: auto;
-    flex-shrink: 0;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.03);
-}
-        .sidebar-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding: 0 4px; }
-        .sidebar-logo { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); }
-        .school-title { font-size: 11px; font-weight: 700; color: #2c3e50; line-height: 1.25; text-transform: uppercase; }
-        .school-subtitle { font-size: 9.5px; color: #666666; margin-top: 2px; font-weight: 400; }
-        .nav-menu {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-}
-        .nav-btn {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    height: 42px;
-    padding: 0 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
-    border: 1px solid #d2d2d2;
-    border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    font-size: 13px;
-    font-weight: 600;
-    color: #333333;
-    text-decoration: none;
-    cursor: pointer;
-    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-    user-select: none;
-    box-sizing: border-box;
-}
-        .nav-btn .icon {
-    font-size: 17px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    flex-shrink: 0;
-}
-        .nav-btn:hover {
-    background: #ffffff;
-    border-color: #53c5f1;
-    color: #0277bd;
-    box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
-}
-        .nav-btn:active {
-    transform: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-        .nav-btn.active {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
-    color: #0277bd;
-    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
-}
-        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
-        .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; border-color: #dc3545; box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3); }
-        .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
-
-        /* MAIN WORKSPACE */
-        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-header { background-color: #aae0f7; padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #94d2ee; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); flex-shrink: 0; }
-        .header-title-box h1 { font-size: 22px; font-weight: 800; font-style: italic; color: #0d233a; letter-spacing: -0.3px; }
-        .header-title-box .date-time-box { font-size: 11px; color: #2c3e50; margin-top: 2px; font-weight: 500; }
-        .user-profile-box { text-align: right; }
-        .user-profile-box .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
-        .user-profile-box .user-role { font-size: 11px; color: #0277bd; font-weight: 600; }
-        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
-
-        /* CONTROL BAR */
-        .control-card { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
-        .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 480px; }
-        .search-input-box { display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5; border-radius: 8px; padding: 6px 12px; width: 100%; }
-        .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
-        .filter-controls { display: flex; align-items: center; gap: 10px; }
-        .filter-select { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; }
-        .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
-        .btn-add-primary { padding: 9px 18px; background: #53c5f1; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83, 197, 241, 0.4); }
-        .btn-add-primary:hover { background: #3bb2e0; transform: translateY(-1px); }
-
-        /* DATA TABLE */
-        .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background-color: #53c5f1; color: #ffffff; font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; }
-        th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
-        th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
-        td { padding: 12px 14px; font-size: 13px; color: #333333; border-bottom: 1px solid #f0f4f8; }
-        tr:hover td { background-color: #f8fcff; }
-
-        /* BADGES */
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-        .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-        .badge-approved { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .badge-rejected { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .price-badge { font-weight: 700; color: #2e7d32; }
-
-        .btn-view { width: 32px; height: 32px; border-radius: 6px; border: none; background: #e1f3fe; color: #0277bd; cursor: pointer; font-size: 14px; }
-        .alert-bar { padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px; }
-        .alert-success { background: #d4edda; color: #155724; }
-        .alert-error { background: #f8d7da; color: #721c24; }
-
-        /* MODALS */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(6px); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-        .modal-box { background: #ffffff; border-radius: 12px; padding: 26px 30px; width: 750px; max-width: 95%; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2); max-height: 90vh; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .modal-header h3 { font-size: 19px; font-weight: 700; color: #0d233a; }
-        .close-btn { background: none; border: none; font-size: 22px; color: #888; cursor: pointer; }
-        .item-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 14px; }
-        .item-table th { background: #eaf3f8; color: #0d233a; font-size: 11px; padding: 8px; }
-        .item-table td { padding: 8px; border-bottom: 1px solid #eef2f5; font-size: 12px; }
-        .item-table input, .item-table select { width: 100%; padding: 6px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; }
-        .btn-remove-row { background: #ffebee; color: #c62828; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; }
-        .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
-        .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
-    
-        /* Global Floating Toast - Non-Disruptive Top-Center */
-        .toast-container {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            pointer-events: none;
-        }
-        .toast-card {
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 300px;
-            max-width: 450px;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 500;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.18);
-            animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), toastOut 0.4s ease 3.5s forwards;
-            background: #ffffff;
-            border: 1px solid #e0e0e0;
-        }
-        .toast-card.toast-success {
-            background: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-        .toast-card.toast-error, .toast-card.toast-danger {
-            background: #fdf7f7;
-            border-color: #f5c6cb;
-            color: #721c24;
-        }
-        .toast-card.toast-info {
-            background: #d1ecf1;
-            border-color: #bee5eb;
-            color: #0c5460;
-        }
-        .toast-icon { font-size: 16px; flex-shrink: 0; }
-        .toast-message { flex: 1; text-align: left; }
-        .toast-close {
-            background: transparent;
-            border: none;
-            color: inherit;
-            font-size: 14px;
-            cursor: pointer;
-            opacity: 0.7;
-            padding: 0 4px;
-            line-height: 1;
-        }
-        .toast-close:hover { opacity: 1; }
-        @keyframes toastIn {
-            from { opacity: 0; transform: translateY(-30px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes toastOut {
-            from { opacity: 1; transform: translateY(0) scale(1); }
-            to { opacity: 0; transform: translateY(-20px) scale(0.9); }
-        }
-
-    
-        /* Progressive Top-to-Bottom Unveil (Internal Navigation - sidebar stays static) */
-        .cascade-unveil {
-            opacity: 0;
-            transform: translateY(-20px);
-            animation: progressiveReveal 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
-        }
-        @keyframes progressiveReveal {
-            0% {
-                opacity: 0;
-                transform: translateY(-20px);
-                clip-path: inset(0 0 100% 0);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0);
-                clip-path: inset(0 0 0 0);
-            }
-        }
-        .cascade-lock {
-            pointer-events: none !important;
-            user-select: none !important;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/staff_pr.css') }}">
 </head>
 <body>
     <div id="toast-container" class="toast-container">
@@ -363,16 +142,16 @@
 
     <!-- CREATE PR MODAL : Master-Detail (Header + dynamic Line Items, just-in-time product creation) -->
     <div id="add-modal" class="modal-overlay hidden pr-modal" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box" style="width:960px;">
+        <div class="modal-box pr-modal-large">
             <div class="modal-header">
                 <h3>Submit Purchase Request</h3>
-                <button type="button" class="close-btn" onclick="closeAddModal()">✖</button>
             </div>
 
             <form method="POST" action="/pr/add" id="pr-form" onsubmit="return submitPrForm(event)">
+                <div class="pr-modal-header">
                 <!-- ===== SECTION 1: PR HEADER ===== -->
-                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:14px;margin-bottom:14px;">
-                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin-bottom:10px;">Section 1 — PR Header</p>
+                <div class="form-section-card section-1">
+                    <h4>Section 1 — PR Header</h4>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
                             <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
@@ -392,9 +171,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
 
                 <!-- ===== SECTION 2: PR LINE ITEMS (type new or existing product details) ===== -->
-                <p style="font-size:12px;font-weight:700;color:#0d233a;margin:4px 0 6px;">Section 2 — PR Line Items</p>
+                <div class="pr-modal-body">
+                <div class="form-section-card section-2">
+                    <h4>Section 2 — PR Line Items</h4>
                 <table class="item-table" id="pr-items-table">
                     <thead>
                         <tr>
@@ -411,9 +193,8 @@
                     </thead>
                     <tbody id="pr-items-body"></tbody>
                 </table>
-
-                <!-- Shared catalog picker: existing product names (manual entry still allowed) -->
-                <datalist id="product-list"></datalist>
+                </div>
+                </div>
 
                 <button type="button" class="icon-btn" onclick="addPrItemRow()">+ Add Another Item</button>
 
@@ -427,16 +208,16 @@
 
     <!-- EDIT PR MODAL : Pending only (Approved locks as an immutable historical record) -->
     <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box" style="width:960px;">
+        <div class="modal-box pr-modal-large">
             <div class="modal-header">
                 <h3>Edit Purchase Request (Pending)</h3>
-                <button type="button" class="close-btn" onclick="closeEditPrModal()">✖</button>
             </div>
 
             <form method="POST" id="pr-edit-form" onsubmit="return submitPrEditForm(event)">
+                <div class="pr-modal-header">
                 <!-- ===== SECTION 1: PR HEADER ===== -->
-                <div style="background:#f8fcff;border:1px solid #e2f0fb;border-radius:10px;padding:14px;margin-bottom:14px;">
-                    <p style="font-size:12px;font-weight:700;color:#0d233a;margin-bottom:10px;">Section 1 — PR Header</p>
+                <div class="form-section-card section-1">
+                    <h4>Section 1 — PR Header</h4>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                         <div>
                             <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
@@ -456,9 +237,12 @@
                         </div>
                     </div>
                 </div>
+                </div>
 
                 <!-- ===== SECTION 2: PR LINE ITEMS ===== -->
-                <p style="font-size:12px;font-weight:700;color:#0d233a;margin:4px 0 6px;">Section 2 — PR Line Items</p>
+                <div class="pr-modal-body">
+                <div class="form-section-card section-2">
+                    <h4>Section 2 — PR Line Items</h4>
                 <table class="item-table" id="pr-edit-items-table">
                     <thead>
                         <tr>
@@ -475,6 +259,8 @@
                     </thead>
                     <tbody id="pr-edit-items-body"></tbody>
                 </table>
+                </div>
+                </div>
 
                 <button type="button" class="icon-btn" onclick="addPrEditRow()">+ Add Another Item</button>
 
@@ -487,11 +273,10 @@
     </div>
 
     <!-- VIEW PR DETAILS MODAL -->
-    <div id="view-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div id="view-modal" class="modal-overlay hidden pr-modal" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box" style="width:960px;">
             <div class="modal-header">
                 <h3 id="view-pr-number">PR Details</h3>
-                <button type="button" class="close-btn" onclick="closeViewModal()">✖</button>
             </div>
             <div id="view-modal-content">Loading...</div>
             <div class="modal-buttons">
@@ -500,390 +285,9 @@
         </div>
     </div>
 
-    <script>
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('live-clock').innerText =
-                `${now.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})} | ${now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true})}`;
-        }
-        setInterval(updateClock, 1000); updateClock();
+    
+    <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pr_logic.js') }}"></script>
 
-        /* ===== CREATE PR — Master-Detail (Header + dynamic Line Items) ===== */
-        function prNowStr() {
-            const n = new Date();
-            const p = x => String(x).padStart(2, '0');
-            return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`;
-        }
-        function openAddModal() {
-            document.getElementById('pr-items-body').innerHTML = '';
-            // Locked header: live next PR number + exact current datetime (both readonly).
-            const numEl = document.getElementById('pr-number-preview');
-            numEl.value = '';
-            numEl.placeholder = 'Loading...';
-            fetch('/pr/get_next_number').then(r => r.json()).then(d => {
-                if (d.pr_number) numEl.value = d.pr_number;
-                else numEl.placeholder = 'Auto-generated upon saving';
-            }).catch(() => { numEl.placeholder = 'Auto-generated upon saving'; });
-            document.getElementById('pr-date-requested').value = prNowStr();
-            addPrItemRow();
-            updateGrandTotal();
-            document.getElementById('add-modal').classList.remove('hidden');
-        }
-        function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
-
-        /* Loads the Master Catalog once per page view into the shared product datalist. */
-        async function loadProductDatalist() {
-            try {
-                const res = await fetch('/products/api/list');
-                const data = await res.json();
-                const dl = document.getElementById('product-list');
-                if (!dl) return;
-                dl.innerHTML = '';
-                (data.products || []).forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p.product_name;
-                    opt.dataset.category = p.category || '';
-                    opt.dataset.unit = p.unit || '';
-                    opt.dataset.size = p.size || '';
-                    opt.dataset.details = p.details || '';
-                    opt.dataset.price = p.price || 0;
-                    opt.dataset.established = p.is_established ? '1' : '0';
-                    dl.appendChild(opt);
-                });
-            } catch (e) { /* datalist is optional — manual entry always works */ }
-        }
-        document.addEventListener('DOMContentLoaded', loadProductDatalist);
-
-        /* Strict PR categories (also used by the future Return module). */
-        const PR_CATEGORIES = ['Consumables', 'Tools', 'Equipment'];
-
-        /* Exact catalog lookup for a typed item name (null = brand-new product). */
-        function matchCatalog(name) {
-            const dl = document.getElementById('product-list');
-            if (!dl || !name) return null;
-            for (const opt of dl.options) { if (opt.value === name) return opt; }
-            return null;
-        }
-
-        /* Smart lock: established category/unit/size/details go readonly
-           (+ category pinned); PRICE ALWAYS STAYS EDITABLE for market
-           fluctuations (catalog price updates only on PR approval).
-           Draft/new specs stay editable so typos can be fixed. */
-        function lockRowSpecs(tr, match) {
-            const catSel = tr.querySelector('select[name="category[]"]');
-            const fields = ['unit[]', 'size[]', 'details[]']
-                .map(n => tr.querySelector(`input[name="${n}"]`));
-            const locked = !!(match && match.dataset.established === '1');
-            fields.forEach(el => {
-                el.readOnly = locked;
-                el.style.backgroundColor = locked ? '#e9ecef' : '';
-            });
-            if (locked) catSel.dataset.locked = catSel.value;
-            else delete catSel.dataset.locked;
-        }
-
-        /* Pinned-category guard: a locked select snaps back with an explanation. */
-        document.addEventListener('change', function (e) {
-            const sel = e.target && e.target.closest ? e.target.closest('select[name="category[]"]') : null;
-            if (!sel || !sel.dataset.locked) return;
-            if (sel.value !== sel.dataset.locked) {
-                sel.value = sel.dataset.locked;
-                alert('Category is locked: this is an established catalog product.');
-            }
-        });
-
-        /* Item-name typing: match → backfill untouched fields + smart-lock;
-           no match → clear stale catalog specs + unlock for a new product. */
-        function onPrItemNameInput(input) {
-            const tr = input.closest('tr');
-            const v = input.value.trim();
-            const match = matchCatalog(v);
-            const unitEl = tr.querySelector('input[name="unit[]"]');
-            const sizeEl = tr.querySelector('input[name="size[]"]');
-            const detEl = tr.querySelector('input[name="details[]"]');
-            const priceEl = tr.querySelector('input[name="price[]"]');
-            const catSel = tr.querySelector('select[name="category[]"]');
-            if (!match) {
-                // Only wipe specs when leaving a previously matched product;
-                // otherwise preserve what the user already typed.
-                if (tr.dataset.lastMatch) {
-                    unitEl.value = ''; sizeEl.value = ''; detEl.value = ''; priceEl.value = '';
-                    catSel.value = 'Consumables';
-                    delete tr.dataset.lastMatch;
-                    calcPrRowTotal(priceEl);
-                }
-                lockRowSpecs(tr, null);
-                return;
-            }
-            tr.dataset.lastMatch = v;
-            const untouched = [unitEl.value, sizeEl.value, detEl.value].every(s => (s || '').trim() === '')
-                && (priceEl.value.trim() === '' || parseFloat(priceEl.value) === 0);
-            if (untouched) {
-                if (match.dataset.category && PR_CATEGORIES.includes(match.dataset.category)) catSel.value = match.dataset.category;
-                unitEl.value = match.dataset.unit || '';
-                sizeEl.value = match.dataset.size || '';
-                detEl.value = match.dataset.details || '';
-                priceEl.value = match.dataset.price || '';
-                calcPrRowTotal(priceEl);
-            }
-            lockRowSpecs(tr, match);
-        }
-
-        /* Builds one line-item row into the given tbody (optional prefill for Pending-edit). */
-        function escAttr(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;'); }
-        function buildPrRow(tbodyId, item) {
-            const tbody = document.getElementById(tbodyId);
-            const tr = document.createElement('tr');
-            tr.className = 'pr-item-row';
-            const it = item || {};
-            const cat = it.category || 'Consumables';
-            const catOpts = PR_CATEGORIES.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
-            const priceVal = (it.price === undefined || it.price === null || it.price === '') ? '' : it.price;
-            tr.innerHTML = `
-                <td><input type="text" name="item_name[]" list="product-list" placeholder="Select or type new item" required autocomplete="off" value="${escAttr(it.name || '')}" oninput="onPrItemNameInput(this)"></td>
-                <td><select name="category[]" required>${catOpts}</select></td>
-                <td><input type="text" name="unit[]" placeholder="pcs" autocomplete="off" value="${escAttr(it.unit || '')}"></td>
-                <td><input type="text" name="size[]" placeholder="Size" autocomplete="off" value="${escAttr(it.size || '')}"></td>
-                <td><input type="text" name="details[]" placeholder="Specification" autocomplete="off" value="${escAttr(it.details || '')}"></td>
-                <td><input type="number" name="price[]" step="0.01" min="0" placeholder="0.00" required value="${priceVal}" oninput="calcPrRowTotal(this)"></td>
-                <td><input type="number" name="quantity[]" value="${it.quantity || 1}" min="1" step="1" required oninput="calcPrRowTotal(this)"></td>
-                <td><input type="text" class="pr-row-total" value="0.00" readonly tabindex="-1"></td>
-                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)">✖</button>
-            `;
-            tbody.appendChild(tr);
-            calcPrRowTotal(tr.querySelector('input[name="price[]"]'));
-        }
-        /* Appends a blank line-item row: datalist product picker + strict category select (JIT creation). */
-        function addPrItemRow() { buildPrRow('pr-items-body', null); }
-        /* Appends a pre-filled row inside the Pending-edit modal. */
-        function addPrEditRow(item) { buildPrRow('pr-edit-items-body', item || null); }
-
-        /* Auto-calculates the row total (Price x Quantity) on every keystroke. */
-        function editIdsFor(input) {
-            const tb = input.closest('tbody');
-            return (tb && tb.id === 'pr-edit-items-body')
-                ? { tbody: 'pr-edit-items-body', total: 'pr-edit-grand-total' }
-                : { tbody: 'pr-items-body', total: 'pr-grand-total' };
-        }
-        function calcPrRowTotal(input) {
-            const tr = input.closest('tr');
-            const price = parseFloat(tr.querySelector('input[name="price[]"]').value) || 0;
-            const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value) || 0;
-            tr.querySelector('.pr-row-total').value = (price * qty).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            const ids = editIdsFor(input);
-            updateGrandTotalFor(ids.tbody, ids.total);
-        }
-
-        /* Sums every row total and updates the Header grand-total field in real time. */
-        function updateGrandTotalFor(tbodyId, totalId) {
-            let grand = 0;
-            document.querySelectorAll('#' + tbodyId + ' .pr-row-total').forEach(el => {
-                grand += parseFloat(el.value.replace(/,/g, '')) || 0;
-            });
-            document.getElementById(totalId).value = '₱ ' + grand.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        }
-        function updateGrandTotal() { updateGrandTotalFor('pr-items-body', 'pr-grand-total'); }
-
-        function removePrRow(btn) {
-            const ids = editIdsFor(btn);
-            btn.closest('tr').remove();
-            updateGrandTotalFor(ids.tbody, ids.total);
-        }
-
-        /* Shared row validation for create + Pending-edit submits. */
-        function validatePrRows(tbodyId) {
-            const rows = document.querySelectorAll('#' + tbodyId + ' .pr-item-row');
-            if (rows.length === 0) { alert('Please add at least one item.'); return false; }
-            for (const [idx, tr] of [...rows].entries()) {
-                const name = tr.querySelector('input[name="item_name[]"]').value.trim();
-                const price = parseFloat(tr.querySelector('input[name="price[]"]').value);
-                const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value);
-                if (!name) { alert(`Row ${idx + 1}: Item Name is required.`); return false; }
-                if (isNaN(price) || price < 0) { alert(`Row ${idx + 1}: Price must be 0 or more.`); return false; }
-                if (isNaN(qty) || qty < 1) { alert(`Row ${idx + 1}: Quantity must be at least 1.`); return false; }
-            }
-            return true;
-        }
-
-        /* Collects Header + Item array and submits via Fetch to the PR creation route. */
-        async function submitPrForm(e) {
-            e.preventDefault();
-            if (!validatePrRows('pr-items-body')) return false;
-            const btn = document.getElementById('pr-submit-btn');
-            btn.disabled = true;
-            const orig = btn.innerHTML;
-            btn.innerHTML = '⏳ Submitting...';
-            try {
-                // /pr/add follows the app flash + redirect pattern; reload to display the result.
-                await fetch('/pr/add', { method: 'POST', body: new FormData(document.getElementById('pr-form')) });
-                window.location.href = '/pr';
-            } catch (err) {
-                alert('Submit failed (network error). Your entries are kept — please try again.');
-                btn.disabled = false;
-                btn.innerHTML = orig;
-            }
-            return false;
-        }
-
-        /* ===== PENDING-EDIT: prefill the edit modal (Approved PRs stay locked) ===== */
-        let editingPrId = null;
-        async function openEditPrModal(prId) {
-            editingPrId = prId;
-            const tbody = document.getElementById('pr-edit-items-body');
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:12px;color:#888;">Loading PR...</td></tr>';
-            document.getElementById('edit-modal').classList.remove('hidden');
-            try {
-                const res = await fetch('/pr/details/' + prId);
-                const data = await res.json();
-                if (data.error) { tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#c62828;">${data.error}</td></tr>`; return; }
-                if (data.header.status !== 'Pending') {
-                    alert(`PR ${data.header.pr_number} is '${data.header.status}' and locked as an immutable record. Only Pending PRs can be edited.`);
-                    closeEditPrModal();
-                    return;
-                }
-                document.getElementById('edit-pr-number').value = data.header.pr_number || '';
-                document.getElementById('edit-fund-source').value = data.header.fund_source || 'Fund 05';
-                document.getElementById('edit-date-requested').value = data.header.date_requested || '';
-                tbody.innerHTML = '';
-                (data.items || []).forEach(it => addPrEditRow({
-                    name: it.item_name, category: it.category, unit: it.unit,
-                    size: it.size, details: it.details, price: it.price,
-                    quantity: it.quantity
-                }));
-                if (!data.items || !data.items.length) addPrEditRow(null);
-                // Same smart-lock check as typing: established specs lock, drafts stay open.
-                tbody.querySelectorAll('.pr-item-row').forEach(tr => {
-                    const nm = tr.querySelector('input[name="item_name[]"]').value.trim();
-                    const m = matchCatalog(nm);
-                    if (m) tr.dataset.lastMatch = nm;
-                    lockRowSpecs(tr, m);
-                });
-                updateGrandTotalFor('pr-edit-items-body', 'pr-edit-grand-total');
-            } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#c62828;">Failed to load PR.</td></tr>';
-            }
-        }
-        function closeEditPrModal() {
-            document.getElementById('edit-modal').classList.add('hidden');
-            editingPrId = null;
-        }
-        async function submitPrEditForm(e) {
-            e.preventDefault();
-            if (!editingPrId) return false;
-            if (!validatePrRows('pr-edit-items-body')) return false;
-            const btn = document.getElementById('pr-edit-submit-btn');
-            btn.disabled = true;
-            const orig = btn.innerHTML;
-            btn.innerHTML = '⏳ Saving...';
-            try {
-                await fetch('/pr/update/' + editingPrId, { method: 'POST', body: new FormData(document.getElementById('pr-edit-form')) });
-                window.location.href = '/pr';
-            } catch (err) {
-                alert('Save failed (network error). Your entries are kept — please try again.');
-                btn.disabled = false;
-                btn.innerHTML = orig;
-            }
-            return false;
-        }
-
-        function fmtPeso(n){ return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-
-        function openViewModal(prId) {
-            const content = document.getElementById('view-modal-content');
-            content.innerHTML = 'Loading PR items...';
-            document.getElementById('view-modal').classList.remove('hidden');
-
-            fetch('/pr/details/' + prId)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) { content.innerHTML = data.error; return; }
-                    document.getElementById('view-pr-number').innerText = data.header.pr_number + " Details";
-                    /* Master header (read-only) */
-                    let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;">`;
-                    html += `<div><strong>PR Number:</strong> ${data.header.pr_number}</div>`;
-                    html += `<div><strong>Fund Source:</strong> ${data.header.fund_source || 'Fund 05'}</div>`;
-                    html += `<div><strong>Date Requested:</strong> ${data.header.date_requested}</div>`;
-                    html += `<div><strong>Total Price:</strong> <span class="price-badge">₱ ${fmtPeso(data.header.total_price)}</span></div>`;
-                    html += `<div><strong>Status:</strong> <span class="badge badge-${(data.header.status || '').toLowerCase()}">${data.header.status}</span></div>`;
-                    html += `</div>`;
-                    /* Detail: full line-items table */
-                    html += `<table class="item-table"><thead><tr><th>Item Name</th><th>Category</th><th>Unit</th><th>Specification</th><th>Size</th><th>Price (₱)</th><th>Qty</th><th>Total (₱)</th></tr></thead><tbody>`;
-                    data.items.forEach(i => {
-                        html += `<tr><td><strong>${i.item_name}</strong></td><td>${i.category || '-'}</td><td>${i.unit || '-'}</td><td>${i.details || '-'}</td><td>${i.size || '-'}</td><td>₱ ${fmtPeso(i.price)}</td><td>${i.quantity}</td><td>₱ ${fmtPeso(i.total_price)}</td></tr>`;
-                    });
-                    html += `</tbody></table>`;
-                    content.innerHTML = html;
-                });
-        }
-        function closeViewModal() { document.getElementById('view-modal').classList.add('hidden'); }
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const toasts = document.querySelectorAll('.toast-card');
-            toasts.forEach(toast => {
-                setTimeout(() => {
-                    toast.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
-                    toast.style.opacity = '0';
-                    toast.style.transform = 'translateY(-20px) scale(0.9)';
-                    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 400);
-                }, 4000);
-            });
-        });
-    </script>
-
-
-    <!-- Progressive Cascade Unveil + Click Lock (Internal Navigation) -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const isFromLogin = document.referrer.includes('/login');
-            const skeleton = document.getElementById('skeleton-overlay');
-            // Only show skeleton when coming from /login, otherwise bypass and do cascade
-            if (!isFromLogin) {
-                document.getElementById('skeleton-overlay')?.remove();
-                const main = document.getElementById('main-dashboard-content');
-                if (main) { main.style.opacity = '1'; main.classList.add('loaded'); }
-                // Also handle dashboards that use .main-wrapper without #main-dashboard-content
-                const fallbackMain = document.querySelector('.main-wrapper') || document.body;
-                if (fallbackMain && !main) {
-                    fallbackMain.style.opacity = '1';
-                }
-            }
-            // Progressive cascade unveil - top to bottom, sidebar stays static
-            const header = document.querySelector('.top-header');
-            const cards = document.querySelector('.cards-grid');
-            const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .content-card, .workspace-grid');
-            // Only run cascade if internal navigation (not from login) OR if no skeleton present
-            if (!isFromLogin || !skeleton) {
-                if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
-                if (cards) { cards.classList.add('cascade-unveil'); cards.style.animationDelay = '0.25s'; }
-                tables.forEach(el => { 
-                    // avoid double-animating the container if it contains cards/header
-                    if (el.classList.contains('dashboard-container') && el.querySelector('.cards-grid')) return;
-                    el.classList.add('cascade-unveil'); el.style.animationDelay = '0.5s'; 
-                });
-                // Click lock during transition
-                const lockTarget = document.getElementById('main-dashboard-content') || document.querySelector('.main-wrapper') || document.querySelector('.dashboard-container') || document.body;
-                if (lockTarget) {
-                    lockTarget.classList.add('cascade-lock');
-                    lockTarget.style.pointerEvents = 'none';
-                    lockTarget.style.userSelect = 'none';
-                    const lastEl = tables.length ? tables[tables.length - 1] : (cards || header);
-                    if (lastEl) {
-                        lastEl.addEventListener('animationend', () => {
-                            lockTarget.classList.remove('cascade-lock');
-                            lockTarget.style.pointerEvents = 'auto';
-                            lockTarget.style.userSelect = 'auto';
-                        }, { once: true });
-                    }
-                    setTimeout(() => {
-                        lockTarget.classList.remove('cascade-lock');
-                        lockTarget.style.pointerEvents = 'auto';
-                        lockTarget.style.userSelect = 'auto';
-                    }, 1800);
-                }
-            }
-        });
-    </script>
 </body>
 </html>

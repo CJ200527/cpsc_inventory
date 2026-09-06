@@ -1,19 +1,14 @@
 /* ==========================================================================
-   input_box_enlargement.css — PR item-row focus-expansion + PR cancel buttons
+   input_box_enlargement.css — PR item-row focus highlight + modal buttons
    --------------------------------------------------------------------------
    Loaded globally via base.html (every page) and linked in the PR and
-   Product templates.
-
-   1) ENLARGEMENT IS STRICTLY SCOPED to the PR creation/edit modals'
-      dynamic item rows (#pr-items-body, #pr-edit-items-body). Search bars,
-      dashboard filters, header inputs, and all other modals/forms are
-      intentionally NOT affected.
-
-   2) CANCEL / DISMISS BUTTONS inside the PR creation modal (.pr-modal)
-      get a red-gradient hover state and a solid-red active state.
+   Product templates. NOTE: the scale() enlargement was removed after UX
+   testing — focus now uses a clean color highlight only (see the universal
+   rule in modals.css). This file keeps the PR item-row textarea expansion
+   plus the PR/Delivery modal button styles.
    ========================================================================== */
 
-/* --- Base transition: PR item-row controls ONLY --- */
+/* --- Base transition: PR item-row controls ONLY (color/shadow, no scale) --- */
 #pr-items-body input[type="text"],
 #pr-items-body input[type="number"],
 #pr-items-body select,
@@ -22,13 +17,12 @@
 #pr-edit-items-body input[type="number"],
 #pr-edit-items-body select,
 #pr-edit-items-body textarea {
-    transition: transform 0.18s ease-in-out,
-                box-shadow 0.18s ease-in-out,
-                border-color 0.18s ease-in-out,
+    transition: border-color 0.2s ease,
+                box-shadow 0.2s ease,
                 min-height 0.25s ease-in-out;
 }
 
-/* --- Focus-expansion: PR item-row controls ONLY --- */
+/* --- Focus highlight: PR item-row controls ONLY (no scaling) --- */
 #pr-items-body input[type="text"]:focus,
 #pr-items-body input[type="number"]:focus,
 #pr-items-body select:focus,
@@ -37,14 +31,9 @@
 #pr-edit-items-body input[type="number"]:focus,
 #pr-edit-items-body select:focus,
 #pr-edit-items-body textarea:focus {
-    transform: scale(1.2);
-    transform-origin: left center;
     border-color: #53c5f1;
-    box-shadow: 0 4px 12px rgba(83, 197, 241, 0.35),
-                0 0 0 3px rgba(83, 197, 241, 0.25);
+    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
     outline: none;
-    position: relative;
-    z-index: 9999;
 }
 
 /* --- PR item-row textareas: comfortable editing height on focus --- */
@@ -58,11 +47,8 @@
 #pr-edit-items-body textarea:focus {
     min-height: 140px;
     border-color: #53c5f1;
-    box-shadow: 0 4px 12px rgba(83, 197, 241, 0.35),
-                0 0 0 3px rgba(83, 197, 241, 0.25);
+    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
     outline: none;
-    position: relative;
-    z-index: 9999;
 }
 
 /* --- PR creation modal Submit button: soft-green gradient hover, solid click --- */

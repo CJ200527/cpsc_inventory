@@ -1,0 +1,295 @@
+/* ==========================================================================
+   modals.css — Shared modal foundation: droplet entrance, rich dropdown
+   --------------------------------------------------------------------------
+   Linked globally via base.html and in the PR + Delivery dashboards.
+   - .custom-dropdown-list: rich product picker replacing native datalist
+     (white background, soft-blue borders, slide-down/fade-in).
+   - dropletBounce: fluid modal entrance applied to every .modal-box.
+   ========================================================================== */
+
+/* --- PR modal layout: static header/footer, independently scrolling items --- */
+.pr-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #ffffff;
+}
+
+.pr-modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+/* --- Fixed spacious PR modals: header top, buttons pinned bottom --- */
+.modal-box.pr-modal-large {
+    width: 90vw;
+    max-width: 1200px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Stops outer box from scrolling */
+}
+
+/* --- Fixed spacious Delivery modals: same strict flexbox contract --- */
+.modal-box.delivery-modal-large {
+    width: 90vw;
+    max-width: 1200px;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Stops outer box from scrolling */
+}
+
+.modal-box.delivery-modal-large form {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Take full height of modal */
+    overflow: hidden;
+}
+
+/* Pin everything except the item rows: header, labels, buttons, footer. */
+.modal-box.delivery-modal-large form > :not(.delivery-modal-body) {
+    flex-shrink: 0;
+}
+
+.delivery-modal-header {
+    flex-shrink: 0;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+.delivery-modal-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 15px;
+    padding-top: 15px;
+    margin-bottom: 15px;
+}
+
+/* --- Card-box sections shared by PR + Delivery modals ---
+   Section 1 matches the PR light-blue box; Section 2 uses the
+   navigation panel's light-brown palette. */
+.form-section-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+}
+.form-section-card > h4 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0d233a;
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e0e0e0;
+}
+.form-section-card.section-1 {
+    background: #f8fcff;
+    border: 1.5px solid #e2f0fb;
+}
+.form-section-card.section-1 > h4 {
+    color: #0d233a;
+    border-color: #e2f0fb;
+}
+.form-section-card.section-2 {
+    background: #f8fcff;
+    border: 1.5px solid #e2f0fb;
+}
+.form-section-card.section-2 > h4 {
+    color: #0d233a;
+    border-color: #e2f0fb;
+}
+/* Approved-PR picker: match the input box width (not the wide item panel). */
+#pr-dropdown-list {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+}
+/* Delivery items: center the Received column label + input box. */
+.delivery-modal .item-table th:last-child,
+.delivery-modal .item-table td:last-child {
+    text-align: center;
+}
+.delivery-modal .item-table td:last-child input[type="number"] {
+    display: block;
+    margin: 0 auto;
+}
+/* Compact Section 1 inputs (incl. single-line Remarks): fill cell, cap width. */
+.delivery-modal .section-1 .form-grid input,
+.delivery-modal .section-1 .form-grid select {
+    width: 100%;
+    max-width: 340px;
+}
+
+/* --- Delivery footer total (sticky footer, left side) --- */
+.delivery-modal .footer-total-display {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0d233a;
+}
+
+.delivery-modal .footer-total-display span {
+    color: #2e7d32;
+}
+.modal-buttons {
+    flex-shrink: 0;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.modal-box.pr-modal-large form {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Take full height of modal */
+    overflow: hidden;
+}
+
+/* Pin everything except the item rows: header, labels, buttons, footer. */
+.modal-box.pr-modal-large form > :not(.pr-modal-body) {
+    flex-shrink: 0;
+}
+
+/* --- Rich custom dropdown (PR item-name picker) --- */
+.custom-dropdown-wrap {
+    position: relative;
+}
+
+.custom-dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    /* Break out of the parent input: size to content across the item row. */
+    width: max-content;
+    min-width: 640px;
+    max-width: min(880px, calc(100vw - 48px));
+    background: #ffffff;
+    border: 1.5px solid #53c5f1;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 10000;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    animation: dropdownSlide 0.18s ease-out;
+}
+
+.custom-dropdown-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f4f8;
+}
+
+.custom-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.custom-dropdown-item:hover {
+    background: #eaf6fd;
+}
+
+.custom-dropdown-item .cd-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.custom-dropdown-item .cd-name {
+    display: block;
+    font-weight: 700;
+    font-size: 12.5px;
+    color: #0d233a;
+    white-space: normal;
+}
+
+.custom-dropdown-item .cd-specs {
+    display: block;
+    font-size: 11px;
+    color: #888888;
+    white-space: normal;
+}
+
+.custom-dropdown-item .cd-price {
+    flex-shrink: 0;
+    margin-left: auto;
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.custom-dropdown-empty {
+    padding: 10px;
+    font-size: 11px;
+    color: #888888;
+    text-align: center;
+}
+
+@keyframes dropdownSlide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Droplet modal entrance: fluid bounce + radius morph, all modal boxes --- */
+@keyframes dropletBounce {
+    0% {
+        transform: scale(0.8);
+        border-radius: 40% 60% 55% 45% / 50% 45% 55% 50%;
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.05);
+        border-radius: 12px;
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        border-radius: 12px;
+        opacity: 1;
+    }
+}
+
+body .modal-box {
+    animation: dropletBounce 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* --- Universal form-control focus highlight (every page, every form) ---
+   Applies to ANY input, select, or textarea in a modal, search bar,
+   filter, or auth page. Smooth color glow only — no scaling. */
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="password"],
+input[type="email"],
+select,
+textarea {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: #53c5f1;
+    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+    outline: none;
+}
+
+/* --- Search-bar focus fix: the inner input stays flat; the outer
+   .search-input-box:focus-within carries the glow for the whole bar --- */
+.search-input-box input:focus {
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+}
+
+.search-input-box:focus-within {
+    border-color: #53c5f1;
+    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+}

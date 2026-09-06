@@ -1,0 +1,163 @@
+/* admin_return_logic.js — return modal logic. Loaded after ui_helpers.js. */
+
+        
+        
+        let availableProducts = [];
+        let returnCatalogReady = loadReturnCatalog();
+        async function loadReturnCatalog(){
+            try {
+                const res = await fetch('/products/api/list');
+                const data = await res.json();
+                availableProducts = (data.products || []).map(p => ({
+                    id: p.product_id, name: p.product_name,
+                    category: p.category || '', unit: p.unit || 'pcs',
+                    price: Number(p.price || 0),
+                    stock: (p.stock === undefined || p.stock === null)
+                        ? 0 : parseInt(p.stock),
+                    reorder: (p.reorder === undefined || p.reorder === null)
+                        ? 10 : parseInt(p.reorder)
+                }));
+            } catch (e) { availableProducts = []; }
+        }
+
+        let withdrawalItemsMap = {}; // withdraw_id -> items from server
+
+        async function openReturnModal(){
+            try { await returnCatalogReady; } catch (e) {}
+            document.getElementById('return-items-body').innerHTML='';
+            addReturnRow();
+            document.getElementById('return-modal').classList.remove('hidden');
+            const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d && !d.value) d.valueAsDate=new Date();
+            document.getElementById('withdraw-select').selectedIndex=0;
+            withdrawalItemsMap={};
+        }
+        function closeReturnModal(){ document.getElementById('return-modal').classList.add('hidden'); }
+
+        function onWithdrawalSelect(withdrawalId){
+            const tbody=document.getElementById('return-items-body');
+            tbody.innerHTML='';
+            if(!withdrawalId){
+                addReturnRow();
+                return;
+            }
+            // Fetch issued items for this withdrawal to set max
+            fetch('/withdraw/details/'+withdrawalId).then(r=>r.json()).then(data=>{
+                if(data.error){ addReturnRow(); return; }
+                withdrawalItemsMap[withdrawalId]=data.items;
+                // Add rows for each issued item (pre-fill)
+                data.items.forEach(it=>{
+                    addReturnRowWithProduct(it.product_id, it.item_name, it.unit, it.quantity);
+                });
+                if(tbody.children.length===0) addReturnRow();
+            });
+        }
+        function addReturnRow(){
+            const tbody=document.getElementById('return-items-body');
+            const rowId=tbody.rows.length;
+            const tr=document.createElement('tr');
+            let opts='<option value="" disabled selected>Select Product</option>';
+            availableProducts.forEach(p=>{ opts+=`<option value="${p.id}">${p.name} — ${p.unit}</option>`; });
+            tr.innerHTML=`
+                <td><select onchange="onReturnProductSelect(this, ${rowId})" required>${opts}</select><input type="hidden" name="product_id[]" id="r-prod-${rowId}"></td>
+                <td><span id="r-issued-${rowId}" class="stock-info">—</span></td>
+                <td><span id="r-unit-${rowId}">—</span></td>
+                <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
+                <td><select name="condition_status[]" id="r-cond-${rowId}" required><option value="Serviceable">Serviceable / Unused</option><option value="Unserviceable">Unserviceable / Defective</option></select></td>
+                <td><button type="button" class="btn-action btn-reject" onclick="this.closest('tr').remove()">✖</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        function addReturnRowWithProduct(productId, itemName, unit, issuedQty){
+            const tbody=document.getElementById('return-items-body');
+            const rowId=tbody.rows.length;
+            const tr=document.createElement('tr');
+            tr.innerHTML=`
+                <td><span style="font-weight:600;">${itemName}</span><input type="hidden" name="product_id[]" value="${productId}"><br><small style="color:#666;">ID:${productId}</small></td>
+                <td><span class="stock-info">Issued: ${issuedQty}</span><input type="hidden" id="r-issued-val-${rowId}" value="${issuedQty}"></td>
+                <td>${unit}</td>
+                <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" max="${issuedQty}" placeholder="max ${issuedQty}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
+                <td><select name="condition_status[]" required><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select></td>
+                <td><button type="button" class="btn-action btn-reject" onclick="this.closest('tr').remove()">✖</button></td>
+            `;
+            tbody.appendChild(tr);
+        }
+        function onReturnProductSelect(sel, rowId){
+            const p=availableProducts.find(x=>String(x.id)===String(sel.value));
+            if(!p) return;
+            document.getElementById(`r-prod-${rowId}`).value=p.id;
+            document.getElementById(`r-unit-${rowId}`).innerText=p.unit;
+            const issuedValEl=document.getElementById(`r-issued-val-${rowId}`);
+            const wid=document.getElementById('withdraw-select').value;
+            if(wid && withdrawalItemsMap[wid]){
+                const issuedItem=withdrawalItemsMap[wid].find(it=>String(it.product_id)===String(p.id));
+                const issuedQty=issuedItem? issuedItem.quantity : '—';
+                document.getElementById(`r-issued-${rowId}`).innerText= issuedQty!=='—' ? `Issued: ${issuedQty}` : '—';
+                if(issuedItem) document.getElementById(`r-qty-${rowId}`).max=issuedQty;
+            } else {
+                document.getElementById(`r-issued-${rowId}`).innerText='—';
+            }
+        }
+        function validateReturnQty(rowId){
+            const qtyInput=document.getElementById(`r-qty-${rowId}`);
+            if(!qtyInput) return;
+            const max=parseInt(qtyInput.max);
+            const val=parseInt(qtyInput.value||0);
+            if(max && val > max){
+                qtyInput.setCustomValidity(`Exceeds issued ${max}`);
+                qtyInput.reportValidity();
+            } else qtyInput.setCustomValidity('');
+        }
+        function validateReturnForm(){
+            const rows=document.querySelectorAll('#return-items-body tr');
+            if(rows.length===0){ alert('Add at least one item.'); return false; }
+            let ok=true, msg='';
+            rows.forEach(tr=>{
+                const qtyInput=tr.querySelector('input[name="returned_quantity[]"]');
+                const prodInput=tr.querySelector('input[name="product_id[]"]');
+                if(!prodInput || !prodInput.value){ ok=false; msg='Select product for each row.'; }
+                const qty=parseInt(qtyInput.value||0);
+                const max=parseInt(qtyInput.max);
+                if(max && qty > max){ ok=false; msg=`Returned ${qty} exceeds issued ${max}.`; }
+                if(qty<=0){ ok=false; msg='Quantity must be >0.'; }
+            });
+            if(!ok){ alert(msg); return false; }
+            return true;
+        }
+
+        function openViewModal(id){
+            const c=document.getElementById('view-modal-content');
+            c.innerHTML='Loading...';
+            document.getElementById('view-modal').classList.remove('hidden');
+            fetch('/returns/details/'+id).then(r=>r.json()).then(data=>{
+                if(data.error){ c.innerHTML=data.error; return; }
+                document.getElementById('view-return-number').innerText=data.header.return_number + ' Details';
+                let html=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#f8fcff; border:1px solid #e2f0fb; border-radius:8px; padding:12px; margin-bottom:12px; font-size:12px;">`;
+                html+=`<div><strong>Return #:</strong> ${data.header.return_number}</div><div><strong>Ref RIS #:</strong> ${data.header.ris_number || '— Direct'}</div>`;
+                html+=`<div><strong>Department:</strong> ${data.header.department}</div><div><strong>Returned By:</strong> ${data.header.Firstname} ${data.header.Lastname}</div>`;
+                html+=`<div><strong>Reason:</strong> ${data.header.reason}</div><div><strong>Date:</strong> ${data.header.date_returned}</div>`;
+                html+=`<div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
+                if(data.header.approver_first) html+=`<div><strong>Approved By:</strong> ${data.header.approver_first} ${data.header.approver_last}</div>`;
+                html+=`</div>`;
+                html+=`<table class="item-table"><thead><tr><th>Item</th><th>Qty</th><th>Condition</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>`;
+                data.items.forEach(i=>{
+                    const condColor = i.condition_status==='Serviceable' ? '#2e7d32' : '#c62828';
+                    html+=`<tr><td>${i.item_name}</td><td>${i.returned_quantity}</td><td style="font-weight:700; color:${condColor}">${i.condition_status}</td><td>₱ ${Number(i.unit_price).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td>₱ ${Number(i.total_price).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
+                });
+                html+=`</tbody></table>`;
+                if(data.header.status==='Pending'){
+                    html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">⏳ Pending — serviceable will restock on approve.</div>`;
+                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.return_id}, '${data.header.return_number}')">✔️ Approve & Process</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.return_id})">✖️ Reject</button>`;
+                    document.getElementById('view-approve-area').classList.remove('hidden');
+                } else {
+                    document.getElementById('view-approve-area').classList.add('hidden');
+                }
+                c.innerHTML=html;
+            });
+        }
+        function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); document.getElementById('view-approve-area').classList.add('hidden'); }
+        function rejectFromView(id){ if(confirm('Reject this return?')){ const f=document.createElement('form'); f.method='POST'; f.action='/returns/reject/'+id; document.body.appendChild(f); f.submit(); } }
+        let pendingApproveId=null;
+        function openApproveModal(id, num){ pendingApproveId=id; document.getElementById('approve-return-number').innerText=num; document.getElementById('approve-modal').classList.remove('hidden'); }
+        function closeApproveModal(){ document.getElementById('approve-modal').classList.add('hidden'); pendingApproveId=null; }
+        function confirmApprove(){ if(!pendingApproveId) return; const f=document.getElementById('approve-hidden-form'); f.action='/returns/approve/'+pendingApproveId; f.submit(); }
+    

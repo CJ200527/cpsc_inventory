@@ -5,6 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Major Refactoring & UI Polishing Phase (September 2026)
+
+#### Added
+- **Live Sequence APIs for Auto-Generated Numbers** — `generate_pr_number()`, `generate_delivery_number()` (`DEL-YYYY-XXX`), `generate_iar_number()` (`IAR-YYYY-XXX`) with JSON routes `/pr/get_next_number`, `/delivery/get_next_number`, `/delivery/get_next_iar`; readonly auto-filled number fields in PR/Delivery modals (server still enforces uniqueness).
+- **Smart Product Picker API** — `GET /products/api/list` now returns `is_established` per product (TRUE = in any `delivery_items` row or `pr_items` of an Approved/Completed PR; FALSE = Pending-only draft), plus live `stock`/`reorder` snapshots for withdraw/return modals.
+- **Pending PR Editing** — `POST /pr/update/<id>` + `update_purchase_request()` rewrites the line snapshot and normalizes matched draft products; non-Pending PRs are rejected (Approved records are immutable history). Edit buttons render only on Pending rows.
+- **Price Sync on PR Approval** — `update_pr_status()` writes each approved line price back to its linked `products` row; catalog prices change only on approval, never on save.
+- **Product Delete Safety Check** — `delete_product()` returns `(ok, msg)` and blocks deletion with a flash warning naming the blocking history (`pr_items`, `delivery_items`, `items` ledger, `withdraw_items`, `return_items`).
+- **Rich Custom Dropdowns** — Reusable `.custom-dropdown-list` component (bold name, gray specs, price badge, slide-down animation, 180px cap, HTML-escaped) replacing native `<datalist>`: PR item picker with smart locking, filterable Approved-PR picker in deliveries.
+- **Card-Box Modal System** — Shared `.form-section-card` (Section 1 light-blue, Section 2 light-brown→blue) with titles, strict 3-section Flexbox layouts (sticky header, scrollable body, sticky footer), `dropletBounce` entrance on every `.modal-box`, scoped gradient action buttons.
+- **Strict Form Guards** — Per-row zero/blank quantities allowed (≥1 row >0), no future delivery dates (frontend `max` + server reject), single-`pr_id` submission, fully-delivered PRs hidden from the dropdown.
+
+#### Changed
+- **Composite Identity Matching for Product Variants** — PR save/edit links lines by exact 5-field key (`item_name, category, unit, size, details`; price ignored); any spec difference creates a NEW zero-stock variant instead of overwriting history.
+- **Direct PR-to-Delivery Workflow** — Deliveries link `pr_id` straight to Approved PRs (only zero-delivery PRs offered; completions via the Complete action); free-text `po_reference_number` + `supplier_name` replace the old order/supplier tables.
+- **Category Standardization** — Strict `Consumables`/`Tools`/`Equipment` selects in PR rows and the Add-Product modal.
+- **Focus Styling** — Removed `transform: scale()` input enlargement; universal blue-glow `:focus` (`#53c5f1` + ring) across all pages, search bars keep a flat inner input with bar-level glow.
+- **Delivery Tables & Details** — Separate `PR #` / `PO Ref #` columns, supplier-as-text, remaining-quantity completion flow.
+
+#### Removed
+- **Purchase Order module** — `purchase_orders`/`po_items` tables, `crud_po.py`, `/po*` flows (routes kept as redirects), PO price-variance logic (superseded by approval price sync).
+- **Supplier module** — `Supplier` table, `crud_suppliers.py`, supplier nav/management pages, `supplier_id` linkage everywhere (supplier is now delivery free text).
+- **Product Edit UI** — Edit buttons/modals/JS removed from both product pages (catalog corrections flow through Pending-PR edits); dead `issuedWithdrawals` array, legacy PO/Supplier templates.
+- **Modal `X` Close Buttons** — All 26 removed project-wide; explicit Cancel/Close footer workflow enforced.
+
+#### Fixed
+- **Fully-Delivered PRs Reappearing** — Dropdown now excludes any PR with a `deliveries` row (`d.pr_id IS NULL`); over-delivery across partials still guarded server-side.
+- **Zero-Quantity Rejection** — Blank inputs normalize to `0` client + server; only all-zero submissions are rejected with a clear message.
+- **Stale Prefill Bugs** — Completion modal PO-ref/supplier refills overwrite per open; smart-lock `lastMatch` tracking preserves manually typed specs.
+- **Static Asset Casing** — All `static/css/` + `static/js/` references lowercase (Linux-safe); verified zero `CSS/`/`Javascript/` refs remain.
+
+---
+
 ## [v2.0.0] - Prototype 2 (Current - Current Semester) - 2026-09-03
 ### Milestone: Secure Web Migration & Logic Correction
 

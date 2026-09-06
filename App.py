@@ -79,6 +79,7 @@ from crud_delivery import (
     search_deliverable_prs,
     get_pr_remaining,
     generate_delivery_number,
+    generate_iar_number,
 )
 
 # --- IMPORTS FOR INVENTORY MODULE (Live ledger) ---
@@ -455,7 +456,9 @@ def admin_products():
         print(f"[admin_products] DB error: {err}")
         flash("Database error while loading products.", "error")
         products = []; suppliers_list = []
-    return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
+    # One-shot flag for the delete-blocked warning modal (set by delete route).
+    blocked_product = session.pop("delete_blocked", None)
+    return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date, blocked_product=blocked_product)
 
 # --- ROUTE: Staff Product Catalog View (Staff + Admin) ---
 @app.route("/staff/products")
@@ -546,9 +549,12 @@ def admin_delete_product(target_id):
         flash("Admin access required.", "error")
         return redirect(url_for("login"))
     try:
-        ok, msg = delete_product(target_id)
-        # Blocked deletions surface as a clear warning; success confirms removal.
-        flash(msg, "success" if ok else "error")
+        ok, code, info = delete_product(target_id)
+        if code == "referenced":
+            # No flash: the catalog re-renders with the branded warning modal.
+            session["delete_blocked"] = info
+        else:
+            flash(info, "success" if ok else "error")
     except Exception as err:
         flash(f"Delete failed: {err}", "error")
     return redirect(url_for("admin_products", search=request.args.get("search","")))
@@ -756,6 +762,9 @@ def products_list_api():
             "size": p.get("size") or "",
             "details": p.get("details") or "",
             "price": price,
+            # Live stock snapshot for withdraw/return modals.
+            "stock": p.get("stock", 0) or 0,
+            "reorder": p.get("reorder", 10) or 10,
             # Smart-lock flag: TRUE = locked history (Approved/Completed PR or
             # delivery); FALSE = draft product editable from the PR form.
             "is_established": bool(p.get("is_established")),
@@ -771,6 +780,17 @@ def get_next_delivery_number_api():
         return {"delivery_number": generate_delivery_number()}
     except Exception as err:
         print(f"[get_next_delivery_number_api] DB error: {err}")
+        return {"error": str(err)}, 500
+
+# --- API ROUTE: Next available IAR number (for live display in Receive modal) ---
+@app.route("/delivery/get_next_iar")
+def get_next_iar_number_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        return {"iar_number": generate_iar_number()}
+    except Exception as err:
+        print(f"[get_next_iar_number_api] DB error: {err}")
         return {"error": str(err)}, 500
 
 # --- ACTION ROUTE: Approve PR (Admin Only) ---

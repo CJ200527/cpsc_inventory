@@ -41,6 +41,25 @@ def generate_delivery_number():
         if conn: conn.close()
 
 
+def generate_iar_number():
+    """Generates the next sequential IAR number like IAR-2026-001 (display hint; DB enforces uniqueness)."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        current_year = datetime.now().year
+        cursor.execute("SELECT COUNT(*) FROM deliveries;")
+        count = cursor.fetchone()[0] + 1
+        return f"IAR-{current_year}-{count:03d}"
+    except Exception as err:
+        print(f"[generate_iar_number] DB error: {err}")
+        return f"IAR-{datetime.now().year}-001"
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
 def _compute_is_partial(pr_items_map, received_items):
     """
     Auto-determine partial: if ANY received_quantity != ordered_quantity => partial.

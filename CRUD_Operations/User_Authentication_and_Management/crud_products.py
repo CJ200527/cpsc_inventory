@@ -78,6 +78,8 @@ def get_products_for_pr_picker():
         cursor.execute("""
             SELECT p.product_id, p.product_name, p.category, p.unit,
                    p.size, p.details, p.price,
+                   COALESCE(p.current_stock, 0) AS stock,
+                   COALESCE(p.reorder_level, 10) AS reorder,
                    CASE WHEN EXISTS (
                        SELECT 1 FROM delivery_items di
                        WHERE di.product_id = p.product_id
@@ -162,12 +164,27 @@ def delete_product(product_id):
 
     Safety check (no DDL — SELECT guards only): blocks deletion when the
     product is referenced by pr_items, delivery_items, the items inventory
-    ledger, withdraw_items, or return_items. Returns (ok, message).
+    ledger, withdraw_items, or return_items.
+    Returns (ok, code, info):
+      (True,  "deleted",    success message),
+      (False, "referenced", {"label": "PRD-001 — Name", "scope": "..."}),
+      (False, "not_found",  message),
+      (False, "error",      message).
     """
     conn = None; cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        try:
+            pid = int(product_id)
+        except (TypeError, ValueError):
+            return False, "error", "Invalid product reference."
+        cursor.execute("SELECT product_name FROM products WHERE product_id = %s",
+                       (pid,))
+        row = cursor.fetchone()
+        if not row:
+            return False, "not_found", "Product not found — nothing was deleted."
+        label = f"PRD-{pid:03d} — {row[0]}"
         history_checks = [
             ("pr_items", "Purchase Request"),
             ("delivery_items", "Delivery"),
@@ -175,23 +192,19 @@ def delete_product(product_id):
             ("withdraw_items", "Withdrawal"),
             ("return_items", "Return"),
         ]
-        for table, label in history_checks:
+        for table, scope in history_checks:
             cursor.execute(f"SELECT 1 FROM {table} WHERE product_id = %s LIMIT 1",
-                           (product_id,))
+                           (pid,))
             if cursor.fetchone():
-                return False, (
-                    f"Cannot delete PRD-{int(product_id):03d}: it is tied to "
-                    f"existing {label} transaction history and must be kept "
-                    "for audit trail."
-                )
-        cursor.execute("DELETE FROM products WHERE product_id=%s", (product_id,))
+                return False, "referenced", {"label": label, "scope": scope}
+        cursor.execute("DELETE FROM products WHERE product_id=%s", (pid,))
         conn.commit()
         if cursor.rowcount > 0:
-            return True, f"Product PRD-{int(product_id):03d} deleted."
-        return False, "Product not found — nothing was deleted."
+            return True, "deleted", f"Product {label} deleted."
+        return False, "not_found", "Product not found — nothing was deleted."
     except Exception as err:
         print(f"[delete_product] DB error: {err}")
-        return False, str(err)
+        return False, "error", str(err)
     finally:
         if cursor is not None:
             try: cursor.close()
