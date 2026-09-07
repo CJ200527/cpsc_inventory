@@ -115,6 +115,10 @@
         .item-table th { background: #eaf3f8; color: #0d233a; font-size: 11px; padding: 8px; }
         .item-table td { padding: 8px; border-bottom: 1px solid #eef2f5; font-size: 12px; white-space: normal; }
         .readonly-cell { background: #f0f4f8; color: #555; font-weight: 500; }
+        /* Editable actual unit price (delivery invoice override of PR estimate) */
+        .form-control.delivery-unit-price { width: 110px; padding: 6px 8px; font-size: 12.5px; font-weight: 600; color: #0d233a; background: #fffdf5; border: 1.5px solid #53c5f1; border-radius: 6px; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+        .form-control.delivery-unit-price:focus { border-color: #0277bd; box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25); }
+        .delivery-row-total { white-space: nowrap; color: #0d233a; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
         .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .btn-modal-save { padding: 8px 22px; background: #53c5f1; color: #ffffff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83,197,241,0.35); }

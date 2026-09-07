@@ -75,27 +75,26 @@
         .user-profile-box { text-align: right; }
         .user-profile-box .user-name { font-size: 14px; font-weight: 700; font-style: italic; color: #0d233a; }
         .user-profile-box .user-role { font-size: 11px; color: #333333; font-weight: 500; }
-        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 18px; }
-        /* Metric Cards */
-        .cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
-        .metric-card { background-color: #ffffff; border-radius: 12px; padding: 18px 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; display: flex; flex-direction: column; justify-content: space-between; min-height: 125px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.07); }
-        .metric-title { font-size: 11px; font-weight: 700; text-transform: uppercase; text-align: center; color: #333333; letter-spacing: 0.5px; }
-        .metric-body { display: flex; align-items: center; justify-content: space-around; margin-top: 8px; }
-        .metric-icon-box { font-size: 34px; display: flex; align-items: center; justify-content: center; }
-        .metric-value { font-size: 22px; font-style: italic; font-weight: 800; color: #0d233a; }
-        .metric-sub { font-size: 10px; color: #888; text-align: center; margin-top: 4px; }
-        /* Control Bar */
-        .control-card { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .dashboard-container { padding: 22px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        /* ROW 1: Toolbelt (Search & Filters) */
+        .toolbelt-container { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
         .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 460px; }
         .search-input-box { display: flex; align-items: center; background: #f0f4f8; border: 1.5px solid #d0dbe5; border-radius: 8px; padding: 6px 12px; width: 100%; }
         .search-input-box input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; }
         .filter-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .filter-select { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; }
         .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
-        /* Table */
-        .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 1250px; }
+        /* ROW 2: Data Table Workspace */
+        .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #e0e0e0; flex: 1; overflow-x: auto; }
+        .workspace-table { display: flex; flex-direction: column; }
+        .table-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; margin-bottom: 6px; border-bottom: 1px solid #eef2f5; }
+        .table-card-header h3 { font-size: 15px; font-weight: 700; color: #0d233a; margin: 0; }
+        .count-pill { font-size: 12px; font-weight: 500; color: #666666; background: #f4f7f9; border: 1px solid #e0e0e0; border-radius: 20px; padding: 3px 12px; white-space: nowrap; }
+        @media (max-width: 640px) {
+            .toolbelt-container { flex-direction: column; align-items: stretch; }
+            .search-form { max-width: none; }
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { background-color: #53c5f1; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; white-space: nowrap; }
         th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
         th:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }

@@ -64,45 +64,10 @@
         </div>
 
         <div class="dashboard-container">
-            
 
-            <div class="cards-grid">
-                <div class="metric-card">
-                    <div class="metric-title">Total Unique Products</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">📦</div>
-                        <div class="metric-value">{{ summary.total_unique }}</div>
-                    </div>
-                    <div class="metric-sub">Distinct SKUs</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Total Asset Value</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">💰</div>
-                        <div class="metric-value">₱ {{ "{:,.2f}".format(summary.total_asset_value or 0) }}</div>
-                    </div>
-                    <div class="metric-sub">Stock × Price</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Low Stock Warning</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">⚠️</div>
-                        <div class="metric-value" style="color:#856404;">{{ summary.low_stock_count }}</div>
-                    </div>
-                    <div class="metric-sub">0 &lt; Stock ≤ Reorder</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-title">Out of Stock</div>
-                    <div class="metric-body">
-                        <div class="metric-icon-box">❌</div>
-                        <div class="metric-value" style="color:#721c24;">{{ summary.out_of_stock_count }}</div>
-                    </div>
-                    <div class="metric-sub">Stock == 0</div>
-                </div>
-            </div>
-
-            <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
-            <div class="control-card">
+            <!-- ROW 1: Toolbelt (Search & Filters) -->
+            <!-- ===== TOOLBELT (Search + Category/Status Filters + Refresh) ===== -->
+            <div class="toolbelt-container">
                 <form method="GET" action="{{ url_for('staff_inventory_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box">
                         <span style="margin-right:8px;">🔍</span>
@@ -113,6 +78,15 @@
                 <div class="filter-controls">
                     <select name="category" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Categories</option>
+                        {% if categories is defined and 'Consumables' not in categories %}
+                        <option value="Consumables" {% if category_filter == 'Consumables' %}selected{% endif %}>Consumables</option>
+                        {% endif %}
+                        {% if categories is defined and 'Tools' not in categories %}
+                        <option value="Tools" {% if category_filter == 'Tools' %}selected{% endif %}>Tools</option>
+                        {% endif %}
+                        {% if categories is defined and 'Equipment' not in categories %}
+                        <option value="Equipment" {% if category_filter == 'Equipment' %}selected{% endif %}>Equipment</option>
+                        {% endif %}
                         {% for cat in categories %}
                         <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
                         {% endfor %}
@@ -127,8 +101,13 @@
                 </div>
             </div>
 
+            <!-- ROW 2: Data Table Workspace -->
             <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
-            <div class="table-card">
+            <div class="table-card workspace-table">
+                <div class="table-card-header">
+                    <h3>Live Stock Ledger</h3>
+                    <span class="count-pill">{{ items | length if items is defined else 0 }} records</span>
+                </div>
                 <table>
                     <thead>
                         <tr>
@@ -137,10 +116,7 @@
                             <th>Category</th>
                             <th>Specification / Details</th>
                             <th>Unit</th>
-                            <th>Unit Price</th>
                             <th>Current Stock</th>
-                            <th>Reorder Threshold</th>
-                            <th>Total Stock Value</th>
                             <th>Stock Status</th>
                         </tr>
                     </thead>
@@ -153,10 +129,7 @@
                                 <td>{{ it.category or '—' }}</td>
                                 <td style="white-space:normal; max-width:220px;">{{ it.details or it.size or '—' }}</td>
                                 <td>{{ it.unit or 'pcs' }}</td>
-                                <td><span class="price-badge">₱ {{ "{:,.2f}".format(it.price or 0) }}</span></td>
                                 <td style="font-weight:700; text-align:center;">{{ it.current_stock }}</td>
-                                <td style="text-align:center;">{{ it.reorder_level }}</td>
-                                <td><span class="price-badge">₱ {{ "{:,.2f}".format(it.total_value or 0) }}</span></td>
                                 <td>
                                     {% if it.stock_status == 'In Stock' %}<span class="badge badge-instock">In Stock</span>
                                     {% elif it.stock_status == 'Low Stock' %}<span class="badge badge-low">Low Stock</span>
@@ -166,7 +139,7 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="10" style="text-align:center; color:#888; padding:25px;">No inventory. Approve deliveries to populate ledger.</td></tr>
+                            <tr><td colspan="7" style="text-align:center; color:#888; padding:25px;">No inventory. Approve deliveries to populate ledger.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>

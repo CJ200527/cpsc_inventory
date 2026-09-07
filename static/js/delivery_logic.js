@@ -1,6 +1,30 @@
 /* delivery_logic.js — shared delivery receive/complete/view logic (Admin + Staff). Loaded after ui_helpers.js. */
 
         function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+        /* Live totals: any unit-price or quantity edit recalculates its row
+           total and the modal footer grand total. Blank price falls back to
+           the PR-estimated price stored in data-est-price (server mirrors it). */
+        function recalcDeliveryTbody(tbodyId, totalId){
+            const tbody=document.getElementById(tbodyId);
+            const tot=document.getElementById(totalId);
+            if(!tbody) return;
+            let grand=0;
+            tbody.querySelectorAll('tr').forEach(tr=>{
+                const p=tr.querySelector('input.delivery-unit-price');
+                const q=tr.querySelector('input[name="received_quantity[]"]');
+                if(!p||!q) return;
+                const raw=(p.value||'').trim();
+                let price=raw==='' ? parseFloat(p.dataset.estPrice||0) : parseFloat(raw);
+                if(isNaN(price)||price<0) price=0;
+                let qty=parseInt(q.value||0);
+                if(isNaN(qty)||qty<0) qty=0;
+                const lineTotal=price*qty;
+                grand+=lineTotal;
+                const cell=tr.querySelector('.delivery-row-total');
+                if(cell) cell.innerText=fmtPeso(lineTotal);
+            });
+            if(tot) tot.innerText=fmtPeso(grand);
+        }
         function todayLocal(){ const n=new Date(); const p=x=>String(x).padStart(2,'0'); return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; }
         /* Delivery Date guard: past/present only — future dates blocked (backend double-checks). */
         function validateDeliveryDate(input){
@@ -87,30 +111,30 @@
             if(!prId) return;
             const tbody=document.getElementById('delivery-items-tbody');
             const ph=document.getElementById('delivery-items-empty');
-            tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:12px;color:#888;">Loading PR items…</td></tr>';
+            tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:12px;color:#888;">Loading PR items…</td></tr>';
             if(ph) ph.style.display='none';
             fetch('/pr/details/'+prId).then(r=>r.json()).then(data=>{
-                if(data.error){ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">'+data.error+'</td></tr>'; if(ph) ph.style.display=''; return; }
-                // PR Total straight into the sticky footer for financial visibility.
-                const tot=document.getElementById('delivery-total-price');
-                if(tot) tot.innerText='₱ '+Number(data.header.total_price||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
+                if(data.error){ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#c62828;">'+escHtml(data.error)+'</td></tr>'; if(ph) ph.style.display=''; return; }
                 tbody.innerHTML='';
                 data.items.forEach(item=>{
                     const orderedQty = parseInt(item.quantity||0);
                     const unitPrice = Number(item.price||0);
                     const tr=document.createElement('tr');
                     tr.innerHTML=`
-                        <td class="readonly-cell"><strong>${item.item_name}</strong><br><small>${item.details||''} ${item.size? '('+item.size+')':''}</small><input type="hidden" name="product_id[]" value="${item.product_id}"></td>
-                        <td class="readonly-cell">${item.category||'-'}</td>
-                        <td class="readonly-cell">${item.unit||'pcs'}</td>
-                        <td class="readonly-cell">₱ ${unitPrice.toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                        <td class="readonly-cell"><strong>${escHtml(item.item_name)}</strong><br><small>${escHtml(item.details||'')} ${item.size? '('+escHtml(item.size)+')':''}</small><input type="hidden" name="product_id[]" value="${item.product_id}"></td>
+                        <td class="readonly-cell">${escHtml(item.category||'-')}</td>
+                        <td class="readonly-cell">${escHtml(item.unit||'pcs')}</td>
+                        <td><input type="number" name="unit_price[]" class="form-control delivery-unit-price" min="0" step="0.01" value="${unitPrice.toFixed(2)}" data-est-price="${unitPrice.toFixed(2)}" title="Actual invoice unit price — pre-filled with PR estimate, override as needed" oninput="recalcDeliveryTbody('delivery-items-tbody','delivery-total-price')"></td>
                         <td class="readonly-cell" style="font-weight:700;">${orderedQty}</td>
-                        <td><input type="number" name="received_quantity[]" min="0" max="${orderedQty}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #53c5f1;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${orderedQty}){this.setCustomValidity('Exceeds ordered '+${orderedQty}); this.reportValidity();}else{this.setCustomValidity('');}"></td>
+                        <td><input type="number" name="received_quantity[]" min="0" max="${orderedQty}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #53c5f1;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${orderedQty}){this.setCustomValidity('Exceeds ordered '+${orderedQty}); this.reportValidity();}else{this.setCustomValidity('');}recalcDeliveryTbody('delivery-items-tbody','delivery-total-price');"></td>
+                        <td class="readonly-cell delivery-row-total" style="font-weight:700;">₱ 0.00</td>
                     `;
                     tbody.appendChild(tr);
                 });
+                // Sync footer to live-computed totals (starts at ₱ 0.00 until quantities are entered).
+                recalcDeliveryTbody('delivery-items-tbody','delivery-total-price');
                 if(!tbody.children.length && ph) ph.style.display='';
-            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#c62828;">Failed to load PR items.</td></tr>'; });
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:#c62828;">Failed to load PR items.</td></tr>'; });
         }
         function validateReceiveForm(){
             // A PR must be picked from the smart dropdown first.
@@ -126,6 +150,11 @@
                 if(isNaN(n)||n<0) err='Received quantity must be a whole number 0 or more.';
                 else if(n>mx) err=`Received ${n} exceeds ordered ${mx}.`;
                 if(n>0) hasPositive=true;
+            });
+            // Actual invoice prices: blank falls back to the PR estimate server-side.
+            document.querySelectorAll('#delivery-items-tbody input.delivery-unit-price').forEach(inp=>{
+                const raw=(inp.value||'').trim();
+                if(raw!=='' && (isNaN(parseFloat(raw))||parseFloat(raw)<0)) err='Unit price must be 0 or more (or blank to keep the PR estimate).';
             });
             if(err){ alert(err); return false; }
             if(!hasPositive){ alert('Enter a quantity greater than 0 for at least one item.'); return false; }
@@ -144,33 +173,33 @@
             fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
                 if(numEl){ if(dt.delivery_number) numEl.value=dt.delivery_number; else numEl.placeholder='Auto-generated'; }
             }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
-            document.getElementById('complete-items-tbody').innerHTML='<tr><td colspan="4" style="text-align:center;padding:12px;color:#888;">Loading remaining…</td></tr>';
+            document.getElementById('complete-items-tbody').innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">Loading remaining…</td></tr>';
             document.getElementById('complete-pr-meta').innerHTML='Loading…';
             const ctot0=document.getElementById('complete-total-price'); if(ctot0) ctot0.innerText='₱ 0.00';
             fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(d=>{
-                if(d.error){ document.getElementById('complete-pr-meta').innerHTML=d.error; return; }
+                if(d.error){ document.getElementById('complete-pr-meta').innerHTML=escHtml(d.error); return; }
                 const prId=d.header.pr_id;
                 const poRefInput=document.getElementById('complete-po-ref'); if(poRefInput) poRefInput.value=d.header.po_reference_number||'';
                 const supInput=document.getElementById('complete-supplier'); if(supInput && !supInput.value) supInput.value=d.header.supplier_name||'';
                 fetch('/delivery/remaining/'+prId).then(r=>r.json()).then(rem=>{
                     const header=rem.header;
                     const remaining=rem.remaining||[];
-                    let meta=`<strong>PR:</strong> ${header? header.pr_number:'?'} — <strong>Remaining total:</strong> ${remaining.reduce((a,b)=>a+(b.remaining_quantity||0),0)} units — <em style="color:#c62828;">You see REMAINING, not initial ordered.</em>`;
+                    let meta=`<strong>PR:</strong> ${header? escHtml(header.pr_number):'?'} — <strong>Remaining total:</strong> ${remaining.reduce((a,b)=>a+(b.remaining_quantity||0),0)} units — <em style="color:#c62828;">You see REMAINING, not initial ordered.</em>`;
                     if(remaining.length===0) meta+=' — <span style="color:#c62828;">No remaining</span>';
                     document.getElementById('complete-pr-meta').innerHTML=meta;
-                    // Remaining value straight into the sticky footer.
-                    const ctot=document.getElementById('complete-total-price');
-                    if(ctot) ctot.innerText='₱ '+remaining.reduce((a,b)=>a+(b.remaining_quantity||0)*Number(b.price||0),0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2});
                     const tbody=document.getElementById('complete-items-tbody');
                     tbody.innerHTML='';
-                    if(remaining.length===0){ tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#c62828;">Nothing remaining.</td></tr>'; return; }
+                    if(remaining.length===0){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">Nothing remaining.</td></tr>'; return; }
                     remaining.forEach(rw=>{
                         if(rw.remaining_quantity<=0) return;
+                        const estPrice=Number(rw.price||0);
                         const tr=document.createElement('tr');
-                        tr.innerHTML=`<td class="readonly-cell"><strong>${rw.item_name}</strong><input type="hidden" name="product_id[]" value="${rw.product_id}"></td><td class="readonly-cell" style="font-weight:700;">${rw.remaining_quantity} <small style="color:#888;">/ ordered ${rw.ordered_quantity} (recv ${rw.total_received})</small></td><td class="readonly-cell">₱ ${Number(rw.price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td><td><input type="number" name="received_quantity[]" min="0" max="${rw.remaining_quantity}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #ef6c00;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${rw.remaining_quantity}){this.setCustomValidity('Exceeds remaining '+${rw.remaining_quantity}); this.reportValidity();}else{this.setCustomValidity('');}"></td>`;
+                        tr.innerHTML=`<td class="readonly-cell"><strong>${escHtml(rw.item_name)}</strong><input type="hidden" name="product_id[]" value="${rw.product_id}"></td><td class="readonly-cell" style="font-weight:700;">${rw.remaining_quantity} <small style="color:#888;">/ ordered ${rw.ordered_quantity} (recv ${rw.total_received})</small></td><td><input type="number" name="unit_price[]" class="form-control delivery-unit-price" min="0" step="0.01" value="${estPrice.toFixed(2)}" data-est-price="${estPrice.toFixed(2)}" title="Actual batch unit price — pre-filled with PR estimate, override if this batch differs" oninput="recalcDeliveryTbody('complete-items-tbody','complete-total-price')"></td><td><input type="number" name="received_quantity[]" min="0" max="${rw.remaining_quantity}" placeholder="0" style="width:90px;padding:6px;border:1.5px solid #ef6c00;border-radius:6px;background:#ffffff;" oninput="if(parseInt(this.value||0)>${rw.remaining_quantity}){this.setCustomValidity('Exceeds remaining '+${rw.remaining_quantity}); this.reportValidity();}else{this.setCustomValidity('');}recalcDeliveryTbody('complete-items-tbody','complete-total-price');"></td><td class="readonly-cell delivery-row-total" style="font-weight:700;">₱ 0.00</td>`;
                         tbody.appendChild(tr);
                     });
-                    if(tbody.children.length===0) tbody.innerHTML='<tr><td colspan="4" style="text-align:center;color:#888;">All fully delivered.</td></tr>';
+                    // Sync footer to live-computed totals.
+                    recalcDeliveryTbody('complete-items-tbody','complete-total-price');
+                    if(tbody.children.length===0) tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#888;">All fully delivered.</td></tr>';
                 });
             });
         }
@@ -186,6 +215,11 @@
                 if(isNaN(n)||n<0) err='Received quantity must be a whole number 0 or more.';
                 else if(n>mx) err=`Received ${n} exceeds remaining ${mx}.`;
                 if(n>0) hasPositive=true;
+            });
+            // Actual batch prices: blank falls back to the PR estimate server-side.
+            document.querySelectorAll('#complete-items-tbody input.delivery-unit-price').forEach(inp=>{
+                const raw=(inp.value||'').trim();
+                if(raw!=='' && (isNaN(parseFloat(raw))||parseFloat(raw)<0)) err='Unit price must be 0 or more (or blank to keep the PR estimate).';
             });
             if(err){ alert(err); return false; }
             if(!hasPositive){ alert('Enter a quantity greater than 0 for at least one item.'); return false; }

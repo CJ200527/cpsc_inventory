@@ -7,7 +7,7 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 
 **Why migrate?** Prototype 1 (MS Access) was single-user and manually tracked. **Prototype 2** adds multi-user security, a direct PR-to-Delivery procurement flow (no purchase-order step), exact-quantity live inventory with double-approval guards, and a just-in-time Master Catalog with product variants.
 
-> **Study Tip for Panel:** Follow the live flow: `Staff creates PR (typed or catalog items) → Admin approves PR (catalog prices sync) → Staff/Admin creates Delivery directly from Approved PR (Pending, no stock) → Admin approves & injects (Received, exact received qty) → Live Inventory → Withdrawal (RIS) out → Return handling`.
+> **Study Tip for Panel:** Follow the live flow: `Staff creates PR (typed or catalog items, duplicates blocked) → Admin approves PR (status only, catalog untouched) → Staff/Admin creates Delivery directly from Approved PR (Pending, no stock, actual invoice prices editable) → Admin approves & injects (Received, exact received qty + weighted-average costing) → Live Inventory → Withdrawal (RIS) out → Return handling`.
 
 ---
 
@@ -35,15 +35,18 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 - **Just-in-Time Catalog + Composite Variants:** Typed rows resolve by 5-field composite key (`item_name, category, unit, size, details`; price ignored) — exact match links the product, any spec difference creates a **new variant**. `GET /products/api/list` feeds the picker with an `is_established` flag (TRUE = in a delivery or an Approved PR).
 - **Smart Locking:** Established specs open `readonly` (category pinned); draft/new specs stay editable; price is **always editable** (market fluctuations).
 - **Pending PR Editing:** `POST /pr/update/<id>` rewrites the line snapshot and normalizes matched draft products; non-Pending PRs are rejected server-side.
-- **Dynamic Pricing with Approval Sync:** On `Approved`, `update_pr_status()` writes each approved line price back to its linked `products` row. Catalog prices change only on approval, never on save.
+- **Duplicate Protection (dual-layer):** `find_duplicate_pr_item()` blocks repeat products on `/pr/add`, `/pr/update`, and inside `create/update_purchase_request()` (composite-key `set` scan, safe flash error, zero writes); frontend `prRowKey()` guard aborts catalog picks and blocks submit, surfacing the droplet-animated Duplicate-Item modal (green-hover Understood button) instead of `alert()`.
+- **Delivery-Driven Actual Costs (no PO step):** Estimates live on `pr_items` only — `update_pr_status()` is status-only and never touches `products.price`. True unit cost is captured per delivery line (editable invoice price, PR estimate as fallback) and blended into the catalog by weighted average at approval, so bidding/partial-delivery variations are valued accurately.
 
 ### 3. Delivery & IAR (Strict 2-Step, PR-direct)
 - **Step 1 (Admin or Staff):** `create_delivery()` links `pr_id` directly (no `purchase_orders`/`po_items` tables exist), captures free-text `po_reference_number` + `supplier_name`, inserts `deliveries`/`delivery_items` with `status='Pending'`, `is_partial` auto-computed. Guards: `received <= ordered`, no over-delivery across partials, blank/0 quantities allowed per row (≥1 row must be >0), delivery date never in the future. Only Approved PRs with zero deliveries are offered (`d.pr_id IS NULL`); completions go through the Complete action on the existing row.
-- **Step 2 (Admin only):** `approve_delivery()` → `SELECT ... FOR UPDATE` lock + guards (`status != 'Pending'`, `approved_by` set, `stock_movements` exists → double-click blocked), then credits **exact received qty** to `products.current_stock`, syncs `quantity`, writes the `items` physical ledger + `stock_movements (+qty)`, sets `status='Received'`.
+- **Step 2 (Admin only):** `approve_delivery()` → `SELECT ... FOR UPDATE` lock + guards (`status != 'Pending'`, `approved_by` set, `stock_movements` exists → double-click blocked), then credits **exact received qty** to `products.current_stock`, blends the line's **actual** unit cost into `products.price` via weighted average, syncs `quantity`, writes the `items` physical ledger + `stock_movements (+qty)`, sets `status='Received'`.
 
-### 4. Inventory Ledger & Stock Management (Real-time)
+### 4. Inventory Workspace & Stock Management (Real-time)
+- **Workspace Layout (Admin + Staff):** KPI cards removed to prevent dashboard fatigue — a single toolbelt card (search + guaranteed Consumables/Tools/Equipment + status filters + Refresh) above an expanded 7-column ledger (Code, Name, Category, Specs, Unit, Stock, Status). Financial/threshold columns stripped to keep the page focused on stock logistics.
 - **Live Ledger:** `products.current_stock` is the source of truth, plus the `items` ledger per delivery. `crud_inventory.py` provides `get_inventory_summary()` (unique count, asset value `sum(current_stock*price)`, low/out counts via `reorder_level`) and `get_inventory_items()` with category/stock filters.
 - **Movement Tracking:** Every stock change logs to `stock_movements` (`Delivery`/`Withdrawal`/`Return`, `quantity_change`, `balance_after`, `user_id`) for audit.
+- **Strict Data Integrity Rules:** live inventory deductions on withdrawal approval (exact qty, re-validated), return handling with stock restoration rules per condition (`Serviceable`/`Unserviceable` audit paths), and delivery-driven actual costs (weighted-average valuation; PR estimates and edits can never overwrite catalog prices).
 
 ### 5. Outbound Operations (Withdrawals / Returns)
 - **Withdrawal (RIS):** Created `Pending` after validating `requested <= current_stock` (no deduction yet). Admin `approve_withdrawal()` re-validates, deducts exact qty, logs `-qty`, sets approver + issue date. Guard: only `Pending` can be approved/rejected.
@@ -55,7 +58,7 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 ### 7. Modular UI/UX Architecture (`static/css/` + `static/js/`, all lowercase for Linux-safe deploys)
 - **CSS:** per-page stylesheets + shared `modals.css` (rich `.custom-dropdown-list`, `dropletBounce` entrance on every `.modal-box`, universal blue-glow `:focus`, scoped `.pr-modal`/`.delivery-modal` gradient buttons), `main_theme.css` shell, `input_box_enlargement.css` (textarea expansion).
 - **JS:** `ui_helpers.js` (clock/toasts/cascade/skeleton), `pr_logic.js` (Master-Detail builder, rich dropdown, smart lock, fetch submits), `delivery_logic.js` (receive/complete/view flows, auto numbers, date guards), plus per-module files (`product_logic.js`, `user_logic.js`, `auth.js`, admin/staff withdraw + return logic). Zero inline `<style>`/`<script>` tags project-wide; server data reaches scripts via JSON APIs and `data-*` bridges.
-- **Modals:** strict 3-section Flexbox layout (sticky header, scrollable body, sticky footer), card-box sections with titles, auto-generated readonly numbers (`PR-`, `DEL-`, `IAR-` sequences via `/pr/get_next_number`, `/delivery/get_next_number`, `/delivery/get_next_iar`), no `X` buttons (explicit Cancel workflow only).
+- **Modals:** strict 3-section Flexbox layout (sticky header, scrollable body, sticky footer), card-box sections with titles, auto-generated readonly numbers (`PR-`, `DEL-`, `IAR-` sequences via `/pr/get_next_number`, `/delivery/get_next_number`, `/delivery/get_next_iar`), no `X` buttons (explicit Cancel workflow only), droplet-animated Duplicate-Item warning modal, shared `.btn-modal-save` hover system (green `#2e7d32` hover scoped to its Understood button).
 
 ---
 
@@ -127,8 +130,8 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
            (SELECT COUNT(*) FROM users) AS users;
     -- Expected: all 0 except users (your logins are kept)
     ```
-4.  **Test clean flow:** `Create PR (typed items) → Approve (catalog prices sync) → Create Delivery from Approved PR (Pending, stock 0) → Approve (Received, exact received qty credited)` — correct.
+4.  **Test clean flow:** `Create PR (typed items, try a duplicate → blocked) → Approve (status only) → Create Delivery from Approved PR (Pending, stock 0, override one invoice price) → Approve (Received, exact received qty credited + weighted-average cost)` — correct.
 
 ---
 
-**Capstone Team — BSIT 3A, CPSC | Prototype 2 (2026) | Tip: Demo the variant flow (same name, changed size → new product), the approval price sync, and the double-click approval guard live.**
+**Capstone Team — BSIT 3A, CPSC | Prototype 2 (2026) | Tip: Demo the variant flow (same name, changed size → new product), the PR duplicate block (droplet modal), an invoice-price override flowing into weighted-average valuation, and the double-click approval guard live.**

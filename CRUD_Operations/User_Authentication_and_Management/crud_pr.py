@@ -57,7 +57,8 @@ def is_product_established(cursor, product_id):
 
 def _sync_product_specs(cursor, product_id, item):
     """Normalizes a matched DRAFT product row to the submitted specs (price
-    EXCLUDED — catalog prices change only on PR approval, never on save).
+    EXCLUDED — catalog prices change only via delivery approval
+    (weighted-average), never via PR save/approval).
     Established rows are left untouched to protect history.
     Returns True when the catalog was updated."""
     if is_product_established(cursor, product_id):
@@ -125,6 +126,40 @@ def _resolve_product_id(cursor, item):
     return cursor.lastrowid, True
 
 
+def _normalize_pr_dup_key(item):
+    """Identity key mirroring _resolve_product_id (explicit product_id wins,
+    else the 5-field composite). Lowercased: MySQL's default collation treats
+    'Bond Paper' and 'bond paper' as the same row."""
+    try:
+        pid = item.get('product_id')
+        if pid is not None and str(pid).strip() != '':
+            return ('id', int(pid))
+    except (TypeError, ValueError):
+        pass
+    parts = [
+        (item.get('item_name') or '').strip().lower(),
+        ((item.get('category') or '').strip() or 'General').lower(),
+        ((item.get('unit') or '').strip() or 'pcs').lower(),
+        ((item.get('size') or '').strip() or 'N/A').lower(),
+        (item.get('details') or '').strip().lower(),
+    ]
+    return ('spec',) + tuple(parts)
+
+
+def find_duplicate_pr_item(items_list):
+    """Returns the display name of the first duplicated product in the payload,
+    or None when all lines are unique. Pure function — safe to call pre-insert."""
+    seen = set()
+    for item in items_list or []:
+        if not (item.get('item_name') or '').strip():
+            continue  # blank rows are dropped/skipped by the callers, not dups
+        key = _normalize_pr_dup_key(item)
+        if key in seen:
+            return (item.get('item_name') or '').strip()
+        seen.add(key)
+    return None
+
+
 def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_requested=None):
     """
     Inserts a purchase_requests header and pr_items line items in a single transaction.
@@ -135,13 +170,17 @@ def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_req
     Composite identity: lines link by exact (item_name, category, unit,
     size, details) — price ignored; any spec difference creates a NEW
     product variant. Matched draft rows are spec-normalized (established
-    rows untouched); catalog prices change only on PR approval.
+    rows untouched); catalog prices change only via delivery approval
+    (weighted-average of actual invoice costs).
     `fund_source` defaults to 'Fund 05'; `date_requested` ('YYYY-MM-DD' or
     'YYYY-MM-DD HH:MM:SS') defaults to the DB CURRENT_TIMESTAMP when omitted.
     NOTE: supplier_id is intentionally ignored (no supplier table; supplier captured
     later as free-text deliveries.supplier_name). Any 'supplier_id' key present for
     backwards compatibility is silently dropped.
     """
+    dup = find_duplicate_pr_item(items_list)
+    if dup:
+        return False, f"This product is already in the request ('{dup}'). Please adjust the quantity of the existing item instead."
     conn = None
     cursor = None
     try:
@@ -354,6 +393,9 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
     Approved/Rejected PRs are immutable historical records.
     Returns (True, pr_number) or (False, error_msg). No DDL — DML only.
     """
+    dup = find_duplicate_pr_item(items_list)
+    if dup:
+        return False, f"This product is already in the request ('{dup}'). Please adjust the quantity of the existing item instead."
     conn = None
     cursor = None
     try:
@@ -425,13 +467,14 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
         if conn: conn.close()
 
 
-# --- 6. UPDATE: Approve or Reject PR (approval syncs catalog prices) ---
+# --- 6. UPDATE: Approve or Reject PR (status only — catalog prices untouched) ---
 def update_pr_status(pr_id, new_status):
     """Updates status of a PR to 'Approved' or 'Rejected'.
 
-    On approval, loops through the PR's pr_items and writes each approved
-    price back to its linked master products row (market-fluctuation sync).
-    Rejections leave the catalog untouched.
+    Pricing integrity: PR approval NO LONGER rewrites products.price.
+    Estimated PR prices stay on pr_items only; the true unit cost enters the
+    catalog via delivery approval (weighted-average in approve_delivery),
+    keeping the product catalog stable against estimate fluctuations.
     """
     conn = None
     cursor = None
@@ -442,14 +485,6 @@ def update_pr_status(pr_id, new_status):
         if cursor.rowcount == 0:
             conn.rollback()
             return False
-        if new_status == 'Approved':
-            cursor.execute("SELECT product_id, price FROM pr_items WHERE pr_id = %s;", (pr_id,))
-            for product_id, price in cursor.fetchall():
-                try:
-                    cursor.execute("UPDATE products SET price = %s WHERE product_id = %s;",
-                                   (float(price or 0), int(product_id)))
-                except Exception as perr:
-                    print(f"[update_pr_status price sync] item error: {perr}")
         conn.commit()
         return True
     except Exception as err:

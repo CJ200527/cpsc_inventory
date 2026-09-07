@@ -59,6 +59,7 @@ from crud_pr import (
     update_pr_status,
     get_approved_prs_for_delivery,
     generate_pr_number,
+    find_duplicate_pr_item,
 )
 
 # --- PO MODULE RETIRED (PR-to-Delivery workflow) ---
@@ -1121,6 +1122,11 @@ def add_pr_action():
         flash("Please add at least one valid item to your purchase request.", "error")
         return redirect(url_for("pr_management"))
 
+    dup = find_duplicate_pr_item(items_payload)
+    if dup:
+        flash(f"This product is already in the request ('{dup}'). Please adjust the quantity of the existing item instead.", "error")
+        return redirect(url_for("pr_management"))
+
     success, result = create_purchase_request(user_id, items_payload,
                                               fund_source=fund_source,
                                               date_requested=date_requested or None)
@@ -1141,6 +1147,11 @@ def update_pr_action(pr_id):
 
     if not items_payload:
         flash("A Purchase Request must keep at least one valid item.", "error")
+        return redirect(url_for("pr_management"))
+
+    dup = find_duplicate_pr_item(items_payload)
+    if dup:
+        flash(f"This product is already in the request ('{dup}'). Please adjust the quantity of the existing item instead.", "error")
         return redirect(url_for("pr_management"))
 
     success, result = update_purchase_request(pr_id, fund_source=fund_source,
@@ -1437,6 +1448,7 @@ def create_delivery_action():
 
     product_ids = request.form.getlist("product_id[]")
     received_qtys = request.form.getlist("received_quantity[]")
+    unit_prices = request.form.getlist("unit_price[]")
 
     if not product_ids:
         flash("No items. Please select a PR and enter received quantities.", "error")
@@ -1453,9 +1465,16 @@ def create_delivery_action():
             qty = int(qty_raw) if qty_raw != "" else 0
             if qty < 0:
                 raise ValueError
-            received_items.append({"product_id": pid, "received_quantity": qty})
+            # Actual invoice unit price; blank keeps the PR estimate (resolved in crud).
+            price_raw = unit_prices[i].strip() if i < len(unit_prices) and unit_prices[i] is not None else ""
+            price_val = None
+            if price_raw != "":
+                price_val = float(price_raw)
+                if price_val < 0:
+                    raise ValueError
+            received_items.append({"product_id": pid, "received_quantity": qty, "unit_price": price_val})
         except (ValueError, IndexError, AttributeError):
-            flash(f"Invalid received quantity for item row {i+1}. Must be integer 0..ordered.", "error")
+            flash(f"Invalid received quantity or unit price for item row {i+1}. Qty must be integer 0..ordered; price 0 or more.", "error")
             return redirect(url_for("delivery_dashboard"))
 
     if not received_items:
@@ -1636,6 +1655,7 @@ def complete_delivery_action(delivery_id):
 
     product_ids = request.form.getlist("product_id[]")
     received_qtys = request.form.getlist("received_quantity[]")
+    unit_prices = request.form.getlist("unit_price[]")
 
     if not product_ids:
         flash("No items for completion.", "error")
@@ -1650,9 +1670,15 @@ def complete_delivery_action(delivery_id):
             qty_raw = received_qtys[i].strip() if i < len(received_qtys) and received_qtys[i] else ""
             qty = int(qty_raw) if qty_raw != "" else 0
             if qty < 0: raise ValueError
-            received_items.append({"product_id": pid, "received_quantity": qty})
+            # Actual batch unit price; blank keeps the PR estimate (resolved in crud).
+            price_raw = unit_prices[i].strip() if i < len(unit_prices) and unit_prices[i] else ""
+            price_val = None
+            if price_raw != "":
+                price_val = float(price_raw)
+                if price_val < 0: raise ValueError
+            received_items.append({"product_id": pid, "received_quantity": qty, "unit_price": price_val})
         except (ValueError, IndexError, AttributeError):
-            flash(f"Invalid received quantity row {i+1}.", "error")
+            flash(f"Invalid received quantity or unit price row {i+1}.", "error")
             return redirect(url_for("delivery_dashboard"))
 
     success, result = create_completion_delivery(

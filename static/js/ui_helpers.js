@@ -36,7 +36,7 @@ setInterval(updateClock, 1000); updateClock();
             // Progressive cascade unveil - top to bottom, sidebar stays static
             const header = document.querySelector('.top-header');
             const cards = document.querySelector('.cards-grid');
-            const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .content-card, .workspace-grid');
+            const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .toolbelt-container, .content-card, .workspace-grid');
             // Only run cascade if internal navigation (not from login) OR if no skeleton present
             if (!isFromLogin || !skeleton) {
                 if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
@@ -81,7 +81,7 @@ setInterval(updateClock, 1000); updateClock();
                 // Progressive cascade unveil - top to bottom, sidebar stays static
                 const header = document.querySelector('.top-header');
                 const cards = document.querySelector('.cards-grid');
-                const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card');
+                const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .toolbelt-container');
                 if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
                 if (cards) { cards.classList.add('cascade-unveil'); cards.style.animationDelay = '0.25s'; }
                 tables.forEach(el => { el.classList.add('cascade-unveil'); el.style.animationDelay = '0.5s'; });

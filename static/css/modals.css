@@ -260,6 +260,36 @@ body .modal-box {
     animation: dropletBounce 0.45s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* --- Standard modal action-button hover (Confirm / Save / Understood) ---
+   The base .btn-modal-save (padding, blue fill) lives in each page
+   stylesheet; this shared rule unifies the lift + shadow + darken animation
+   everywhere, including #duplicateItemModal's Understood button. */
+.btn-modal-save {
+    transition: all 0.2s ease;
+}
+.btn-modal-save:hover {
+    background: #2ea3d1;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 12px rgba(83, 197, 241, 0.5);
+}
+.btn-modal-save:active {
+    transform: none;
+    box-shadow: 0 2px 5px rgba(83, 197, 241, 0.35);
+}
+
+/* --- Duplicate-item "Understood" button: success-green hover (save semantics).
+   ID-scoped so every other .btn-modal-save in the system keeps the standard
+   blue hover above. */
+#duplicateItemConfirm:hover {
+    background: #2e7d32;
+    transform: translateY(-1px);
+    box-shadow: 0 5px 12px rgba(46, 125, 50, 0.5);
+}
+#duplicateItemConfirm:active {
+    transform: none;
+    box-shadow: 0 2px 5px rgba(46, 125, 50, 0.35);
+}
+
 /* --- Universal form-control focus highlight (every page, every form) ---
    Applies to ANY input, select, or textarea in a modal, search bar,
    filter, or auth page. Smooth color glow only — no scaling. */

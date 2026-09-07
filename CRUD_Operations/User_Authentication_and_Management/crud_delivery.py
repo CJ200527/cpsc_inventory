@@ -74,6 +74,22 @@ def _compute_is_partial(pr_items_map, received_items):
     return 0
 
 
+def _resolve_actual_price(submitted_item, pr_item):
+    """Actual delivery unit price for a line item.
+
+    The submitted `unit_price` override (actual invoice/bidding cost) wins;
+    blank/missing falls back to the PR-estimated price. Negative or
+    non-numeric input raises ValueError so the caller can reject the row.
+    """
+    raw = submitted_item.get('unit_price', None)
+    if raw is None or (isinstance(raw, str) and raw.strip() == ''):
+        return round(float(pr_item['price'] or 0), 2)
+    price = float(raw)
+    if price < 0:
+        raise ValueError(f"Unit price cannot be negative for '{pr_item['item_name']}'.")
+    return round(price, 2)
+
+
 # ============================================================
 # 1. Get PRs eligible for Delivery — ONLY Approved, searchable
 # ============================================================
@@ -216,7 +232,9 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
     - Links DIRECTLY to purchase_requests via pr_id (no PO required).
     - po_reference_number / supplier_name are free-text tracking columns.
     - is_partial AUTO-computed: 1 if any received != ordered, else 0.
-    - received_items: [{product_id, received_quantity}] — received must be <= ordered.
+    - received_items: [{product_id, received_quantity, unit_price?}] — received
+      must be <= ordered; unit_price is the actual invoice cost (falls back to
+      the PR estimate when blank) and is stored as the line's true cost.
     - Returns (True, delivery_id) or (False, error_msg)
 
     Backwards compat: also accepts po_id= kwarg (treated as pr_id) and
@@ -270,7 +288,7 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
             return False, "No items found for this Purchase Request."
         pr_items_map = {int(r['product_id']): r for r in pr_items}
 
-        # Validate each received <= ordered and auto compute partial
+        # Validate each received <= ordered, prices >= 0, and auto compute partial
         for it in received_items:
             try:
                 pid = int(it.get('product_id'))
@@ -285,6 +303,12 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
             ordered_qty = int(pr_item['quantity'])
             if recv_qty > ordered_qty:
                 return False, f"Received quantity ({recv_qty}) cannot exceed ordered quantity ({ordered_qty}) for '{pr_item['item_name']}'."
+            try:
+                _resolve_actual_price(it, pr_item)
+            except ValueError as verr:
+                return False, str(verr)
+            except Exception:
+                return False, f"Invalid unit price for '{pr_item['item_name']}'. Must be 0 or more."
 
         # Check for empty received (all zeros) — require at least one >0
         if all(int(it.get('received_quantity', 0)) == 0 for it in received_items):
@@ -336,9 +360,9 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
             recv_qty = int(it['received_quantity'])
             pr_item = pr_items_map[pid]
             ordered_qty = int(pr_item['quantity'])
-            price = float(pr_item['price'])
+            price = _resolve_actual_price(it, pr_item)
             item_name = pr_item['item_name']
-            total_price = recv_qty * price
+            total_price = round(recv_qty * price, 2)
             cursor.execute(sql_item, (delivery_id, pr_id, user_id, pid, item_name,
                                       ordered_qty, recv_qty,
                                       pr_item.get('category'), pr_item.get('details'),
@@ -373,6 +397,8 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
     Creates a NEW delivery for remaining quantity of same PR as original_delivery_id.
     Shows remaining = ordered - sum(all deliveries) so user never sees initial qty when completing.
     Validates received <= remaining.
+    Each line may carry its own actual `unit_price` (a new partial batch can
+    arrive at an adjusted price); blank falls back to the PR estimate.
     po_reference_number / supplier_name default to the original delivery's values if omitted.
     Returns (True, new_delivery_id) or (False, msg)
     """
@@ -420,7 +446,7 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
         pr_map = {int(r['product_id']): r for r in pr_items}
         remain_map = {int(r['product_id']): int(r['remaining_quantity']) for r in remaining_list}
 
-        # Validate each received <= remaining
+        # Validate each received <= remaining and prices >= 0
         for it in received_items:
             try:
                 pid = int(it.get('product_id'))
@@ -433,6 +459,12 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
                 return False, f"Product {pid} not in PR."
             if recv > remain_map[pid]:
                 return False, f"Received ({recv}) exceeds remaining ({remain_map[pid]}) for '{pr_map[pid]['item_name']}'."
+            try:
+                _resolve_actual_price(it, pr_map[pid])
+            except ValueError as verr:
+                return False, str(verr)
+            except Exception:
+                return False, f"Invalid unit price for '{pr_map[pid]['item_name']}'. Must be 0 or more."
 
         if all(int(it.get('received_quantity', 0)) == 0 for it in received_items):
             return False, "Enter at least one received quantity >0."
@@ -470,9 +502,9 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
             recv = int(it['received_quantity'])
             # Store ordered_quantity = remaining before this completion (so comparison is recv vs remaining).
             ordered_for_display = remain_map[pid]
-            price = float(pr_map[pid]['price'])
+            price = _resolve_actual_price(it, pr_map[pid])
             item_name = pr_map[pid]['item_name']
-            total = recv * price
+            total = round(recv * price, 2)
             cursor.execute(sql_item, (new_id, pr_id, user_id, pid, item_name,
                                       ordered_for_display, recv,
                                       pr_map[pid].get('category'), pr_map[pid].get('details'),
@@ -668,6 +700,8 @@ def get_delivery_details(delivery_id):
 # 5. Approve — ingest stock (exact qty + double-injection guard, no DDL)
 #    Guard: Only Pending can be approved; block if already Received/Injected or stock_movement exists.
 #    Adds EXACT received_quantity per item to products.current_stock (not ordered qty).
+#    Pricing: blends each line's ACTUAL delivery unit cost into products.price
+#    via weighted average (zero-stock adopts latest verified cost).
 # ============================================================
 def approve_delivery(delivery_id, admin_user_id):
     conn = None
@@ -705,11 +739,34 @@ def approve_delivery(delivery_id, admin_user_id):
             qty = int(it['received_quantity'] or 0)
             if qty <= 0:
                 continue
+            try:
+                unit_cost = round(float(it['price'] or 0), 2)
+            except (TypeError, ValueError):
+                unit_cost = 0.0
+            # Snapshot pre-injection valuation for weighted-average costing
+            try:
+                cursor.execute("SELECT COALESCE(current_stock,0) AS stk, COALESCE(price,0) AS prc FROM products WHERE product_id=%s", (pid,))
+                prow = cursor.fetchone() or {}
+                old_stock = int(prow.get('stk') or 0)
+                old_price = float(prow.get('prc') or 0)
+            except Exception:
+                old_stock, old_price = 0, 0.0
             cursor.execute("UPDATE products SET current_stock = current_stock + %s WHERE product_id = %s", (qty, pid))
             try:
                 cursor.execute("UPDATE products SET quantity = current_stock WHERE product_id = %s", (pid,))
             except Exception:
                 pass
+            # Pricing integrity: blend existing stock value with this delivery's
+            # ACTUAL unit cost (weighted average). Zero/never-valued stock simply
+            # adopts the latest verified delivery cost.
+            try:
+                if old_stock > 0 and old_price > 0:
+                    new_price = round((old_stock * old_price + qty * unit_cost) / (old_stock + qty), 2)
+                else:
+                    new_price = unit_cost
+                cursor.execute("UPDATE products SET price = %s WHERE product_id = %s", (new_price, pid))
+            except Exception as e:
+                print(f"[approve_delivery price sync] {e}")
             # Populate physical ledger `items` (finalized columns, no po_id/supplier_id)
             try:
                 cursor.execute("SELECT category, details, unit, size FROM pr_items WHERE pr_id=%s AND product_id=%s LIMIT 1", (delivery['pr_id'], pid))

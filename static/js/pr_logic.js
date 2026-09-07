@@ -64,6 +64,47 @@
             const list = tr.querySelector('.custom-dropdown-list');
             if(list) setTimeout(() => list.classList.add('hidden'), 150);
         }
+        /* Duplicate guard: normalized composite key mirrors the backend
+           _resolve_product_id identity (name+category+unit+size+details).
+           Blank names return null (required-field validation owns them). */
+        function prRowKey(tr){
+            const pick = sel => { const el = tr.querySelector(sel); return el ? (el.value || '').trim() : ''; };
+            const name = pick('input[name="item_name[]"]').toLowerCase();
+            if(!name) return null;
+            const cat = (pick('select[name="category[]"]') || 'General').toLowerCase();
+            const unit = (pick('input[name="unit[]"]') || 'pcs').toLowerCase();
+            const size = (pick('input[name="size[]"]') || 'N/A').toLowerCase();
+            const det = pick('input[name="details[]"]').toLowerCase();
+            return [name, cat, unit, size, det].join('‖');
+        }
+        function findDuplicatePrRow(tbodyId, selfTr){
+            const key = prRowKey(selfTr);
+            if(!key) return null;
+            const rows = document.querySelectorAll('#' + tbodyId + ' .pr-item-row');
+            for(const tr of rows){
+                if(tr === selfTr) continue;
+                if(prRowKey(tr) === key) return tr;
+            }
+            return null;
+        }
+        /* Duplicate warning modal (replaces native alert()). Custom message
+           supported for the submit-time gate; otherwise the default body text
+           already rendered in #duplicateItemMessage is shown. */
+        const DEFAULT_DUP_MSG = 'This product is already in your request. Please adjust the quantity of the existing item instead.';
+        function showDuplicateItemModal(message){
+            const msgEl = document.getElementById('duplicateItemMessage');
+            const modal = document.getElementById('duplicateItemModal');
+            if(msgEl) msgEl.textContent = message || DEFAULT_DUP_MSG;
+            if(modal) modal.classList.remove('hidden');
+        }
+        function closeDuplicateItemModal(){
+            const modal = document.getElementById('duplicateItemModal');
+            if(modal) modal.classList.add('hidden');
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+            const btn = document.getElementById('duplicateItemConfirm');
+            if(btn) btn.addEventListener('click', closeDuplicateItemModal);
+        });
         /* Explicit rich pick: overwrite specs from catalog, then smart-lock. */
         function selectCatalogItem(el){
             const p = catalogProducts[parseInt(el.dataset.pi, 10)];
@@ -71,6 +112,15 @@
             const list = tr.querySelector('.custom-dropdown-list');
             if(list) list.classList.add('hidden');
             if(!p) return;
+            // Abort before mutating: the picked product is already listed.
+            const pickedKey = [p.product_name || '', p.category || 'General', p.unit || 'pcs', p.size || 'N/A', p.details || '']
+                .map(s => String(s).trim().toLowerCase()).join('‖');
+            const tb = tr.closest('tbody');
+            if(tb){
+                for(const other of tb.querySelectorAll('.pr-item-row')){
+                    if(other !== tr && prRowKey(other) === pickedKey){ showDuplicateItemModal(); return; }
+                }
+            }
             const input = tr.querySelector('input[name="item_name[]"]');
             input.value = p.product_name;
             tr.dataset.lastMatch = p.product_name;
@@ -142,6 +192,7 @@
                     delete tr.dataset.lastMatch;
                     calcPrRowTotal(priceEl);
                 }
+                delete tr.dataset.dupWarned;
                 lockRowSpecs(tr, null);
                 hideCatalogDropdown(input);
                 return;
@@ -159,6 +210,16 @@
             }
             lockRowSpecs(tr, match);
             showCatalogDropdown(input);
+            // Typed-name path: warn once per matched name if it duplicates a sibling row.
+            const tb = tr.closest('tbody');
+            if(tb && findDuplicatePrRow(tb.id, tr)){
+                if(tr.dataset.dupWarned !== v.toLowerCase()){
+                    tr.dataset.dupWarned = v.toLowerCase();
+                    showDuplicateItemModal();
+                }
+            } else if(tr.dataset.dupWarned && tr.dataset.dupWarned !== v.toLowerCase()){
+                delete tr.dataset.dupWarned;
+            }
         }
 
         /* Builds one line-item row into the given tbody (optional prefill for Pending-edit). */
@@ -226,6 +287,7 @@
         function validatePrRows(tbodyId) {
             const rows = document.querySelectorAll('#' + tbodyId + ' .pr-item-row');
             if (rows.length === 0) { alert('Please add at least one item.'); return false; }
+            const seen = {};
             for (const [idx, tr] of [...rows].entries()) {
                 const name = tr.querySelector('input[name="item_name[]"]').value.trim();
                 const price = parseFloat(tr.querySelector('input[name="price[]"]').value);
@@ -233,6 +295,12 @@
                 if (!name) { alert(`Row ${idx + 1}: Item Name is required.`); return false; }
                 if (isNaN(price) || price < 0) { alert(`Row ${idx + 1}: Price must be 0 or more.`); return false; }
                 if (isNaN(qty) || qty < 1) { alert(`Row ${idx + 1}: Quantity must be at least 1.`); return false; }
+                // Final gate: no two rows may resolve to the same product.
+                const key = prRowKey(tr);
+                if (key) {
+                    if (seen[key] !== undefined) { showDuplicateItemModal(`Rows ${seen[key] + 1} and ${idx + 1}: ${DEFAULT_DUP_MSG}`); return false; }
+                    seen[key] = idx;
+                }
             }
             return true;
         }
