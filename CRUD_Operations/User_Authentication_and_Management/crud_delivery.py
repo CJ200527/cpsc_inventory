@@ -23,38 +23,40 @@ from datetime import datetime
 
 
 def generate_delivery_number():
-    """Generates the next sequential delivery number like DEL-2026-001 (display hint; DB enforces uniqueness)."""
+    """Generates the next daily delivery number like DEL-2026-09-08-001
+    (display hint; DB enforces uniqueness). Sequence resets each day."""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        current_year = datetime.now().year
-        cursor.execute("SELECT COUNT(*) FROM deliveries;")
+        prefix = datetime.now().strftime("DEL-%Y-%m-%d")
+        cursor.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_number LIKE %s;", (prefix + "-%",))
         count = cursor.fetchone()[0] + 1
-        return f"DEL-{current_year}-{count:03d}"
+        return f"{prefix}-{count:03d}"
     except Exception as err:
         print(f"[generate_delivery_number] DB error: {err}")
-        return f"DEL-{datetime.now().year}-001"
+        return f"{datetime.now().strftime('DEL-%Y-%m-%d')}-001"
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
 
 
 def generate_iar_number():
-    """Generates the next sequential IAR number like IAR-2026-001 (display hint; DB enforces uniqueness)."""
+    """Generates the next daily IAR number like IAR-2026-09-08-001
+    (display hint; DB enforces uniqueness). Sequence resets each day."""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        current_year = datetime.now().year
-        cursor.execute("SELECT COUNT(*) FROM deliveries;")
+        prefix = datetime.now().strftime("IAR-%Y-%m-%d")
+        cursor.execute("SELECT COUNT(*) FROM deliveries WHERE iar_number LIKE %s;", (prefix + "-%",))
         count = cursor.fetchone()[0] + 1
-        return f"IAR-{current_year}-{count:03d}"
+        return f"{prefix}-{count:03d}"
     except Exception as err:
         print(f"[generate_iar_number] DB error: {err}")
-        return f"IAR-{datetime.now().year}-001"
+        return f"{datetime.now().strftime('IAR-%Y-%m-%d')}-001"
     finally:
         if cursor: cursor.close()
         if conn: conn.close()

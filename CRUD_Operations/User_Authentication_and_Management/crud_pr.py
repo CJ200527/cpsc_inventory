@@ -1,5 +1,5 @@
 """crud_pr.py — Purchase Request Workflow (PR-to-Delivery, finalized schema)
-create_purchase_request(): inserts header + pr_items in transaction, generates PR-YYYY-XXX.
+create_purchase_request(): inserts header + pr_items in transaction, generates PR-YYYY-MM-DD-XXX (daily).
 get_all_purchase_requests() supports search + status/date filters, joined with users.
 update_pr_status() for Admin approve/reject.
 get_approved_prs_without_delivery(): approved PRs eligible for direct delivery.
@@ -15,19 +15,23 @@ from db import get_db_connection
 from datetime import datetime
 
 def generate_pr_number():
-    """Generates a unique sequential PR number formatted like PR-2026-001."""
+    """Generates the next daily PR number like PR-2026-09-08-001.
+
+    Sequence resets each day (count of PRs already carrying today's prefix
+    + 1). Uniqueness is still enforced by the DB + route validation.
+    """
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        current_year = datetime.now().year
-        cursor.execute("SELECT COUNT(*) FROM purchase_requests;")
+        prefix = datetime.now().strftime("PR-%Y-%m-%d")
+        cursor.execute("SELECT COUNT(*) FROM purchase_requests WHERE pr_number LIKE %s;", (prefix + "-%",))
         count = cursor.fetchone()[0] + 1
-        return f"PR-{current_year}-{count:03d}"
+        return f"{prefix}-{count:03d}"
     except Exception as err:
         print(f"[generate_pr_number] DB error: {err}")
-        return f"PR-{datetime.now().year}-001"
+        return f"{datetime.now().strftime('PR-%Y-%m-%d')}-001"
     finally:
         if cursor: cursor.close()
         if conn: conn.close()

@@ -111,11 +111,18 @@
         .close-btn{ background:none; border:none; font-size:22px; color:#888; cursor:pointer; }
         .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:10px; }
         .form-grid .full{ grid-column:span 2; }
+        /* Withdraw header columns: each stacks its fields with one uniform gap,
+           so Withdraw Number / Department / Received By are spaced equally. */
+        #withdraw-modal .wh-col{ display:flex; flex-direction:column; gap:12px; min-width:0; }
         .form-group label{ font-size:11px; font-weight:600; color:#0d233a; display:block; margin-bottom:4px; }
         .form-group input, .form-group textarea, .form-group select{ width:100%; padding:8px 10px; border:1.5px solid #d0dbe5; border-radius:6px; font-size:12px; outline:none; background:#f8fcff; }
         .item-table{ width:100%; border-collapse:collapse; margin-top:10px; margin-bottom:14px; min-width:unset; }
         .item-table th{ background:#eaf3f8; color:#0d233a; font-size:11px; padding:8px; }
         .item-table td{ padding:8px; border-bottom:1px solid #eef2f5; font-size:12px; white-space:normal; }
+        /* Product picker replicates the PR modal language: identical search box,
+           shared rich list from modals.css, stock pill instead of price pill. */
+        .item-table input[type="text"]{ width:100%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:4px; }
+        .cd-stock{ flex-shrink:0; margin-left:auto; background:#e1f3fe; color:#0277bd; border:1px solid #b3e0f5; border-radius:12px; padding:2px 8px; font-size:11px; font-weight:700; white-space:nowrap; }
         .modal-buttons{ display:flex; justify-content:flex-end; gap:10px; margin-top:16px; }
         .btn-modal-cancel{ padding:8px 18px; background:#e0e0e0; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
         .btn-modal-save{ padding:8px 22px; background:#53c5f1; color:#fff; border:none; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; box-shadow:0 3px 8px rgba(83,197,241,0.35); }

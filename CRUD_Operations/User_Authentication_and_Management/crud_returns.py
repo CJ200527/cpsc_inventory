@@ -12,6 +12,29 @@ from datetime import datetime
 
 STOCK_COL = "current_stock"
 
+def generate_return_number():
+    """Generates the next daily return number like RET-2026-09-08-001
+    (display hint; DB enforces uniqueness). Sequence resets each day."""
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        prefix = datetime.now().strftime("RET-%Y-%m-%d")
+        cur.execute("SELECT COUNT(*) FROM `return` WHERE return_number LIKE %s;", (prefix + "-%",))
+        count = cur.fetchone()[0] + 1
+        return f"{prefix}-{count:03d}"
+    except Exception as err:
+        print(f"[generate_return_number] DB error: {err}")
+        return f"{datetime.now().strftime('RET-%Y-%m-%d')}-001"
+    finally:
+        if cur:
+            try: cur.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass
+
 def get_issued_withdrawals():
     conn=None; cur=None
     try:

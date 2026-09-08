@@ -11,6 +11,29 @@ from datetime import datetime
 
 STOCK_COL = "current_stock"
 
+def generate_withdraw_number():
+    """Generates the next daily withdraw number like WD-2026-09-08-001
+    (display hint; DB enforces uniqueness). Sequence resets each day."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        prefix = datetime.now().strftime("WD-%Y-%m-%d")
+        cursor.execute("SELECT COUNT(*) FROM `withdraw` WHERE ris_number LIKE %s;", (prefix + "-%",))
+        count = cursor.fetchone()[0] + 1
+        return f"{prefix}-{count:03d}"
+    except Exception as err:
+        print(f"[generate_withdraw_number] DB error: {err}")
+        return f"{datetime.now().strftime('WD-%Y-%m-%d')}-001"
+    finally:
+        if cursor:
+            try: cursor.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass
+
 def get_available_products():
     """Products with stock > 0 for the withdraw modal."""
     conn=None; cur=None

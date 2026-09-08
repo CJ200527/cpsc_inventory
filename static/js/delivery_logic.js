@@ -173,6 +173,12 @@
             fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
                 if(numEl){ if(dt.delivery_number) numEl.value=dt.delivery_number; else numEl.placeholder='Auto-generated'; }
             }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
+            // Auto-generated IAR number (readonly), same endpoint as the Creation modal.
+            const iarEl=document.getElementById('complete-iar-number-auto');
+            if(iarEl){ iarEl.value=''; iarEl.placeholder='Loading...'; }
+            fetch('/delivery/get_next_iar').then(r=>r.json()).then(dt=>{
+                if(iarEl){ if(dt.iar_number) iarEl.value=dt.iar_number; else iarEl.placeholder='Auto-generated'; }
+            }).catch(()=>{ if(iarEl) iarEl.placeholder='Auto-generated'; });
             document.getElementById('complete-items-tbody').innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">Loading remaining…</td></tr>';
             document.getElementById('complete-pr-meta').innerHTML='Loading…';
             const ctot0=document.getElementById('complete-total-price'); if(ctot0) ctot0.innerText='₱ 0.00';
@@ -249,6 +255,10 @@
                     html+=`<tr><td><strong>${i.item_name}</strong></td><td>${i.ordered_quantity}</td><td style="font-weight:700;color:${clr}">${i.received_quantity} / ${i.ordered_quantity}</td><td>₱ ${Number(i.price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td><td>₱ ${Number(i.total_price).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2})}</td></tr>`;
                 });
                 html+=`</tbody></table>`;
+                // Footer total: every record (partial or complete) sums its
+                // actually-delivered lines (received qty x delivery price).
+                const grandTotal=(data.items||[]).reduce((a,i)=>a+(Number(i.received_quantity||0)*Number(i.price||0)),0);
+                html+=`<div class="footer-total-display" style="text-align:right;margin-top:10px;">Grand Total: <span>${fmtPeso(grandTotal)}</span></div>`;
                 if(data.header.status==='Pending'){
                     html+=`<div style="margin-top:10px;padding:8px 10px;background:#fff3cd;border:1px solid #ffe082;border-radius:6px;font-size:11px;color:#856404;">⏳ Pending — stock not credited. Approve via professional confirmation to ingest.</div>`;
                     if(approveArea){

@@ -93,7 +93,8 @@ from crud_withdrawal import (
     get_all_withdrawals,
     get_withdrawal_details,
     approve_withdrawal,
-    reject_withdrawal
+    reject_withdrawal,
+    generate_withdraw_number,
 )
 
 # --- IMPORTS FOR RETURN MODULE (Return Slip) ---
@@ -104,7 +105,8 @@ from crud_returns import (
     get_all_returns,
     get_return_details,
     approve_return,
-    reject_return
+    reject_return,
+    generate_return_number,
 )
 
 # Initialize Flask Application
@@ -455,10 +457,25 @@ def admin_dashboard():
             print(f"[admin_dashboard] active users error: {err}")
             active_users = 0
 
+        # --- Total Asset Value: SUM(current_stock x unit_price) over the live
+        # inventory (products holds the delivery-updated true costs; the
+        # dedicated `inventory` table does not exist in this schema).
+        # Rounded to 2 decimals; falls back to the helper total on DB error.
         try:
-            asset_value = float(summary.get("total_asset_value", 0) or 0)
-        except (TypeError, ValueError):
-            asset_value = 0.0
+            cur.execute("""
+                SELECT ROUND(COALESCE(SUM(
+                    COALESCE(p.current_stock, p.quantity, 0) * COALESCE(p.price, 0)
+                ), 0), 2) AS asset_value
+                FROM products p
+                WHERE COALESCE(p.current_stock, p.quantity, 0) > 0
+            """)
+            asset_value = float((cur.fetchone() or {}).get("asset_value", 0) or 0)
+        except Exception as err:
+            print(f"[admin_dashboard] asset value error: {err}")
+            try:
+                asset_value = round(float(summary.get("total_asset_value", 0) or 0), 2)
+            except (TypeError, ValueError):
+                asset_value = 0.0
         admin_kpi = {
             "total_asset_value": f"₱ {asset_value:,.2f}",
             "low_stock_alerts": int(summary.get("low_stock_count", 0) or 0),
@@ -1827,6 +1844,17 @@ def staff_withdraw_dashboard():
         status_filter=status_filter
     )
 
+# --- API ROUTE: Next available withdraw number (for live display in Withdraw modal) ---
+@app.route("/withdraw/get_next_number")
+def get_next_withdraw_number_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        return {"withdraw_number": generate_withdraw_number()}
+    except Exception as err:
+        print(f"[get_next_withdraw_number_api] DB error: {err}")
+        return {"error": str(err)}, 500
+
 @app.route("/withdraw/create", methods=["POST"])
 def create_withdrawal_action():
     if "user_id" not in session:
@@ -1991,6 +2019,10 @@ def create_return_action():
     if not all([return_number, department, reason]):
         flash("Return Number, Department and Reason are required.", "error")
         return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
+    # Return Date guard: past/present only — future dates are rejected.
+    if date_returned and len(date_returned) >= 10 and date_returned[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("Return Date cannot be in the future.", "error")
+        return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
     if not product_ids:
         flash("Add at least one item.", "error")
         return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
@@ -2019,6 +2051,17 @@ def create_return_action():
     if session.get("role")=="Admin":
         return redirect(url_for("admin_return_dashboard"))
     return redirect(url_for("staff_return_dashboard"))
+
+# --- API ROUTE: Next available return number (for live display in Return modal) ---
+@app.route("/returns/get_next_number")
+def get_next_return_number_api():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    try:
+        return {"return_number": generate_return_number()}
+    except Exception as err:
+        print(f"[get_next_return_number_api] DB error: {err}")
+        return {"error": str(err)}, 500
 
 @app.route("/returns/details/<int:return_id>")
 def get_return_details_api(return_id):

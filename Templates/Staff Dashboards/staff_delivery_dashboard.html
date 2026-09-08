@@ -219,7 +219,7 @@
                     <h4>Section 1 — Delivery Header</h4>
                 <div class="form-grid">
                     <div class="form-group"><label>Delivery Number (auto)</label><input type="text" name="delivery_number" id="complete-delivery-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>IAR Number * (new)</label><input type="text" name="iar_number" placeholder="IAR-2026-002" required></div>
+                    <div class="form-group"><label>IAR Number (auto)</label><input type="text" name="iar_number" id="complete-iar-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
                     <div class="form-group"><label>PO / Bidding Reference Number</label><input type="text" name="po_reference_number" id="complete-po-ref" placeholder="Inherited from original delivery" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
                     <div class="form-group"><label>Supplier Name</label><input type="text" name="supplier_name" id="complete-supplier" placeholder="Defaults to original"></div>
                     <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" required></div>
@@ -247,8 +247,8 @@
         </div>
     </div>
 
-    <!-- VIEW MODAL -->
-    <div id="view-modal" class="modal-overlay hidden">
+    <!-- VIEW MODAL (delivery-modal scope: footer-total style + button hovers) -->
+    <div id="view-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box">
             <div class="modal-header">
                 <h3 id="view-delivery-title">Delivery Details</h3>

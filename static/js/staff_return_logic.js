@@ -19,15 +19,78 @@
             } catch (e) { availableProducts = []; }
         }
 
+        function todayLocal(){ const n=new Date(); const p=x=>String(x).padStart(2,'0'); return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; }
+        /* Return Slip Number: daily server sequence (offline fallback keeps the
+           RET-YYYY-MM-DD shape with a random suffix; DB enforces uniqueness). */
+        function fetchReturnNumber(numEl){
+            if(!numEl) return;
+            numEl.value=''; numEl.placeholder='Loading...';
+            fetch('/returns/get_next_number').then(r=>r.json()).then(dt=>{
+                if(dt.return_number) numEl.value=dt.return_number;
+                else numEl.placeholder='Auto-generated';
+            }).catch(()=>{ numEl.value=`RET-${todayLocal()}-${Math.floor(1000+Math.random()*9000)}`; });
+        }
         async function openReturnModal(){
-            try { await returnCatalogReady; } catch (e) {} document.getElementById('return-items-body').innerHTML=''; addReturnRow(); document.getElementById('return-modal').classList.remove('hidden'); const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d && !d.value) d.valueAsDate=new Date(); }
+            try { await returnCatalogReady; } catch (e) {} document.getElementById('return-items-body').innerHTML=''; addReturnRow(); document.getElementById('return-modal').classList.remove('hidden');
+            const numEl=document.getElementById('return-number-auto'); if(numEl && !numEl.value) fetchReturnNumber(numEl);
+            const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d){ if(!d.value) d.valueAsDate=new Date(); d.max=todayLocal(); }
+            const sInput=document.getElementById('withdraw-smart-search'); if(sInput) sInput.value='';
+            const sHidden=document.getElementById('withdraw-id-hidden'); if(sHidden) sHidden.value='';
+            const sList=document.getElementById('withdraw-dropdown-list'); if(sList){ sList.innerHTML=''; sList.classList.add('hidden'); } }
         function closeReturnModal(){ document.getElementById('return-modal').classList.add('hidden'); }
+        /* Withdraw Number smart search (delivery-picker pattern): click shows
+           the list, typing filters it; only an explicit pick links a record. */
+        function escHtml(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function withdrawDropdownData(){
+            const sel=document.getElementById('withdraw-select');
+            if(!sel) return [];
+            return [...sel.options].filter(o=>o.value).map(o=>({
+                id:o.value, ris:o.dataset.ris||o.text, dept:o.dataset.dept||''
+            }));
+        }
+        function renderWithdrawDropdown(input, hits){
+            const list=document.getElementById('withdraw-dropdown-list');
+            if(!list) return;
+            if(hits.length===0){
+                list.innerHTML=`<div class="custom-dropdown-empty">No matching withdrawals.</div>`;
+            } else {
+                list.innerHTML=hits.map(w=>`<div class="custom-dropdown-item" data-wid="${w.id}" data-ris="${escHtml(w.ris)}" onmousedown="selectWDItem(this)">`
+                    +`<span class="cd-text"><span class="cd-name">${escHtml(w.ris)}</span>`
+                    +`<span class="cd-specs">${escHtml(w.dept) || '&nbsp;'}</span></span></div>`).join('');
+            }
+            list.classList.remove('hidden');
+        }
+        function filterWithdrawDropdown(input){
+            const hidden=document.getElementById('withdraw-id-hidden');
+            if(hidden) hidden.value='';
+            const q=input.value.trim().toLowerCase();
+            renderWithdrawDropdown(input, withdrawDropdownData().filter(w=>!q||(w.ris+' '+w.dept).toLowerCase().includes(q)).slice(0,50));
+        }
+        function showWithdrawDropdown(input){
+            renderWithdrawDropdown(input, withdrawDropdownData().slice(0,50));
+        }
+        function hideWithdrawDropdown(input){
+            const list=document.getElementById('withdraw-dropdown-list');
+            if(list) setTimeout(()=>list.classList.add('hidden'),150);
+        }
+        function selectWDItem(el){
+            const list=document.getElementById('withdraw-dropdown-list');
+            if(list) list.classList.add('hidden');
+            const input=document.getElementById('withdraw-smart-search');
+            const hidden=document.getElementById('withdraw-id-hidden');
+            if(input) input.value=el.dataset.ris||'';
+            if(hidden) hidden.value=el.dataset.wid||'';
+            if(el.dataset.wid) onWithdrawalSelect(el.dataset.wid);
+        }
         function onWithdrawalSelect(val){
             const tbody=document.getElementById('return-items-body');
             tbody.innerHTML='';
             if(!val){ addReturnRow(); return; }
             fetch('/withdraw/details/'+val).then(r=>r.json()).then(data=>{
                 if(data.error){ addReturnRow(); return; }
+                // Department follows the chosen withdrawn record.
+                const deptInput=document.querySelector('#return-modal input[name="department"]');
+                if(deptInput && data.header && data.header.department) deptInput.value=data.header.department;
                 data.items.forEach(it=>{ addReturnRowWithProduct(it.product_id, it.item_name, it.unit, it.quantity); });
                 if(tbody.children.length===0) addReturnRow();
             });
@@ -68,6 +131,8 @@
             document.getElementById(`r-unit-${rowId}`).innerText=p.unit;
         }
         function validateReturnForm(){
+            const widHidden=document.getElementById('withdraw-id-hidden');
+            if(!widHidden || !widHidden.value){ alert('Select a Withdraw Number from the list.'); return false; }
             const rows=document.querySelectorAll('#return-items-body tr');
             if(rows.length===0){ alert('Add at least one item.'); return false; }
             let ok=true, msg='';

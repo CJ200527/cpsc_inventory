@@ -150,6 +150,29 @@
     flex-shrink: 0;
 }
 
+/* --- Generic fixed chrome + scrollable body for large modals ---
+   The box reuses .pr-modal-large (90vw / 1200px / 85vh flex column), whose
+   existing `form > :not(.pr-modal-body)` rule already pins .modal-header /
+   .modal-footer (flex-shrink: 0). The .modal-body below is scoped to
+   .pr-modal-large so delivery (.delivery-modal-body) and small modals are
+   untouched. */
+.modal-box.pr-modal-large form > .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 70vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 10px 4px 2px;
+}
+.modal-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
 /* --- Rich custom dropdown (PR item-name picker) --- */
 .custom-dropdown-wrap {
     position: relative;
