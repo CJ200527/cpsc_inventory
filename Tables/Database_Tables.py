@@ -186,6 +186,7 @@ def create_all_tables():
         unit VARCHAR(20) DEFAULT NULL,
         unit_price DECIMAL(10, 2) DEFAULT 0.00,
         total_price DECIMAL(12, 2) DEFAULT 0.00,
+        details TEXT DEFAULT NULL,
         FOREIGN KEY (withdraw_id) REFERENCES withdraw(withdraw_id) ON DELETE CASCADE,
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -237,6 +238,7 @@ def create_all_tables():
         unit VARCHAR(20) DEFAULT NULL,
         unit_price DECIMAL(10, 2) DEFAULT 0.00,
         total_price DECIMAL(12, 2) DEFAULT 0.00,
+        details TEXT DEFAULT NULL,
         FOREIGN KEY (return_id) REFERENCES `return`(return_id) ON DELETE CASCADE,
         FOREIGN KEY (product_id) REFERENCES products(product_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

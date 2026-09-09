@@ -11,6 +11,7 @@
                 availableProducts = (data.products || []).map(p => ({
                     id: p.product_id, name: p.product_name,
                     category: p.category || '', unit: p.unit || 'pcs',
+                    details: p.details || '', size: p.size || '',
                     price: Number(p.price || 0),
                     stock: (p.stock === undefined || p.stock === null)
                         ? 0 : parseInt(p.stock),
@@ -107,7 +108,7 @@
                 if(deptInput && data.header && data.header.department) deptInput.value=data.header.department;
                 // Add rows for each issued item (pre-fill)
                 data.items.forEach(it=>{
-                    addReturnRowWithProduct(it.product_id, it.item_name, it.unit, it.quantity);
+                    addReturnRowWithProduct(it.product_id, it.item_name, it.unit, it.quantity, it.withdraw_details || it.details);
                 });
                 if(tbody.children.length===0) addReturnRow();
             });
@@ -120,23 +121,25 @@
             availableProducts.forEach(p=>{ opts+=`<option value="${p.id}">${p.name} — ${p.unit}</option>`; });
             tr.innerHTML=`
                 <td><select onchange="onReturnProductSelect(this, ${rowId})" required>${opts}</select><input type="hidden" name="product_id[]" id="r-prod-${rowId}"></td>
+                <td><span id="r-spec-${rowId}" class="readonly-cell">—</span></td>
                 <td><span id="r-issued-${rowId}" class="stock-info">—</span></td>
-                <td><span id="r-unit-${rowId}">—</span></td>
                 <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
+                <td><span id="r-unit-${rowId}">—</span></td>
                 <td><select name="condition_status[]" id="r-cond-${rowId}" required><option value="Serviceable">Serviceable / Unused</option><option value="Unserviceable">Unserviceable / Defective</option></select></td>
                 <td><button type="button" class="btn-action btn-reject" onclick="this.closest('tr').remove()">✖</button></td>
             `;
             tbody.appendChild(tr);
         }
-        function addReturnRowWithProduct(productId, itemName, unit, issuedQty){
+        function addReturnRowWithProduct(productId, itemName, unit, issuedQty, specs){
             const tbody=document.getElementById('return-items-body');
             const rowId=tbody.rows.length;
             const tr=document.createElement('tr');
             tr.innerHTML=`
                 <td><span style="font-weight:600;">${itemName}</span><input type="hidden" name="product_id[]" value="${productId}"><br><small style="color:#666;">ID:${productId}</small></td>
-                <td><span class="stock-info">Issued: ${issuedQty}</span><input type="hidden" id="r-issued-val-${rowId}" value="${issuedQty}"></td>
-                <td>${unit}</td>
+                <td><span class="readonly-cell">${specs || '—'}</span></td>
+                <td><span class="stock-info">${issuedQty}</span><input type="hidden" id="r-issued-val-${rowId}" value="${issuedQty}"></td>
                 <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" max="${issuedQty}" placeholder="max ${issuedQty}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
+                <td>${unit}</td>
                 <td><select name="condition_status[]" required><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select></td>
                 <td><button type="button" class="btn-action btn-reject" onclick="this.closest('tr').remove()">✖</button></td>
             `;
@@ -146,6 +149,7 @@
             const p=availableProducts.find(x=>String(x.id)===String(sel.value));
             if(!p) return;
             document.getElementById(`r-prod-${rowId}`).value=p.id;
+            document.getElementById(`r-spec-${rowId}`).innerText=[p.details, p.size].filter(Boolean).join(' ') || '—';
             document.getElementById(`r-unit-${rowId}`).innerText=p.unit;
             const issuedValEl=document.getElementById(`r-issued-val-${rowId}`);
             const widEl=document.getElementById('withdraw-id-hidden');
@@ -153,10 +157,13 @@
             if(wid && withdrawalItemsMap[wid]){
                 const issuedItem=withdrawalItemsMap[wid].find(it=>String(it.product_id)===String(p.id));
                 const issuedQty=issuedItem? issuedItem.quantity : '—';
-                document.getElementById(`r-issued-${rowId}`).innerText= issuedQty!=='—' ? `Issued: ${issuedQty}` : '—';
-                if(issuedItem) document.getElementById(`r-qty-${rowId}`).max=issuedQty;
+                document.getElementById(`r-issued-${rowId}`).innerText=issuedQty;
+                const qty=document.getElementById(`r-qty-${rowId}`);
+                if(qty){ if(issuedItem) qty.max=issuedQty; qty.value=''; }
             } else {
-                document.getElementById(`r-issued-${rowId}`).innerText='—';
+                document.getElementById(`r-issued-${rowId}`).innerText=p.stock;
+                const qty=document.getElementById(`r-qty-${rowId}`);
+                if(qty){ qty.max=p.stock; qty.value=''; }
             }
         }
         function validateReturnQty(rowId){

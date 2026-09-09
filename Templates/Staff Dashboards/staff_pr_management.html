@@ -193,6 +193,12 @@
                     </thead>
                     <tbody id="pr-items-body"></tbody>
                 </table>
+                <!-- Unit autocomplete: previously saved units, still typable for new values -->
+                <datalist id="unit-options">
+                    {% for unit in existing_units %}
+                    <option value="{{ unit }}"></option>
+                    {% endfor %}
+                </datalist>
 
                 <button type="button" class="icon-btn" onclick="addPrItemRow()">+ Add Another Item</button>
 

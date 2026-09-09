@@ -57,6 +57,27 @@ def get_all_products_filtered(search_query="", date_filter="All", custom_date=""
 get_all_products = get_all_products_filtered
 
 
+def get_distinct_units():
+    """Unique non-empty units for the PR unit datalist (type-new + pick-existing)."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT unit FROM products WHERE unit IS NOT NULL AND unit != '' ORDER BY unit ASC")
+        return [row[0] for row in cursor.fetchall()]
+    except Exception as err:
+        print(f"[get_distinct_units] DB error: {err}")
+        return []
+    finally:
+        if cursor is not None:
+            try: cursor.close()
+            except: pass
+        if conn is not None:
+            try: conn.close()
+            except: pass
+
+
 def get_suppliers_list():
     """Deprecated: supplier table removed (supplier is free-text on deliveries)."""
     return []

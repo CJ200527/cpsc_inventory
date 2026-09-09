@@ -12,6 +12,16 @@ from datetime import datetime
 
 STOCK_COL = "current_stock"
 
+def _return_items_has_details(cur):
+    """True when `return_items.details` exists (legacy DBs may lack it —
+    run the ALTER in that case; callers degrade gracefully meanwhile)."""
+    try:
+        cur.execute("SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'return_items' AND COLUMN_NAME = 'details'")
+        row = cur.fetchone()
+        return bool((row.get('c') if isinstance(row, dict) else row[0]) if row else False)
+    except Exception:
+        return False
+
 def generate_return_number():
     """Generates the next daily return number like RET-2026-09-08-001
     (display hint; DB enforces uniqueness). Sequence resets each day."""
@@ -138,16 +148,36 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
             VALUES (%s,%s,%s,%s,%s,'Pending',%s)
         """, (return_number, wid, user_id, department, reason, date_returned))
         rid=cur.lastrowid
+        # Insert items into return_items (spec snapshot into details:
+        # linked withdraw row first, else live catalog)
+        use_details = _return_items_has_details(cur)
         for it in items_list:
             pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
-            cur.execute("SELECT product_name, unit, price FROM products WHERE product_id=%s", (pid,))
+            cur.execute("SELECT product_name, unit, price, details FROM products WHERE product_id=%s", (pid,))
             prod=cur.fetchone()
             iname=prod['product_name']; unit=prod['unit'] or 'pcs'; price=float(prod['price'] or 0)
             total=qty*price
-            cur.execute("""
-                INSERT INTO return_items (return_id, product_id, item_name, returned_quantity, condition_status, unit, unit_price, total_price)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (rid, pid, iname, qty, cond, unit, price, total))
+            specs = ''
+            if use_details:
+                if wid:
+                    try:
+                        cur.execute("SELECT details FROM withdraw_items WHERE withdraw_id=%s AND product_id=%s LIMIT 1", (wid, pid))
+                        wrow = cur.fetchone()
+                        specs = (wrow.get('details') or '') if wrow else ''
+                    except Exception:
+                        specs = ''
+                if not specs:
+                    specs = (prod.get('details') or '')
+            if use_details:
+                cur.execute("""
+                    INSERT INTO return_items (return_id, product_id, item_name, returned_quantity, condition_status, unit, unit_price, total_price, details)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (rid, pid, iname, qty, cond, unit, price, total, specs or None))
+            else:
+                cur.execute("""
+                    INSERT INTO return_items (return_id, product_id, item_name, returned_quantity, condition_status, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (rid, pid, iname, qty, cond, unit, price, total))
         conn.commit()
         return True, rid
     except Exception as e:
@@ -228,8 +258,9 @@ def get_return_details(return_id):
         header=cur.fetchone()
         if not header:
             return None, []
-        cur.execute("""
-            SELECT ri.*, p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
+        det_select = "ri.details AS return_details, " if _return_items_has_details(cur) else "NULL AS return_details, "
+        cur.execute(f"""
+            SELECT ri.*, {det_select} p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
                    COALESCE(p.current_stock, p.quantity,0) AS cur_stock
             FROM return_items ri
             LEFT JOIN products p ON ri.product_id = p.product_id

@@ -145,7 +145,7 @@
         }
 
         /* Smart lock: established category/unit/size/details go readonly
-           (+ category pinned); PRICE ALWAYS STAYS EDITABLE for market
+           (category HARD-disabled); PRICE ALWAYS STAYS EDITABLE for market
            fluctuations (catalog price updates only on PR approval).
            Draft/new specs stay editable so typos can be fixed. */
         function lockRowSpecs(tr, match) {
@@ -157,19 +157,21 @@
                 el.readOnly = locked;
                 el.style.backgroundColor = locked ? '#e9ecef' : '';
             });
-            if (locked) catSel.dataset.locked = catSel.value;
-            else delete catSel.dataset.locked;
+            // Disabled selects cannot be touched at all (stronger than snap-back).
+            // Values are restored to the POST payload by unlockCategoriesFor()
+            // right before submit, since disabled fields are never submitted.
+            catSel.disabled = locked;
+            catSel.style.backgroundColor = locked ? '#e9ecef' : '';
+            catSel.title = locked ? 'Category is locked: this is an established catalog product.' : '';
         }
 
-        /* Pinned-category guard: a locked select snaps back with an explanation. */
-        document.addEventListener('change', function (e) {
-            const sel = e.target && e.target.closest ? e.target.closest('select[name="category[]"]') : null;
-            if (!sel || !sel.dataset.locked) return;
-            if (sel.value !== sel.dataset.locked) {
-                sel.value = sel.dataset.locked;
-                alert('Category is locked: this is an established catalog product.');
-            }
-        });
+        /* Failsafe: re-enable every Category select inside a form so its value
+           is included when FormData is built (disabled fields are skipped). */
+        function unlockCategoriesFor(formId) {
+            document.querySelectorAll('#' + formId + ' select[name="category[]"]').forEach(sel => {
+                sel.disabled = false;
+            });
+        }
 
         /* Item-name typing: match → backfill untouched fields + smart-lock;
            no match → clear stale catalog specs + unlock for a new product.
@@ -235,7 +237,7 @@
             tr.innerHTML = `
                 <td><div class="custom-dropdown-wrap"><input type="text" name="item_name[]" placeholder="Select or type new item" required autocomplete="off" value="${escAttr(it.name || '')}" oninput="onPrItemNameInput(this)" onfocus="showCatalogDropdown(this)" onblur="hideCatalogDropdown(this)"><div class="custom-dropdown-list hidden"></div></div></td>
                 <td><select name="category[]" required>${catOpts}</select></td>
-                <td><input type="text" name="unit[]" placeholder="pcs" autocomplete="off" value="${escAttr(it.unit || '')}"></td>
+                <td><input type="text" name="unit[]" placeholder="pcs" autocomplete="off" list="unit-options" value="${escAttr(it.unit || '')}"></td>
                 <td><input type="text" name="size[]" placeholder="Size" autocomplete="off" value="${escAttr(it.size || '')}"></td>
                 <td><input type="text" name="details[]" placeholder="Specification" autocomplete="off" value="${escAttr(it.details || '')}"></td>
                 <td><input type="number" name="price[]" step="0.01" min="0" placeholder="0.00" required value="${priceVal}" oninput="calcPrRowTotal(this)"></td>
@@ -309,6 +311,7 @@
         async function submitPrForm(e) {
             e.preventDefault();
             if (!validatePrRows('pr-items-body')) return false;
+            unlockCategoriesFor('pr-form');
             const btn = document.getElementById('pr-submit-btn');
             btn.disabled = true;
             const orig = btn.innerHTML;
@@ -371,6 +374,7 @@
             e.preventDefault();
             if (!editingPrId) return false;
             if (!validatePrRows('pr-edit-items-body')) return false;
+            unlockCategoriesFor('pr-edit-form');
             const btn = document.getElementById('pr-edit-submit-btn');
             btn.disabled = true;
             const orig = btn.innerHTML;

@@ -47,6 +47,7 @@ from crud_products import (
     get_all_products,
     get_all_products_filtered,
     get_products_for_pr_picker,
+    get_distinct_units,
     add_product,
     update_product,
     delete_product,
@@ -1050,6 +1051,7 @@ def pr_management():
     # Staff now sees ALL records (not just own) to avoid confusion with Admin
     user_id_scope = None
 
+    existing_units = []
     try:
         requests_list = get_all_purchase_requests(
             search_query=search,
@@ -1059,11 +1061,13 @@ def pr_management():
             user_id=user_id_scope
         )
         products_list = get_all_products()
+        existing_units = get_distinct_units()
     except Exception as err:
         print(f"[pr_management] DB error: {err}")
         flash("Database error loading Purchase Requests.", "error")
         requests_list = []
         products_list = []
+        existing_units = []
 
     template_file = "Admin Dashboards/admin_pr_management.html" if user_role == "Admin" else "Staff Dashboards/staff_pr_management.html"
 
@@ -1072,6 +1076,7 @@ def pr_management():
         user=session,
         requests=requests_list,
         products=products_list,
+        existing_units=existing_units,
         search=search,
         status_filter=status_filter,
         date_filter=date_filter,

@@ -11,6 +11,16 @@ from datetime import datetime
 
 STOCK_COL = "current_stock"
 
+def _withdraw_items_has_details(cur):
+    """True when `withdraw_items.details` exists (legacy DBs may lack it —
+    run the ALTER in that case; callers degrade gracefully meanwhile)."""
+    try:
+        cur.execute("SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'withdraw_items' AND COLUMN_NAME = 'details'")
+        row = cur.fetchone()
+        return bool((row.get('c') if isinstance(row, dict) else row[0]) if row else False)
+    except Exception:
+        return False
+
 def generate_withdraw_number():
     """Generates the next daily withdraw number like WD-2026-09-08-001
     (display hint; DB enforces uniqueness). Sequence resets each day."""
@@ -104,19 +114,27 @@ def create_withdrawal(user_id, ris_number, department, purpose, received_by, dat
             VALUES (%s,%s,%s,%s,'Pending',%s,%s)
         """, (ris_number, user_id, department, purpose, received_by or "", date_requested))
         wid=cur.lastrowid
-        # Insert items into `withdraw_items`
+        # Insert items into `withdraw_items` (spec snapshot into details)
+        use_details = _withdraw_items_has_details(cur)
         for it in items_list:
             pid=int(it['product_id']); qty=int(it['quantity'])
-            cur.execute("SELECT product_name, unit, price FROM products WHERE product_id=%s", (pid,))
+            cur.execute("SELECT product_name, unit, price, details FROM products WHERE product_id=%s", (pid,))
             prod=cur.fetchone()
             iname=prod['product_name']
             unit=prod['unit'] or 'pcs'
+            specs=(prod.get('details') or '')
             price=float(prod['price'] or 0)
             total=qty*price
-            cur.execute("""
-                INSERT INTO `withdraw_items` (withdraw_id, product_id, item_name, quantity, unit, unit_price, total_price)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-            """, (wid, pid, iname, qty, unit, price, total))
+            if use_details:
+                cur.execute("""
+                    INSERT INTO `withdraw_items` (withdraw_id, product_id, item_name, quantity, unit, unit_price, total_price, details)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (wid, pid, iname, qty, unit, price, total, specs or None))
+            else:
+                cur.execute("""
+                    INSERT INTO `withdraw_items` (withdraw_id, product_id, item_name, quantity, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """, (wid, pid, iname, qty, unit, price, total))
         conn.commit()
         return True, wid
     except Exception as e:
@@ -195,8 +213,9 @@ def get_withdrawal_details(withdraw_id):
         header=cur.fetchone()
         if not header:
             return None, []
-        cur.execute("""
-            SELECT wi.*, p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
+        det_select = "wi.details AS withdraw_details, " if _withdraw_items_has_details(cur) else "NULL AS withdraw_details, "
+        cur.execute(f"""
+            SELECT wi.*, {det_select} p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
                    COALESCE(p.current_stock, p.quantity,0) AS cur_stock,
                    COALESCE(p.reorder_level,10) AS reorder_lvl
             FROM `withdraw_items` wi
