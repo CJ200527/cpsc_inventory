@@ -1,4 +1,10 @@
-/* delivery_logic.js — shared delivery receive/complete/view logic (Admin + Staff). Loaded after ui_helpers.js. */
+        /* delivery_logic.js — shared delivery receive/complete/view logic (Admin + Staff). Loaded after ui_helpers.js. */
+        /* Stale-guard cleanup: a freshly loaded page has no submission in flight
+           from it. Keys left behind by a refresh/cancel during "Processing"
+           would otherwise ghost-block every later Confirm click forever. */
+        try {
+            Object.keys(sessionStorage).forEach(k=>{ if(k.indexOf('approving_')===0) sessionStorage.removeItem(k); });
+        } catch (e) {}
 
         function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
         /* Live totals: any unit-price or quantity edit recalculates its row
@@ -280,6 +286,10 @@
         let pendingApproveDeliveryId = null;
         function openApproveConfirmModal(deliveryId, deliveryNumber, prNumber, isPartial){
             pendingApproveDeliveryId = deliveryId;
+            // Fresh intent: restore the Confirm button in case a previous
+            // attempt left it disabled (cancelled/refreshed mid-processing).
+            const cbtn = document.querySelector('#approve-confirm-modal .btn-modal-save');
+            if(cbtn){ cbtn.disabled = false; cbtn.style.opacity = ''; cbtn.style.pointerEvents = ''; if(!/Approve/.test(cbtn.innerHTML)) cbtn.innerHTML = '✔️ Yes, Approve & Credit Stock'; }
             document.getElementById('approve-delivery-number').innerText = deliveryNumber;
             document.getElementById('approve-pr-number').innerText = prNumber;
             const statusEl = document.getElementById('approve-partial-text');
@@ -296,13 +306,15 @@
         }
         function confirmApproveDelivery(){
             if(!pendingApproveDeliveryId) return;
+            const key = 'approving_' + pendingApproveDeliveryId;
+            // Genuine in-flight submit: stay quiet WITHOUT touching the button,
+            // so a blocked retry never fakes a "Processing..." state.
+            if(sessionStorage.getItem(key)) return; // already submitting
             // Frontend double-click guard: disable button, show processing, block second submit via sessionStorage
             const btn = document.querySelector('#approve-confirm-modal .btn-modal-save');
             if(btn) { btn.disabled = true; btn.innerHTML = '⏳ Processing...'; btn.style.opacity = '0.6'; btn.style.pointerEvents = 'none'; }
             const form = document.getElementById('approve-hidden-form');
             form.action = '/delivery/approve/' + pendingApproveDeliveryId;
-            const key = 'approving_' + pendingApproveDeliveryId;
-            if(sessionStorage.getItem(key)) return; // already submitting
             sessionStorage.setItem(key, '1');
             // Also prevent refresh double-submit: clear after 5s
             setTimeout(() => sessionStorage.removeItem(key), 5000);

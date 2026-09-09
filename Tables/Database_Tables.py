@@ -49,6 +49,7 @@ def create_all_tables():
         price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
         quantity INT NOT NULL DEFAULT 0,
         reorder_level INT DEFAULT 10,
+        is_active TINYINT(1) DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)

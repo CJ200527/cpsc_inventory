@@ -121,11 +121,13 @@ def _resolve_product_id(cursor, item):
                     else int(row[0])), False
         except Exception:
             pass
-    # No exact variant — create a NEW product variant (zero stock).
+    # No exact variant — create a NEW product variant (zero stock, INACTIVE:
+    # PR-proposed products stay hidden from Inventory until a delivery wakes
+    # them with is_active = 1 on approval).
     cursor.execute(
         """INSERT INTO products
-           (product_name, category, details, unit, size, price, quantity, current_stock)
-           VALUES (%s, %s, %s, %s, %s, %s, 0, 0)""",
+           (product_name, category, details, unit, size, price, quantity, current_stock, is_active)
+           VALUES (%s, %s, %s, %s, %s, %s, 0, 0, 0)""",
         (name, category, details, unit, size, float(item.get('price', 0))))
     return cursor.lastrowid, True
 

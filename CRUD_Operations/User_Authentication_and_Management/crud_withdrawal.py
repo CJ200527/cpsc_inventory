@@ -55,7 +55,8 @@ def get_available_products():
                    COALESCE(p.current_stock, p.quantity, 0) AS current_stock,
                    COALESCE(p.reorder_level, 10) AS reorder_level
             FROM products p
-            WHERE COALESCE(p.current_stock, p.quantity, 0) > 0
+            WHERE p.is_active = 1
+              AND COALESCE(p.current_stock, p.quantity, 0) > 0
             ORDER BY p.product_name ASC
         """)
         return cur.fetchall()

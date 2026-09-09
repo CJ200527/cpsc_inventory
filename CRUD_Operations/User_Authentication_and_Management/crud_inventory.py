@@ -14,7 +14,7 @@ def get_inventory_summary():
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
         stock_expr = _stock_expr()
-        cur.execute("SELECT COUNT(*) AS total FROM products")
+        cur.execute("SELECT COUNT(*) AS total FROM products WHERE is_active = 1")
         total_unique = cur.fetchone()['total'] or 0
         cur.execute(f"""
             SELECT
@@ -22,6 +22,7 @@ def get_inventory_summary():
                 COALESCE(p.reorder_level, 10) AS reorder_lvl,
                 p.price AS price
             FROM products p
+            WHERE p.is_active = 1
         """)
         rows=cur.fetchall()
         low=out=in_stock=0
@@ -74,7 +75,7 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
                 COALESCE(p.reorder_level, 10) AS reorder_level,
                 ({stock_expr} * p.price) AS total_value
             FROM products p
-            WHERE 1=1
+            WHERE p.is_active = 1
         """
         params=[]
         if search_query:
@@ -138,7 +139,7 @@ def get_inventory_categories():
     try:
         conn=get_db_connection()
         cur=conn.cursor()
-        cur.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC")
+        cur.execute("SELECT DISTINCT category FROM products WHERE is_active = 1 AND category IS NOT NULL AND category != '' ORDER BY category ASC")
         return [row[0] for row in cur.fetchall()]
     except Exception:
         return []

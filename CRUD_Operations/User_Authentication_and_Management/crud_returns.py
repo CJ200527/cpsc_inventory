@@ -79,6 +79,7 @@ def get_return_products():
             SELECT p.product_id, p.product_name, p.category, p.details, p.unit, p.size, p.price,
                    COALESCE(p.current_stock, p.quantity,0) AS current_stock
             FROM products p
+            WHERE p.is_active = 1
             ORDER BY p.product_name ASC
         """)
         return cur.fetchall()

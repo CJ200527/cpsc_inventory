@@ -468,7 +468,8 @@ def admin_dashboard():
                     COALESCE(p.current_stock, p.quantity, 0) * COALESCE(p.price, 0)
                 ), 0), 2) AS asset_value
                 FROM products p
-                WHERE COALESCE(p.current_stock, p.quantity, 0) > 0
+                WHERE p.is_active = 1
+                  AND COALESCE(p.current_stock, p.quantity, 0) > 0
             """)
             asset_value = float((cur.fetchone() or {}).get("asset_value", 0) or 0)
         except Exception as err:

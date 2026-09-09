@@ -136,9 +136,10 @@ def add_product(supplier_id=None, product_name="", category="General", details="
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+        # Direct Admin insert bypasses the PR phase → immediately active.
         cursor.execute("""
-            INSERT INTO products (product_name, category, details, unit, size, price, quantity, current_stock)
-            VALUES (%s,%s,%s,%s,%s,%s,0,0)
+            INSERT INTO products (product_name, category, details, unit, size, price, quantity, current_stock, is_active)
+            VALUES (%s,%s,%s,%s,%s,%s,0,0,1)
         """, (product_name, category, details, unit, size, price))
         conn.commit()
         return True

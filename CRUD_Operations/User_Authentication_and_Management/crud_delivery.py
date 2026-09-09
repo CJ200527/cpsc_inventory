@@ -758,6 +758,13 @@ def approve_delivery(delivery_id, admin_user_id):
                 cursor.execute("UPDATE products SET quantity = current_stock WHERE product_id = %s", (pid,))
             except Exception:
                 pass
+            # Wake-up call: this product officially exists in the warehouse now
+            # (guaranteed received stock > 0). Guarded so approvals never break
+            # on legacy DBs missing the column — run the ALTER instead.
+            try:
+                cursor.execute("UPDATE products SET is_active = 1 WHERE product_id = %s", (pid,))
+            except Exception as e:
+                print(f"[approve_delivery is_active] {e}")
             # Pricing integrity: blend existing stock value with this delivery's
             # ACTUAL unit cost (weighted average). Zero/never-valued stock simply
             # adopts the latest verified delivery cost.
