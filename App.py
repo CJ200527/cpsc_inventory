@@ -126,6 +126,47 @@ def safe_render_template(subfolder_template, **kwargs):
         return render_template(direct_template, **kwargs)
 
 
+@app.template_filter("ph_datetime")
+def ph_datetime(value):
+    """Human-readable timestamp: September 1, 2026 | 1:00 PM.
+
+    Accepts datetimes or 'YYYY-MM-DD[ HH:MM:SS]' strings; Windows-safe
+    (no %-d). Unparseable input passes through unchanged, never crashes.
+    """
+    if not value:
+        return "—"
+    try:
+        dt = value if hasattr(value, "strftime") else datetime.strptime(str(value).strip()[:19], "%Y-%m-%d %H:%M:%S")
+    except Exception:
+        try:
+            dt = datetime.strptime(str(value).strip()[:10], "%Y-%m-%d")
+        except Exception:
+            return str(value)
+    try:
+        hour = dt.strftime("%I").lstrip("0") or "0"
+        return f"{dt.strftime('%B')} {dt.day}, {dt.year} | {hour}:{dt.strftime('%M')} {dt.strftime('%p')}"
+    except Exception:
+        return str(value)
+
+
+@app.template_filter("short_pr")
+def short_pr(value):
+    """Condensed record number for display only: PR-2026-09-10-001 → PR-001.
+
+    Keeps the prefix and trailing sequence; stored values (links, filters,
+    JS data attributes) are never altered — apply in display cells only.
+    """
+    s = str(value or "")
+    if "-" not in s:
+        return s
+    head, _, tail = s.rpartition("-")
+    tail = tail.strip()
+    prefix = head.split("-")[0].strip() if head else ""
+    if not tail or not prefix:
+        return s
+    return f"{prefix}-{tail}"
+
+
 # --- ROUTE 1: Home Redirect ---
 @app.route("/")
 def index():
@@ -1109,7 +1150,9 @@ def _parse_pr_items():
     for i, raw_name in enumerate(item_names):
         try:
             iname = (raw_name or "").strip()
-            price_str = _safe(prices, i)
+            # Display commas (e.g. "1,000.00") never reach float(): strip them
+            # here too, so crafted posts can't silently drop rows.
+            price_str = _safe(prices, i).replace(",", "")
             qty_str = _safe(quantities, i)
             if not iname or not price_str or not qty_str:
                 continue
@@ -1230,12 +1273,14 @@ def get_next_pr_number_api():
         return {"error": str(err)}, 500
 
 # --- API ROUTE: Master Catalog product list (for item-name datalist in Create PR modal) ---
+# ?available_only=1 restricts to warehouse-real stock (Withdraw picker).
 @app.route("/products/api/list")
 def products_list_api():
     if "user_id" not in session:
         return {"error": "Unauthorized"}, 401
     try:
-        products = get_products_for_pr_picker()
+        available_only = (request.args.get("available_only", "") or "").strip() == "1"
+        products = get_products_for_pr_picker(available_only=available_only)
     except Exception as err:
         print(f"[products_list_api] DB error: {err}")
         return {"error": str(err)}, 500
@@ -1256,6 +1301,7 @@ def products_list_api():
             # Live stock snapshot for withdraw/return modals.
             "stock": p.get("stock", 0) or 0,
             "reorder": p.get("reorder", 10) or 10,
+            "is_active": int(p.get("is_active", 0) or 0),
             # Smart-lock flag: TRUE = locked history (Approved/Completed PR or
             # delivery); FALSE = draft product editable from the PR form.
             "is_established": bool(p.get("is_established")),

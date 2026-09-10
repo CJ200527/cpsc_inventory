@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Admin Inventory Ledger</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_inventory.css') }}">
 </head>
@@ -70,14 +69,15 @@
             <!-- ===== TOOLBELT (Search + Category/Status Filters + Refresh) ===== -->
             <div class="toolbelt-container">
                 <form method="GET" action="{{ url_for('admin_inventory_dashboard') }}" class="search-form" id="filter-form">
-                    <div class="search-input-box">
+                    <div class="search-input-box fx21-field">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" value="{{ search }}" placeholder="Search Product Code, Name, Category, Supplier..." autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Product Code, Name, Category, Supplier..." autocomplete="off">
+                        <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
                 <div class="filter-controls">
-                    <select name="category" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                    <div class="fx21-field"><select name="category" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Categories</option>
                         {% if categories is defined and 'Consumables' not in categories %}
                         <option value="Consumables" {% if category_filter == 'Consumables' %}selected{% endif %}>Consumables</option>
@@ -91,14 +91,14 @@
                         {% for cat in categories %}
                         <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
                         {% endfor %}
-                    </select>
-                    <select name="stock_status" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                    </select><span class="focus-border"><i></i></span></div>
+                    <div class="fx21-field"><select name="stock_status" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if stock_filter == 'All' %}selected{% endif %}>All Statuses</option>
                         <option value="In Stock" {% if stock_filter == 'In Stock' %}selected{% endif %}>In Stock</option>
                         <option value="Low Stock" {% if stock_filter == 'Low Stock' %}selected{% endif %}>Low Stock</option>
                         <option value="Out of Stock" {% if stock_filter == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
-                    </select>
-                    <a href="{{ url_for('admin_inventory_dashboard') }}" class="icon-btn">🔄 Refresh</a>
+                    </select><span class="focus-border"><i></i></span></div>
+                    <a href="{{ url_for('admin_inventory_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                 </div>
             </div>
 

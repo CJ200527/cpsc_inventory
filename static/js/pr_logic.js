@@ -14,10 +14,14 @@
             numEl.value = '';
             numEl.placeholder = 'Loading...';
             fetch('/pr/get_next_number').then(r => r.json()).then(d => {
-                if (d.pr_number) numEl.value = d.pr_number;
+                if (d.pr_number) numEl.value = shortRefNum(d.pr_number);
                 else numEl.placeholder = 'Auto-generated upon saving';
+                syncFx21Labels('pr-form');
             }).catch(() => { numEl.placeholder = 'Auto-generated upon saving'; });
-            document.getElementById('pr-date-requested').value = prNowStr();
+            const nowStr = prNowStr();
+            document.getElementById('pr-date-requested').value = fmtPhDateTime(nowStr);
+            document.getElementById('pr-date-requested-value').value = nowStr;
+            syncFx21Labels('pr-form');
             addPrItemRow();
             updateGrandTotal();
             document.getElementById('add-modal').classList.remove('hidden');
@@ -45,7 +49,11 @@
             const list = tr.querySelector('.custom-dropdown-list');
             if(!list) return;
             const q = input.value.trim().toLowerCase();
-            const hits = catalogProducts.filter(p => !q || (p.product_name || '').toLowerCase().includes(q)).slice(0, 50);
+            // Alphabetical (case-insensitive) regardless of API/collation order.
+            const hits = catalogProducts
+                .filter(p => !q || (p.product_name || '').toLowerCase().includes(q))
+                .sort((a, b) => String(a.product_name || '').localeCompare(String(b.product_name || ''), undefined, { sensitivity: 'base' }))
+                .slice(0, 50);
             if(hits.length === 0){
                 list.innerHTML = `<div class="custom-dropdown-empty">No match found. This will be saved as a new draft product.</div>`;
             } else {
@@ -144,15 +152,17 @@
             return catalogProducts.find(p => (p.product_name || '').toLowerCase() === key) || null;
         }
 
-        /* Smart lock: established category/unit/size/details go readonly
-           (category HARD-disabled); PRICE ALWAYS STAYS EDITABLE for market
-           fluctuations (catalog price updates only on PR approval).
+        /* Strict lock: ANY existing product picked from the dropdown (draft
+           or established) instantly locks Category (HARD-disabled) plus
+           Unit/Specification (readonly) — pr_items can never desync from
+           products. Fields unlock only when the name is cleared for a
+           brand-new typed item. PRICE and QTY ALWAYS STAY EDITABLE.
            Draft/new specs stay editable so typos can be fixed. */
         function lockRowSpecs(tr, match) {
             const catSel = tr.querySelector('select[name="category[]"]');
             const fields = ['unit[]', 'size[]', 'details[]']
                 .map(n => tr.querySelector(`input[name="${n}"]`));
-            const locked = !!(match && match.is_established);
+            const locked = !!match;
             fields.forEach(el => {
                 el.readOnly = locked;
                 el.style.backgroundColor = locked ? '#e9ecef' : '';
@@ -208,7 +218,7 @@
                 sizeEl.value = match.size || '';
                 detEl.value = match.details || '';
                 priceEl.value = (match.price === undefined || match.price === null) ? '' : match.price;
-                calcPrRowTotal(priceEl);
+                formatPriceInput(priceEl);
             }
             lockRowSpecs(tr, match);
             showCatalogDropdown(input);
@@ -233,17 +243,18 @@
             const it = item || {};
             const cat = it.category || 'Consumables';
             const catOpts = PR_CATEGORIES.map(c => `<option value="${c}"${c === cat ? ' selected' : ''}>${c}</option>`).join('');
-            const priceVal = (it.price === undefined || it.price === null || it.price === '') ? '' : it.price;
+            const priceNum = (it.price === undefined || it.price === null || it.price === '') ? null : Number(String(it.price).replace(/,/g, ''));
+            const priceVal = (priceNum === null || isNaN(priceNum)) ? '' : priceNum.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             tr.innerHTML = `
-                <td><div class="custom-dropdown-wrap"><input type="text" name="item_name[]" placeholder="Select or type new item" required autocomplete="off" value="${escAttr(it.name || '')}" oninput="onPrItemNameInput(this)" onfocus="showCatalogDropdown(this)" onblur="hideCatalogDropdown(this)"><div class="custom-dropdown-list hidden"></div></div></td>
-                <td><select name="category[]" required>${catOpts}</select></td>
-                <td><input type="text" name="unit[]" placeholder="pcs" autocomplete="off" list="unit-options" value="${escAttr(it.unit || '')}"></td>
-                <td><input type="text" name="size[]" placeholder="Size" autocomplete="off" value="${escAttr(it.size || '')}"></td>
-                <td><input type="text" name="details[]" placeholder="Specification" autocomplete="off" value="${escAttr(it.details || '')}"></td>
-                <td><input type="number" name="price[]" step="0.01" min="0" placeholder="0.00" required value="${priceVal}" oninput="calcPrRowTotal(this)"></td>
-                <td><input type="number" name="quantity[]" value="${it.quantity || 1}" min="1" step="1" required oninput="calcPrRowTotal(this)"></td>
+                <td><div class="custom-dropdown-wrap fx21-field"><input type="text" name="item_name[]" class="effect-21" placeholder="Select or type new item" required autocomplete="off" value="${escAttr(it.name || '')}" oninput="onPrItemNameInput(this)" onfocus="showCatalogDropdown(this)" onblur="hideCatalogDropdown(this)"><span class="focus-border"><i></i></span><div class="custom-dropdown-list hidden"></div></div></td>
+                <td><div class="fx21-field"><select name="category[]" class="effect-21" required>${catOpts}</select><span class="focus-border"><i></i></span></div></td>
+                <td><div class="fx21-field"><input type="text" name="unit[]" class="effect-21" placeholder="pcs" autocomplete="off" list="unit-options" value="${escAttr(it.unit || '')}"><span class="focus-border"><i></i></span></div></td>
+                <td><div class="fx21-field"><input type="text" name="size[]" class="effect-21" placeholder="Size" autocomplete="off" value="${escAttr(it.size || '')}"><span class="focus-border"><i></i></span></div></td>
+                <td><div class="fx21-field"><input type="text" name="details[]" class="effect-21" placeholder="Specification" autocomplete="off" value="${escAttr(it.details || '')}"><span class="focus-border"><i></i></span></div></td>
+                <td><div class="fx21-field"><input type="text" name="price[]" class="effect-21" inputmode="decimal" placeholder="0.00" required value="${priceVal}" oninput="formatPriceInput(this)" onblur="finishPriceInput(this)"><span class="focus-border"><i></i></span></div></td>
+                <td><div class="fx21-field"><input type="number" name="quantity[]" class="effect-21" value="${it.quantity || 1}" min="1" step="1" required oninput="calcPrRowTotal(this)"><span class="focus-border"><i></i></span></div></td>
                 <td><input type="text" class="pr-row-total" value="0.00" readonly tabindex="-1"></td>
-                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)">✖</button>
+                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)"><span class="act-icon act-x" aria-hidden="true"></span></button>
             `;
             tbody.appendChild(tr);
             calcPrRowTotal(tr.querySelector('input[name="price[]"]'));
@@ -253,6 +264,28 @@
         /* Appends a pre-filled row inside the Pending-edit modal. */
         function addPrEditRow(item) { buildPrRow('pr-edit-items-body', item || null); }
 
+        /* Live pesos formatting: thousand separators while typing, exactly
+           2 decimals on blur. All readers strip commas before parseFloat. */
+        function formatPriceInput(input){
+            const raw=(input.value||'').replace(/,/g,'');
+            if(raw.trim()===''){ calcPrRowTotal(input); return; }
+            const parts=raw.split('.');
+            if(parts.length>2){ input.value=raw.slice(0,-1); calcPrRowTotal(input); return; }
+            let intPart=(parts[0]||'').replace(/[^0-9]/g,'').replace(/^0+(?=\d)/,'');
+            if(intPart==='') intPart='0';
+            let out=Number(intPart).toLocaleString('en-US');
+            if(raw.indexOf('.')!==-1){ out+='.'+(parts[1]||'').replace(/[^0-9]/g,'').slice(0,2); }
+            if(input.value!==out) input.value=out;
+            calcPrRowTotal(input);
+        }
+        function finishPriceInput(input){
+            const raw=(input.value||'').replace(/,/g,'').trim();
+            if(raw==='') return;
+            const n=parseFloat(raw);
+            if(isNaN(n)) return;
+            input.value=n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+            calcPrRowTotal(input);
+        }
         /* Auto-calculates the row total (Price x Quantity) on every keystroke. */
         function editIdsFor(input) {
             const tb = input.closest('tbody');
@@ -262,20 +295,24 @@
         }
         function calcPrRowTotal(input) {
             const tr = input.closest('tr');
-            const price = parseFloat(tr.querySelector('input[name="price[]"]').value) || 0;
+            const price = parseFloat((tr.querySelector('input[name="price[]"]').value || '').replace(/,/g, '')) || 0;
             const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value) || 0;
             tr.querySelector('.pr-row-total').value = (price * qty).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
             const ids = editIdsFor(input);
             updateGrandTotalFor(ids.tbody, ids.total);
         }
 
-        /* Sums every row total and updates the Header grand-total field in real time. */
+        /* Sums every row total and updates the footer grand-total readout in real time. */
         function updateGrandTotalFor(tbodyId, totalId) {
             let grand = 0;
             document.querySelectorAll('#' + tbodyId + ' .pr-row-total').forEach(el => {
                 grand += parseFloat(el.value.replace(/,/g, '')) || 0;
             });
-            document.getElementById(totalId).value = '₱ ' + grand.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const totalEl = document.getElementById(totalId);
+            if (!totalEl) return;
+            const txt = '₱ ' + grand.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (totalEl.tagName === 'INPUT') totalEl.value = txt;
+            else totalEl.textContent = txt;
         }
         function updateGrandTotal() { updateGrandTotalFor('pr-items-body', 'pr-grand-total'); }
 
@@ -292,7 +329,7 @@
             const seen = {};
             for (const [idx, tr] of [...rows].entries()) {
                 const name = tr.querySelector('input[name="item_name[]"]').value.trim();
-                const price = parseFloat(tr.querySelector('input[name="price[]"]').value);
+                const price = parseFloat((tr.querySelector('input[name="price[]"]').value || '').replace(/,/g, ''));
                 const qty = parseInt(tr.querySelector('input[name="quantity[]"]').value);
                 if (!name) { alert(`Row ${idx + 1}: Item Name is required.`); return false; }
                 if (isNaN(price) || price < 0) { alert(`Row ${idx + 1}: Price must be 0 or more.`); return false; }
@@ -312,6 +349,8 @@
             e.preventDefault();
             if (!validatePrRows('pr-items-body')) return false;
             unlockCategoriesFor('pr-form');
+            // Strip display commas — backend float() takes clean decimals.
+            document.querySelectorAll('#pr-items-body input[name="price[]"]').forEach(inp => { inp.value = (inp.value || '').replace(/,/g, ''); });
             const btn = document.getElementById('pr-submit-btn');
             btn.disabled = true;
             const orig = btn.innerHTML;
@@ -344,9 +383,11 @@
                     closeEditPrModal();
                     return;
                 }
-                document.getElementById('edit-pr-number').value = data.header.pr_number || '';
+                document.getElementById('edit-pr-number').value = shortRefNum(data.header.pr_number) || '';
                 document.getElementById('edit-fund-source').value = data.header.fund_source || 'Fund 05';
-                document.getElementById('edit-date-requested').value = data.header.date_requested || '';
+                document.getElementById('edit-date-requested').value = fmtPhDateTime(data.header.date_requested);
+                document.getElementById('edit-date-requested-value').value = data.header.date_requested || '';
+                syncFx21Labels('pr-edit-form');
                 tbody.innerHTML = '';
                 (data.items || []).forEach(it => addPrEditRow({
                     name: it.item_name, category: it.category, unit: it.unit,
@@ -375,6 +416,8 @@
             if (!editingPrId) return false;
             if (!validatePrRows('pr-edit-items-body')) return false;
             unlockCategoriesFor('pr-edit-form');
+            // Strip display commas — backend float() takes clean decimals.
+            document.querySelectorAll('#pr-edit-items-body input[name="price[]"]').forEach(inp => { inp.value = (inp.value || '').replace(/,/g, ''); });
             const btn = document.getElementById('pr-edit-submit-btn');
             btn.disabled = true;
             const orig = btn.innerHTML;
@@ -391,6 +434,35 @@
         }
 
         function fmtPeso(n){ return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+        /* Display twins of the ph_datetime / short_pr Jinja filters for modal
+           chrome (numbers/dates shown short; machine values stay in hidden
+           inputs so POST payloads never change shape). */
+        function fmtPhDateTime(s){
+            if(!s) return '—';
+            const m=String(s).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+            if(!m) return String(s);
+            const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+            const mo=parseInt(m[2],10);
+            if(mo<1||mo>12) return String(s);
+            let h=parseInt(m[4]||'0',10);
+            const ap=h>=12?'PM':'AM'; h=h%12||12;
+            return `${months[mo-1]} ${parseInt(m[3],10)}, ${m[1]} | ${h}:${m[5]||'00'} ${ap}`;
+        }
+        /* effect-21: float the label of every filled header field. */
+        function syncFx21Labels(formId){
+            document.querySelectorAll('#' + formId + ' .effect-21').forEach(inp => {
+                inp.classList.toggle('has-content', (inp.value || '').trim() !== '');
+            });
+        }
+        function shortRefNum(s){
+            s=String(s||'');
+            if(s.indexOf('-')===-1) return s;
+            const parts=s.split('-');
+            const tail=(parts.pop()||'').trim();
+            const head=(parts[0]||'').trim();
+            if(!tail||!head) return s;
+            return head+'-'+tail;
+        }
 
         function openViewModal(prId) {
             const content = document.getElementById('view-modal-content');
@@ -401,12 +473,12 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) { content.innerHTML = data.error; return; }
-                    document.getElementById('view-pr-number').innerText = data.header.pr_number + " Details";
+                    document.getElementById('view-pr-number').innerText = shortRefNum(data.header.pr_number) + " Details";
                     /* Master header (read-only) */
                     let html = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;">`;
-                    html += `<div><strong>PR Number:</strong> ${data.header.pr_number}</div>`;
+                    html += `<div><strong>PR Number:</strong> ${shortRefNum(data.header.pr_number)}</div>`;
                     html += `<div><strong>Fund Source:</strong> ${data.header.fund_source || 'Fund 05'}</div>`;
-                    html += `<div><strong>Date Requested:</strong> ${data.header.date_requested}</div>`;
+                    html += `<div><strong>Date Requested:</strong> ${fmtPhDateTime(data.header.date_requested)}</div>`;
                     html += `<div><strong>Total Price:</strong> <span class="price-badge">₱ ${fmtPeso(data.header.total_price)}</span></div>`;
                     html += `<div><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname} (${data.header.username})</div>`;
                     html += `<div><strong>Status:</strong> <span class="badge badge-${(data.header.status || '').toLowerCase()}">${data.header.status}</span></div>`;

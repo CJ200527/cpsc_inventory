@@ -17,7 +17,7 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 | :--- | :--- | :--- |
 | **Backend** | **Python 3.x**, **Flask Framework** | Micro-framework, Jinja2 templating, `session` auth, `safe_render_template` for Admin/Staff subfolders |
 | **Database** | **MySQL (XAMPP / phpMyAdmin)**, `mysql-connector-python` | `production_inventory_db`, parameterized SQL (injection-safe), `FOR UPDATE` locks for idempotency |
-| **Frontend** | **HTML5**, **CSS3** (Poppins, gradients, flex/grid), **Bootstrap 5** (`data-bs-backdrop="static"` modals) | Responsive 260px sidebar, control bars, data tables, 3-section Flexbox modals |
+| **Frontend** | **HTML5**, **CSS3** (system sans-serif, gradients, flex/grid), **Bootstrap 5** (`data-bs-backdrop="static"` modals) | Responsive 260px sidebar, control bars, data tables, 3-section Flexbox modals |
 | **Scripting** | **Vanilla JavaScript (ES6, modular `static/js/`)** | Rich filterable dropdowns, Master-Detail row builders, live totals, fetch submits, toasts, `cascade-unveil` |
 | **Tooling** | XAMPP, VS Code, Git | Local Apache/MySQL, DB admin, version control |
 

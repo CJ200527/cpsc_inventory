@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - User Management</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/user_management.css') }}">
 </head>
@@ -79,25 +78,26 @@
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="/admin/users" class="search-form" id="filter-form">
-                    <div class="search-input-box">
+                    <div class="search-input-box fx21-field">
                         <span style="margin-right: 8px;">🔍</span>
-                        <input type="text" name="search" value="{{ search }}" placeholder="Search ID, Name, Username, Role, or Contact #" autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search ID, Name, Username, Role, or Contact #" autocomplete="off">
+                        <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
 
                 <div class="filter-controls">
                     <!-- Refresh Button (Clears search & filters) -->
-                    <a href="/admin/users" class="icon-btn" title="Refresh List">🔄 Refresh</a>
+                    <a href="/admin/users" class="btn-action btn-view" title="Refresh List">🔄</a>
 
                     <!-- Filter Dropdown -->
-                    <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
+                    <div class="fx21-field"><select name="date_filter" form="filter-form" class="filter-select effect-21" onchange="toggleCustomDate(this.value)">
                         <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
                         <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
                         <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
                         <option value="Last Year" {% if date_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
                         <option value="Custom" {% if date_filter == 'Custom' %}selected{% endif %}>Custom Date</option>
-                    </select>
+                    </select><span class="focus-border"><i></i></span></div>
 
                     <!-- Custom Date Input (Capped to max=today) -->
                     <input type="date" id="custom-date-picker" name="custom_date" form="filter-form" 
@@ -153,20 +153,20 @@
                                                 data-role="{{ u.role }}"
                                                 data-contact="{{ u.contact_number or '' }}"
                                                 onclick="openEditModal(this)">
-                                            ✏️
+                                             <span class="act-icon act-edit" aria-hidden="true"></span>
                                         </button>
 
                                         {% if u.is_approved == 0 %}
                                         <!-- Approve Action Button -->
                                         <form method="POST" action="/admin/users/approve/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
-                                            <button type="submit" class="btn-action btn-approve" title="Approve Account">✔</button>
+                                            <button type="submit" class="btn-action btn-approve" title="Approve Account"><span class="act-icon act-check" aria-hidden="true"></span></button>
                                         </form>
                                         {% endif %}
 
                                         {% if u.is_approved == 1 %}
                                         <!-- Reject Action Button -->
                                         <form method="POST" action="/admin/users/reject/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
-                                            <button type="submit" class="btn-action btn-reject" title="Reject / Set Pending">👎</button>
+                                            <button type="submit" class="btn-action btn-reject" title="Reject / Set Pending"><span class="act-icon act-x" aria-hidden="true"></span></button>
                                         </form>
                                         {% endif %}
 
@@ -174,7 +174,7 @@
                                         <button type="button" class="btn-action btn-delete" title="Delete User"
                                                 data-user-id="{{ u.user_id }}"
                                                 data-username="{{ u.username }}"
-                                                onclick="openDeleteUserModal(this)">✖</button>
+                                                 onclick="openDeleteUserModal(this)"><span class="act-icon act-x" aria-hidden="true"></span></button>
                                     </div>
                                 </td>
                             </tr>

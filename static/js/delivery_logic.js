@@ -268,12 +268,12 @@
                 if(data.header.status==='Pending'){
                     html+=`<div style="margin-top:10px;padding:8px 10px;background:#fff3cd;border:1px solid #ffe082;border-radius:6px;font-size:11px;color:#856404;">⏳ Pending — stock not credited. Approve via professional confirmation to ingest.</div>`;
                     if(approveArea){
-                    approveArea.innerHTML=`<button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="closeViewModal(); openApproveConfirmModal(${data.header.delivery_id}, '${data.header.delivery_number}', '${data.header.pr_number}', ${data.header.is_partial})">✔️ Approve & Credit Stock</button>`;
+                    approveArea.innerHTML=`<button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="closeViewModal(); openApproveConfirmModal(${data.header.delivery_id}, '${data.header.delivery_number}', '${data.header.pr_number}', ${data.header.is_partial})"><span class="act-icon act-check" aria-hidden="true"></span> Approve & Credit Stock</button>`;
                     approveArea.classList.remove('hidden');
                     fetch('/delivery/remaining/'+data.header.pr_id).then(r=>r.json()).then(rem=>{
                         const remainingTotal = (rem.remaining||[]).reduce((a,b)=>a+(b.remaining_quantity||0),0);
                         if(remainingTotal > 0){
-                            approveArea.innerHTML+=`<button type="button" class="btn-modal-cancel" style="background:#fff8e1;border:1px solid #ffe082;margin-left:8px;" onclick="closeViewModal(); openCompleteModal(${data.header.delivery_id});">➕ Add Remaining (${remainingTotal} left)</button>`;
+                            approveArea.innerHTML+=`<button type="button" class="btn-modal-cancel" style="background:#fff8e1;border:1px solid #ffe082;margin-left:8px;" onclick="closeViewModal(); openCompleteModal(${data.header.delivery_id});"><span class="act-icon act-plus" aria-hidden="true"></span> Add Remaining (${remainingTotal} left)</button>`;
                         }
                     });
                     }
@@ -289,7 +289,7 @@
             // Fresh intent: restore the Confirm button in case a previous
             // attempt left it disabled (cancelled/refreshed mid-processing).
             const cbtn = document.querySelector('#approve-confirm-modal .btn-modal-save');
-            if(cbtn){ cbtn.disabled = false; cbtn.style.opacity = ''; cbtn.style.pointerEvents = ''; if(!/Approve/.test(cbtn.innerHTML)) cbtn.innerHTML = '✔️ Yes, Approve & Credit Stock'; }
+            if(cbtn){ cbtn.disabled = false; cbtn.style.opacity = ''; cbtn.style.pointerEvents = ''; if(!/Approve/.test(cbtn.innerHTML)) cbtn.innerHTML = '<span class="act-icon act-check" aria-hidden="true"></span> Yes, Approve & Credit Stock'; }
             document.getElementById('approve-delivery-number').innerText = deliveryNumber;
             document.getElementById('approve-pr-number').innerText = prNumber;
             const statusEl = document.getElementById('approve-partial-text');

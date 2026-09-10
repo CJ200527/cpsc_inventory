@@ -109,6 +109,17 @@
     transform: scale(0.95);
 }
 
+/* --- PR footer grand total (delivery-style readout, left side) --- */
+.pr-modal .footer-total-display {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0d233a;
+}
+
+.pr-modal .footer-total-display span {
+    color: #2e7d32;
+}
+
 /* --- Delivery creation modal Submit button: soft-green gradient hover, solid click ---
    Scoped to .delivery-modal (#receive-modal) ONLY — other modals unaffected. */
 .delivery-modal .btn-modal-save {

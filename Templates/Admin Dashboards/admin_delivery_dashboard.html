@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Admin Delivery & IAR Approval</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_delivery.css') }}">
@@ -70,24 +69,25 @@
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
-                    <div class="search-input-box">
+                    <div class="search-input-box fx21-field">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" value="{{ search }}" placeholder="Search Delivery #, IAR #, PR #, PO Ref #, Supplier..." autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Delivery #, IAR #, PR #, PO Ref #, Supplier..." autocomplete="off">
+                        <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
                 <div class="filter-controls">
-                    <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                    <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
                         <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending (Queue)</option>
                         <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
-                    </select>
-                    <select name="date_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                    </select><span class="focus-border"><i></i></span></div>
+                    <div class="fx21-field"><select name="date_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
                         <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
                         <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
-                    </select>
-                    <a href="{{ url_for('delivery_dashboard') }}" class="icon-btn">🔄 Refresh</a>
+                    </select><span class="focus-border"><i></i></span></div>
+                    <a href="{{ url_for('delivery_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                     <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive Delivery / IAR</button>
                 </div>
             </div>
@@ -124,12 +124,12 @@
                                 <td>{% if d.is_partial %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
                                 <td>
                                     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                                        <button type="button" class="btn-action btn-view" onclick="openViewModal({{ d.delivery_id }})">👁️ View</button>
+                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
                                         {% if d.show_complete == 1 %}
-                                        <button type="button" class="btn-action btn-complete" title="{{ d.pr_remaining }} still remaining for this PR" onclick="openCompleteModal({{ d.delivery_id }})">➕ Complete</button>
+                                        <button type="button" class="btn-action btn-complete" title="{{ d.pr_remaining }} still remaining for this PR" onclick="openCompleteModal({{ d.delivery_id }})"><span class="act-icon act-plus" aria-hidden="true"></span></button>
                                         {% endif %}
                                         {% if d.status == 'Pending' %}
-                                        <button type="button" class="btn-action btn-approve" onclick="openApproveConfirmModal({{ d.delivery_id }}, '{{ d.delivery_number }}', '{{ d.pr_number }}', {{ d.is_partial }})">✔️ Approve</button>
+                                        <button type="button" class="btn-action btn-approve" title="Approve & Credit Stock" onclick="openApproveConfirmModal({{ d.delivery_id }}, '{{ d.delivery_number }}', '{{ d.pr_number }}', {{ d.is_partial }})"><span class="act-icon act-check" aria-hidden="true"></span></button>
                                         {% else %}
                                             <span style="font-size:10px;color:#888;">{% if d.approver_first %}by {{ d.approver_first }}{% endif %}</span>
                                         {% endif %}
@@ -260,7 +260,7 @@
         <div class="modal-box" style="width:520px; max-width:95%;">
             <div class="modal-header">
                 <div style="display:flex; align-items:center; gap:10px;">
-                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px;">✔️</div>
+                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff;"><span class="act-icon act-check" aria-hidden="true"></span></div>
                     <div>
                         <h3 style="font-size:17px; margin:0;">Confirm Delivery Approval</h3>
                         <p style="font-size:11px; color:#666; margin:0;">Professional confirmation — matches system design</p>
@@ -280,7 +280,7 @@
             <p style="font-size:12px; color:#555; margin-bottom:4px;">Do you want to proceed with approval?</p>
             <div class="modal-buttons">
                 <button type="button" class="btn-modal-cancel" onclick="closeApproveConfirmModal()">Cancel</button>
-                <button type="button" class="btn-modal-save" style="background:#2e7d32; box-shadow:0 3px 8px rgba(46,125,50,0.35);" onclick="confirmApproveDelivery()">✔️ Yes, Approve & Credit Stock</button>
+                <button type="button" class="btn-modal-save" style="background:#2e7d32; box-shadow:0 3px 8px rgba(46,125,50,0.35);" onclick="confirmApproveDelivery()"><span class="act-icon act-check" aria-hidden="true"></span> Yes, Approve & Credit Stock</button>
             </div>
         </div>
     </div>

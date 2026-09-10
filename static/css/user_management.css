@@ -1,6 +1,6 @@
 /* user_management.css — extracted from Templates/Admin Dashboards/user_management.html (verbatim, zero visual change). */
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
 
         /* UTILITY */
@@ -200,19 +200,18 @@
         .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
 
         .action-cell { display: flex; align-items: center; gap: 8px; }
+        /* Minimalist ledger actions: quiet monochrome icon buttons, color on hover. */
         .btn-action {
-            width: 32px; height: 32px; border-radius: 6px; border: none;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 14px; transition: all 0.2s ease;
+            width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0dbe5;
+            background: transparent; color: #54677a;
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 15px; transition: all 0.2s ease;
         }
-        .btn-edit { background: #e3f2fd; color: #1976d2; }
-        .btn-edit:hover { background: #1976d2; color: #ffffff; transform: scale(1.08); }
-        .btn-approve { background: #e8f5e9; color: #2e7d32; }
-        .btn-approve:hover { background: #2e7d32; color: #ffffff; transform: scale(1.08); }
-        .btn-reject { background: #fff3e0; color: #e65100; }
-        .btn-reject:hover { background: #e65100; color: #ffffff; transform: scale(1.08); }
-        .btn-delete { background: #ffebee; color: #c62828; }
-        .btn-delete:hover { background: #c62828; color: #ffffff; transform: scale(1.08); }
+        .btn-view:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        .btn-edit:hover { background: #f3e5f5; border-color: #ce93d8; color: #6a1b9a; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(206,147,216,0.4); }
+        .btn-approve:hover { background: #d4edda; border-color: #28a745; color: #155724; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(40,167,69,0.25); }
+        .btn-complete:hover { background: #fff8e1; border-color: #ffc107; color: #6d4c00; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(255,193,7,0.25); }
+        .btn-reject:hover, .btn-delete:hover { background: #f8d7da; border-color: #dc3545; color: #721c24; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220,53,69,0.25); }
 
         .alert-bar {
             padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 500; margin-bottom: 10px;

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Submit Purchase Request</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/staff_pr.css') }}">
@@ -82,22 +81,23 @@
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="/pr" class="search-form" id="filter-form">
-                    <div class="search-input-box">
+                    <div class="search-input-box fx21-field">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" value="{{ search }}" placeholder="Search PR #..." autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search PR #..." autocomplete="off">
+                        <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
 
                 <div class="filter-controls">
-                    <select name="status_filter" form="filter-form" class="filter-select" onchange="document.getElementById('filter-form').submit()">
+                    <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
                         <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
                         <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
                         <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
                         <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
-                    </select>
+                    </select><span class="focus-border"><i></i></span></div>
 
-                    <a href="/pr" class="icon-btn">🔄 Refresh</a>
+                    <a href="/pr" class="btn-action btn-view" title="Refresh">🔄</a>
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Submit New PR</button>
                 </div>
             </div>
@@ -119,14 +119,14 @@
                         {% if requests %}
                             {% for r in requests %}
                             <tr>
-                                <td><strong>{{ r.pr_number }}</strong></td>
-                                <td>{{ r.date_requested }}</td>
+                                <td><strong>{{ r.pr_number | short_pr }}</strong></td>
+                                <td>{{ r.date_requested | ph_datetime }}</td>
                                 <td><span class="price-badge">₱ {{ "{:,.2f}".format(r.total_price or 0) }}</span></td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td>
-                                    <button type="button" class="btn-view" title="View Submitted Items" onclick="openViewModal({{ r.pr_id }})">👁️</button>
+                                    <button type="button" class="btn-action btn-view" title="View Submitted Items" onclick="openViewModal({{ r.pr_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
                                     {% if r.status == 'Pending' %}
-                                    <button type="button" class="btn-view" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})">✏️</button>
+                                    <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><span class="act-icon act-edit" aria-hidden="true"></span></button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -152,22 +152,22 @@
                 <!-- ===== SECTION 1: PR HEADER ===== -->
                 <div class="form-section-card section-1">
                     <h4>Section 1 — PR Header</h4>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
-                            <input type="text" id="pr-number-preview" placeholder="Auto-generated upon saving" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                    <div style="display:flex;flex-direction:column;gap:12px;max-width:50%;">
+                        <div class="fx21-field">
+                            <input type="text" id="pr-number-preview" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="pr-number-preview">PR Number</label>
                         </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Fund Source</label>
-                            <input type="text" name="fund_source" value="Fund 05" required style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <div class="fx21-field">
+                            <input type="text" id="pr-fund-source" name="fund_source" class="effect-21 has-content" value="Fund 05" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="pr-fund-source">Fund Source</label>
                         </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Date Requested</label>
-                            <input type="text" name="date_requested" id="pr-date-requested" readonly required tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
-                        </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Grand Total (auto)</label>
-                            <input type="text" id="pr-grand-total" value="₱ 0.00" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:13px;background-color:#e9ecef;font-weight:700;color:#2e7d32;">
+                        <div class="fx21-field">
+                            <input type="text" id="pr-date-requested" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="pr-date-requested">Date Requested</label>
+                            <input type="hidden" name="date_requested" id="pr-date-requested-value" required>
                         </div>
                     </div>
                 </div>
@@ -205,16 +205,19 @@
                 </div>
                 </div>
 
-                <div class="modal-buttons">
-                    <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>
-                    <button type="submit" class="btn-modal-save" id="pr-submit-btn">Submit Request</button>
+                <div class="modal-buttons" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="footer-total-display">Grand Total: <span id="pr-grand-total">₱ 0.00</span></div>
+                    <div style="display:flex;gap:10px;">
+                        <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>
+                        <button type="submit" class="btn-modal-save" id="pr-submit-btn">Submit Request</button>
+                    </div>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- EDIT PR MODAL : Pending only (Approved locks as an immutable historical record) -->
-    <div id="edit-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div id="edit-modal" class="modal-overlay hidden pr-modal" data-bs-backdrop="static" data-bs-keyboard="false">
         <div class="modal-box pr-modal-large">
             <div class="modal-header">
                 <h3>Edit Purchase Request (Pending)</h3>
@@ -225,22 +228,22 @@
                 <!-- ===== SECTION 1: PR HEADER ===== -->
                 <div class="form-section-card section-1">
                     <h4>Section 1 — PR Header</h4>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">PR Number</label>
-                            <input type="text" id="edit-pr-number" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                    <div style="display:flex;flex-direction:column;gap:12px;max-width:50%;">
+                        <div class="fx21-field">
+                            <input type="text" id="edit-pr-number" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="edit-pr-number">PR Number</label>
                         </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Fund Source</label>
-                            <input type="text" name="fund_source" id="edit-fund-source" value="Fund 05" required style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <div class="fx21-field">
+                            <input type="text" name="fund_source" id="edit-fund-source" class="effect-21 has-content" value="Fund 05" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="edit-fund-source">Fund Source</label>
                         </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Date Requested</label>
-                            <input type="text" name="date_requested" id="edit-date-requested" readonly required tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
-                        </div>
-                        <div>
-                            <label style="font-size:11px;font-weight:600;color:#0d233a;display:block;margin-bottom:4px;">Grand Total (auto)</label>
-                            <input type="text" id="pr-edit-grand-total" value="₱ 0.00" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:13px;background-color:#e9ecef;font-weight:700;color:#2e7d32;">
+                        <div class="fx21-field">
+                            <input type="text" id="edit-date-requested" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                            <span class="focus-border"><i></i></span>
+                            <label for="edit-date-requested">Date Requested</label>
+                            <input type="hidden" name="date_requested" id="edit-date-requested-value" required>
                         </div>
                     </div>
                 </div>
@@ -272,9 +275,12 @@
                 </div>
                 </div>
 
-                <div class="modal-buttons">
-                    <button type="button" class="btn-modal-cancel" onclick="closeEditPrModal()">Cancel</button>
-                    <button type="submit" class="btn-modal-save" id="pr-edit-submit-btn">Save Changes</button>
+                <div class="modal-buttons" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="footer-total-display">Grand Total: <span id="pr-edit-grand-total">₱ 0.00</span></div>
+                    <div style="display:flex;gap:10px;">
+                        <button type="button" class="btn-modal-cancel" onclick="closeEditPrModal()">Cancel</button>
+                        <button type="submit" class="btn-modal-save" id="pr-edit-submit-btn">Save Changes</button>
+                    </div>
                 </div>
             </form>
         </div>

@@ -5,7 +5,8 @@
         let withdrawCatalogReady = loadWithdrawCatalog();
         async function loadWithdrawCatalog(){
             try {
-                const res = await fetch('/products/api/list');
+                // Warehouse-real stock only: server filters is_active = 1 AND stock > 0.
+                const res = await fetch('/products/api/list?available_only=1');
                 const data = await res.json();
                 availableProducts = (data.products || []).map(p => ({
                     id: p.product_id, name: p.product_name,
@@ -17,6 +18,7 @@
                     reorder: (p.reorder === undefined || p.reorder === null)
                         ? 10 : parseInt(p.reorder)
                 }));
+                availableProducts.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),undefined,{sensitivity:'base'}));
             } catch (e) { availableProducts = []; }
         }
 
@@ -61,7 +63,7 @@
                 <td><span id="w-cat-${rowId}">—</span></td>
                 <td><span id="w-stock-${rowId}" class="stock-info">—</span></td>
                 <td><input type="number" name="quantity[]" id="w-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="calcWithdrawSubtotal(${rowId})" required></td>
-                <td><button type="button" class="btn-action" style="background:#ffebee; color:#c62828;" onclick="this.closest('tr').remove()">✖</button></td>
+                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><span class="act-icon act-x" aria-hidden="true"></span></button></td>
             `;
             tbody.appendChild(tr);
         }

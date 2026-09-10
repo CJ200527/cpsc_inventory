@@ -1,6 +1,6 @@
 /* staff_inventory.css — extracted from Templates/Staff Dashboards/staff_inventory_dashboard.html (verbatim, zero visual change). */
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
         body { background-color: #eaf3f8; display: flex; height: 100vh; overflow: hidden; }
         .hidden { display: none !important; }
         .sidebar {

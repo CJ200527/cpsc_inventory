@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - Staff Product Management</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,700;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/product_catalog.css') }}">
@@ -55,18 +54,18 @@
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
                 <form method="GET" action="{{ url_for('staff_products') }}" class="search-form" id="filter-form">
-                    <div class="search-input-box"><span style="margin-right:8px;">🔍</span><input type="text" name="search" value="{{ search }}" placeholder="Search Product, Category, Price..." autocomplete="off"></div>
+                    <div class="search-input-box fx21-field"><span style="margin-right:8px;">🔍</span><input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Product, Category, Price..." autocomplete="off"><span class="focus-border"><i></i></span></div>
                     <button type="submit" class="icon-btn">Search</button>
                 </form>
                 <div class="filter-controls">
-                    <a href="{{ url_for('staff_products') }}" class="icon-btn" title="Refresh List">🔄 Refresh</a>
-                    <select name="date_filter" form="filter-form" class="filter-select" onchange="toggleCustomDate(this.value)">
+                    <a href="{{ url_for('staff_products') }}" class="btn-action btn-view" title="Refresh List">🔄</a>
+                    <div class="fx21-field"><select name="date_filter" form="filter-form" class="filter-select effect-21" onchange="toggleCustomDate(this.value)">
                         <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
                         <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
                         <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
                         <option value="Last Year" {% if date_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
                         <option value="Custom" {% if date_filter == 'Custom' %}selected{% endif %}>Custom Date</option>
-                    </select>
+                    </select><span class="focus-border"><i></i></span></div>
                     <input type="date" id="custom-date-picker" name="custom_date" form="filter-form" class="date-picker {% if date_filter != 'Custom' %}hidden{% endif %}" value="{{ custom_date }}" onchange="document.getElementById('filter-form').submit()">
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Add Product</button>
                 </div>

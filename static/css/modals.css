@@ -5,7 +5,9 @@
    - .custom-dropdown-list: rich product picker replacing native datalist
      (white background, soft-blue borders, slide-down/fade-in).
    - dropletBounce: fluid modal entrance applied to every .modal-box.
+   - action-icons.css: single home of all hand-drawn action icons.
    ========================================================================== */
+@import url("action-icons.css");
 
 /* --- PR modal layout: static header/footer, independently scrolling items --- */
 .pr-modal-header {
@@ -77,7 +79,7 @@
     margin-bottom: 14px;
 }
 .form-section-card > h4 {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: #0d233a;
     margin: 0 0 10px;
@@ -171,6 +173,156 @@
     gap: 10px;
     padding-top: 15px;
     border-top: 1px solid #e0e0e0;
+}
+
+/* --- effect-21 animated field (PR Section 1 trial) ---
+   Adapted from the referenced snippet (deduped, `.has-conten` typo fixed):
+   clicking a box draws its border in stages; labels float on focus OR
+   filled (so pre-filled values never sit under their caption). Green
+   swapped for table-header sky blue (#53c5f1); floated label uses deep
+   system blue (#0277bd) for contrast. The snippet's z-index:-1 label is
+   replaced with pointer-events:none so it survives solid inputs.
+   Structure: .fx21-field > input.effect-21 + span.focus-border>i + label. */
+.fx21-field {
+    position: relative;
+}
+.fx21-field > .focus-border {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+.effect-21 ~ .focus-border:before,
+.effect-21 ~ .focus-border:after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 2px;
+    background-color: #53c5f1;
+    transition: width 0.2s ease;
+    transition-delay: 0.2s;
+}
+.effect-21 ~ .focus-border:after {
+    top: auto;
+    bottom: 0;
+    right: auto;
+    left: 0;
+    transition-delay: 0.6s;
+}
+.effect-21 ~ .focus-border i:before,
+.effect-21 ~ .focus-border i:after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 2px;
+    height: 0;
+    background-color: #53c5f1;
+    transition: height 0.2s ease;
+}
+.effect-21 ~ .focus-border i:after {
+    left: auto;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    transition-delay: 0.4s;
+}
+/* Border draws on FOCUS ONLY — filled fields stay plain until clicked,
+   otherwise every pre-filled box animates itself on modal open. */
+.effect-21:focus ~ .focus-border:before,
+.effect-21:focus ~ .focus-border:after {
+    width: 100%;
+    transition: width 0.2s ease;
+    transition-delay: 0.6s;
+}
+.effect-21:focus ~ .focus-border:after {
+    transition-delay: 0.2s;
+}
+.effect-21:focus ~ .focus-border i:before,
+.effect-21:focus ~ .focus-border i:after {
+    height: 100%;
+    transition: height 0.2s ease;
+}
+.effect-21:focus ~ .focus-border i:after {
+    transition-delay: 0.4s;
+}
+.fx21-field > label {
+    position: absolute;
+    left: 14px;
+    top: 10px;
+    margin: 0;
+    font-size: 12px;
+    color: #000000;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+.effect-21:focus ~ label,
+.has-content.effect-21 ~ label {
+    top: -9px;
+    left: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #000000;
+    background: #f8fcff;
+    padding: 0 5px;
+}
+@media (prefers-reduced-motion: reduce) {
+    .effect-21 ~ .focus-border:before,
+    .effect-21 ~ .focus-border:after,
+    .effect-21 ~ .focus-border i:before,
+    .effect-21 ~ .focus-border i:after,
+    .fx21-field > label {
+        transition: none;
+    }
+}
+
+/* --- System-wide control hovers: Search submits + Create buttons speak the
+   PR-Submit green gradient; fx21 search boxes silence the old glow since the
+   border-draw animation carries focus feedback instead. --- */
+button[type="submit"].icon-btn {
+    transition: all 0.2s ease-in-out;
+}
+button[type="submit"].icon-btn:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    border-color: #4caf50;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+.btn-add-primary {
+    transition: all 0.2s ease-in-out;
+}
+button.btn-add-primary:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    border-color: #4caf50;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+/* Icon-anchored action buttons must never show a link underline. */
+a.btn-action {
+    text-decoration: none;
+}
+.search-input-box.fx21-field:focus-within {
+    box-shadow: none;
+}
+
+/* --- Permanent action glyph colors (resting state): X red, check green.
+   Scoped past the per-page slate base; per-page :hover rules still win. --- */
+.btn-action.btn-reject,
+.btn-action.btn-delete {
+    color: #c62828;
+}
+.btn-action.btn-approve {
+    color: #2e7d32;
+}
+button.btn-remove-row {
+    color: #c62828;
 }
 
 /* --- Rich custom dropdown (PR item-name picker) --- */

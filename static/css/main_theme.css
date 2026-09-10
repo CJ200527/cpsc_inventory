@@ -1,6 +1,6 @@
 /* main_theme.css — extracted from Templates/base.html (verbatim, zero visual change). */
 
-        body { font-family: 'Poppins', sans-serif; background-color: #eaf3f8; }
+        body { font-family: sans-serif; background-color: #eaf3f8; }
     
         /* Global Floating Toast - Non-Disruptive Top-Center */
         .toast-container {

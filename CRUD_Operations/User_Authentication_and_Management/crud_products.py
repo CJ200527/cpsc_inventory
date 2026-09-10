@@ -83,12 +83,15 @@ def get_suppliers_list():
     return []
 
 
-def get_products_for_pr_picker():
+def get_products_for_pr_picker(available_only=False):
     """Master Catalog list for the PR item-name datalist, with history flag.
 
     is_established is TRUE when the product appears in ANY delivery_items
     row or in pr_items tied to an Approved/Completed PR (locked history);
     FALSE when it only exists in Pending PRs (editable draft product).
+    available_only=True restricts to warehouse-real stock
+    (is_active = 1 AND current_stock > 0) for the Withdraw picker —
+    the PR picker itself must keep drafts, so it calls with False.
     No DDL — SELECT only.
     """
     conn = None
@@ -96,21 +99,23 @@ def get_products_for_pr_picker():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
+        where = "WHERE p.is_active = 1 AND COALESCE(p.current_stock, 0) > 0" if available_only else ""
+        cursor.execute(f"""
             SELECT p.product_id, p.product_name, p.category, p.unit,
-                   p.size, p.details, p.price,
+                   p.size, p.details, p.price, p.is_active,
                    COALESCE(p.current_stock, 0) AS stock,
                    COALESCE(p.reorder_level, 10) AS reorder,
                    CASE WHEN EXISTS (
-                       SELECT 1 FROM delivery_items di
-                       WHERE di.product_id = p.product_id
-                   ) OR EXISTS (
-                       SELECT 1 FROM pr_items pri
-                       JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
-                       WHERE pri.product_id = p.product_id
-                         AND pr.status IN ('Approved', 'Completed')
-                   ) THEN 1 ELSE 0 END AS is_established
+                        SELECT 1 FROM delivery_items di
+                        WHERE di.product_id = p.product_id
+                    ) OR EXISTS (
+                        SELECT 1 FROM pr_items pri
+                        JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
+                        WHERE pri.product_id = p.product_id
+                          AND pr.status IN ('Approved', 'Completed')
+                    ) THEN 1 ELSE 0 END AS is_established
             FROM products p
+            {where}
             ORDER BY p.product_name ASC
         """)
         return cursor.fetchall()
@@ -182,13 +187,17 @@ def update_product(product_id, supplier_id=None, product_name="", category="Gene
 
 
 def delete_product(product_id):
-    """Deletes a catalog product unless it has transaction history.
+    """Deletes a catalog product unless it is protected by live references.
 
-    Safety check (no DDL — SELECT guards only): blocks deletion when the
-    product is referenced by pr_items, delivery_items, the items inventory
-    ledger, withdraw_items, or return_items.
+    Safety checks (no DDL — SELECT guards only, nothing is altered on abort):
+    1. Pending-PR lock: linked to pr_items of a Pending PR → abort with a
+       flash-ready denial (ghosts a live request otherwise).
+    2. History lock: referenced by any pr_items, delivery_items, the items
+       inventory ledger, withdraw_items, or return_items → abort for the
+       branded warning modal.
     Returns (ok, code, info):
       (True,  "deleted",    success message),
+      (False, "pending_pr", denial message for flash),
       (False, "referenced", {"label": "PRD-001 — Name", "scope": "..."}),
       (False, "not_found",  message),
       (False, "error",      message).
@@ -207,6 +216,17 @@ def delete_product(product_id):
         if not row:
             return False, "not_found", "Product not found — nothing was deleted."
         label = f"PRD-{pid:03d} — {row[0]}"
+        # Ghost-data guard FIRST: a draft tied to a live Pending PR must stay.
+        cursor.execute("""
+            SELECT 1 FROM pr_items pri
+            JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
+            WHERE pri.product_id = %s AND pr.status = 'Pending'
+            LIMIT 1
+        """, (pid,))
+        if cursor.fetchone():
+            return False, "pending_pr", (
+                "Action Denied: This product is currently active in a pending "
+                "Purchase Request.")
         history_checks = [
             ("pr_items", "Purchase Request"),
             ("delivery_items", "Delivery"),

@@ -266,7 +266,7 @@ def get_all_purchase_requests(search_query="", status_filter="All", date_filter=
 
         sql = """
         SELECT pr.pr_id, pr.pr_number, pr.date_requested, pr.status, pr.total_price,
-               u.id AS user_id, u.Firstname, u.Lastname, u.username
+               u.id AS user_id, u.Firstname, u.Lastname, u.username, u.Role
         FROM purchase_requests pr
         JOIN users u ON pr.user_id = u.id
         WHERE 1=1
@@ -390,12 +390,198 @@ def get_pr_details(pr_id):
         if conn: conn.close()
 
 
-# --- 5. UPDATE: Edit a Pending PR (header + line items) with master-product sync ---
+def _is_draft_product(cursor, product_id):
+    """True when the product is a PR-proposed draft (is_active = 0).
+
+    Falls back to the history-based check on legacy DBs lacking the column.
+    Works with plain or dictionary cursors.
+    """
+    try:
+        pid = int(product_id)
+    except (TypeError, ValueError):
+        return False
+    try:
+        cursor.execute("SELECT is_active FROM products WHERE product_id = %s", (pid,))
+        row = cursor.fetchone()
+        if row is None:
+            return False
+        val = row.get('is_active') if isinstance(row, dict) else row[0]
+        return int(val or 0) == 0
+    except Exception:
+        try:
+            return not is_product_established(cursor, pid)
+        except Exception:
+            return False
+
+
+def _resolve_existing_product(cursor, item):
+    """Like _resolve_product_id but NEVER inserts: honors an explicit link,
+    else matches the 5-field composite key. Returns product_id or None.
+    Works with plain or dictionary cursors.
+    """
+    pid = item.get('product_id')
+    if pid:
+        try:
+            cursor.execute("SELECT product_id FROM products WHERE product_id = %s", (int(pid),))
+            if cursor.fetchone():
+                return int(pid)
+        except Exception:
+            pass
+    name = (item.get('item_name') or '').strip() or 'Unnamed Item'
+    category = (item.get('category') or '').strip() or 'General'
+    unit = (item.get('unit') or '').strip() or 'pcs'
+    size = (item.get('size') or '').strip() or 'N/A'
+    details = item.get('details') or ''
+    cursor.execute(
+        """SELECT product_id FROM products
+           WHERE product_name = %s
+             AND COALESCE(category, '') = %s
+             AND COALESCE(unit, '') = %s
+             AND COALESCE(size, '') = %s
+             AND COALESCE(details, '') = %s
+           LIMIT 1""",
+        (name, category, unit, size, details))
+    row = cursor.fetchone()
+    if row:
+        try:
+            return (int(row['product_id']) if isinstance(row, dict)
+                    else int(row[0]))
+        except Exception:
+            pass
+    return None
+
+
+def _norm_spec(value, default):
+    """Normalized comparison form (same defaults as _resolve_product_id)."""
+    return ((value or '').strip() or default).lower()
+
+
+def _draft_spec_row(cursor, pid):
+    """Normalized spec dict of a products row, or None when missing."""
+    try:
+        cursor.execute("SELECT product_name, category, unit, size, details FROM products WHERE product_id = %s", (pid,))
+        r = cursor.fetchone()
+        if not r:
+            return None
+        g = (lambda k: r.get(k)) if isinstance(r, dict) else (lambda k: None)
+        if not isinstance(r, dict):
+            try:
+                name, cat, unit, size, det = r[0], r[1], r[2], r[3], r[4]
+            except Exception:
+                return None
+            return {'name': _norm_spec(name, 'Unnamed Item'), 'category': _norm_spec(cat, 'General'),
+                    'unit': _norm_spec(unit, 'pcs'), 'size': _norm_spec(size, 'N/A'),
+                    'details': _norm_spec(det, '')}
+        return {'name': _norm_spec(g('product_name'), 'Unnamed Item'), 'category': _norm_spec(g('category'), 'General'),
+                'unit': _norm_spec(g('unit'), 'pcs'), 'size': _norm_spec(g('size'), 'N/A'),
+                'details': _norm_spec(g('details'), '')}
+    except Exception:
+        return None
+
+
+def _update_draft_specs(cursor, pid, item):
+    """Overwrites a draft's specs with the submitted values (display casing kept)."""
+    cursor.execute(
+        """UPDATE products
+           SET product_name = %s, category = %s, unit = %s,
+               details = %s, size = %s
+           WHERE product_id = %s""",
+        ((item.get('item_name') or '').strip() or 'Unnamed Item',
+         (item.get('category') or '').strip() or 'General',
+         (item.get('unit') or '').strip() or 'pcs',
+         item.get('details') or '',
+         (item.get('size') or '').strip() or 'N/A',
+         pid))
+
+
+def _link_edit_item(cursor, item, unclaimed_drafts):
+    """Resolves one submitted edit line to a product_id without orphaning drafts.
+
+    unclaimed_drafts: {pid: normalized specs} of this PR's original draft
+    links, each consumable once. Resolution order:
+    1. explicit product_id link (drafts among them update in place);
+    2. exact composite match (unchanged row, any status — link as-is);
+    3. same-name unclaimed original draft with the best field overlap
+       (score >= 1) → UPDATE in place (a pure spec tweak, no rename);
+    4. otherwise delegate to _resolve_product_id (links another existing
+       row or inserts an inactive variant); renames land here.
+    Returns (product_id, is_new).
+    """
+    pid = item.get('product_id')
+    if pid:
+        try:
+            cursor.execute("SELECT product_id FROM products WHERE product_id = %s", (int(pid),))
+            if cursor.fetchone():
+                pid = int(pid)
+                if _is_draft_product(cursor, pid):
+                    _update_draft_specs(cursor, pid, item)
+                unclaimed_drafts.pop(pid, None)
+                return pid, False
+        except Exception:
+            pass
+    pid = _resolve_existing_product(cursor, item)
+    if pid is not None:
+        unclaimed_drafts.pop(pid, None)
+        return pid, False
+    name = _norm_spec(item.get('item_name'), 'Unnamed Item')
+    best, best_score = None, 0
+    for dp, specs in unclaimed_drafts.items():
+        if specs['name'] != name:
+            continue
+        score = sum(
+            1 for key, default in (('category', 'General'), ('unit', 'pcs'),
+                                   ('size', 'N/A'), ('details', ''))
+            if _norm_spec(item.get(key), default) == specs[key])
+        if score > best_score:
+            best, best_score = dp, score
+    if best is not None and best_score >= 1:
+        del unclaimed_drafts[best]
+        _update_draft_specs(cursor, best, item)
+        return best, False
+    return _resolve_product_id(cursor, item)
+
+
+def _delete_orphan_draft(cursor, product_id):
+    """Deletes product_id iff it is a draft AND unreferenced everywhere
+    (any pr_items, delivery/withdraw/return/items ledgers, stock_movements).
+    A referenced row — even in another Pending PR — is always kept, since
+    pr_items carries a foreign key to products. Returns True if deleted.
+    """
+    try:
+        pid = int(product_id)
+    except (TypeError, ValueError):
+        return False
+    if not _is_draft_product(cursor, pid):
+        return False
+    checks = [
+        "SELECT 1 FROM pr_items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM delivery_items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM withdraw_items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM return_items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM stock_movements WHERE product_id = %s LIMIT 1",
+    ]
+    try:
+        for sql in checks:
+            cursor.execute(sql, (pid,))
+            if cursor.fetchone():
+                return False
+        cursor.execute("DELETE FROM products WHERE product_id = %s", (pid,))
+        return cursor.rowcount > 0
+    except Exception as err:
+        print(f"[_delete_orphan_draft] {err}")
+        return False
+
+
+# --- 5. UPDATE: Edit a Pending PR (header + line items) with smart draft sync ---
 def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, items_list=None):
     """
     Edits a Purchase Request ONLY while its status is Pending. Replaces the
-    pr_items snapshot and syncs every line back to its linked products row so
-    the Master Catalog reflects renames/attribute changes gracefully.
+    pr_items snapshot with smart draft handling: lines linked to draft
+    products (is_active = 0) UPDATE the catalog row in place instead of
+    spawning duplicates; established products (is_active = 1) are never
+    touched — only pr_items changes. Draft products removed by the edit are
+    garbage-collected when truly orphaned.
     Approved/Rejected PRs are immutable historical records.
     Returns (True, pr_number) or (False, error_msg). No DDL — DML only.
     """
@@ -439,17 +625,36 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
                    SET fund_source = %s, total_price = %s WHERE pr_id = %s""",
                 (fund_source, grand_total, pr_id))
 
+        # Snapshot original links BEFORE replacing: full draft-spec map for
+        # same-line matching plus the id set for orphan-draft GC.
+        cursor.execute("SELECT product_id FROM pr_items WHERE pr_id = %s", (pr_id,))
+        original_pids = []
+        for r in cursor.fetchall():
+            try:
+                original_pids.append(int(r['product_id'] if isinstance(r, dict) else r[0]))
+            except (TypeError, ValueError):
+                continue
+        unclaimed_drafts = {}
+        for pid in original_pids:
+            if _is_draft_product(cursor, pid):
+                specs = _draft_spec_row(cursor, pid)
+                if specs is not None:
+                    unclaimed_drafts[pid] = specs
+
         # Replace the line-item snapshot (nothing references pr_items by id).
         cursor.execute("DELETE FROM pr_items WHERE pr_id = %s", (pr_id,))
+        new_pids = []
         for item in items_list:
             price = float(item.get('price', 0))
             qty = int(item.get('quantity', 1))
             if qty < 1:
                 continue
-            pid, is_new = _resolve_product_id(cursor, item)
-            if not is_new:
-                # Draft-spec sync only: established catalog rows ignore spec changes.
-                _sync_product_specs(cursor, pid, item)
+            # Smart link: unchanged rows re-link, same-line draft tweaks
+            # update in place, established rows stay untouched, genuinely new
+            # specs create an inactive variant (renames land here, GC below
+            # retires the abandoned draft when truly orphaned).
+            pid, _ = _link_edit_item(cursor, item, unclaimed_drafts)
+            new_pids.append(pid)
             cursor.execute(
                 """INSERT INTO pr_items
                    (pr_id, user_id, product_id, item_name, category, unit,
@@ -459,6 +664,10 @@ def update_purchase_request(pr_id, fund_source="Fund 05", date_requested=None, i
                  item['item_name'], item.get('category', ''),
                  item.get('unit', 'pcs'), item.get('details', ''),
                  item.get('size', ''), price, qty, price * qty))
+
+        # Garbage-collect drafts this edit orphaned (referenced ones survive).
+        for pid in set(original_pids) - set(new_pids):
+            _delete_orphan_draft(cursor, pid)
 
         conn.commit()
         return True, pr['pr_number']
