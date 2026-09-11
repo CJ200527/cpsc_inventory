@@ -102,7 +102,7 @@
                                 <td>
                                     <div class="action-cell">
                                         <form method="POST" action="{{ url_for('admin_delete_product', target_id=p.product_id) }}?search={{ search }}&date_filter={{ date_filter }}">
-                                            <button type="submit" class="btn-action btn-delete" title="Delete Product"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                                            <button type="submit" class="btn-action btn-delete" title="Delete Product"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button>
                                         </form>
                                     </div>
                                 </td>
@@ -187,6 +187,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/product_logic.js') }}"></script>
 
 </body>

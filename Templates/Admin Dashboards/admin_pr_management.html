@@ -128,14 +128,14 @@
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td>
                                     <div class="action-cell">
-                                         <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
+                                         <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                         {% if r.status == 'Pending' %}
-                                            <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><span class="act-icon act-edit" aria-hidden="true"></span></button>
+                                            <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
                                             <form method="POST" action="/admin/pr/approve/{{ r.pr_id }}" style="display:inline;">
-                                                 <button type="submit" class="btn-action btn-approve" title="Approve PR"><span class="act-icon act-check" aria-hidden="true"></span></button>
+                                                 <button type="submit" class="btn-action btn-approve" title="Approve PR"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
                                             </form>
                                             <form method="POST" action="/admin/pr/reject/{{ r.pr_id }}" style="display:inline;">
-                                                 <button type="submit" class="btn-action btn-reject" title="Reject PR"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                                                 <button type="submit" class="btn-action btn-reject" title="Reject PR"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
                                             </form>
                                         {% endif %}
                                     </div>
@@ -327,6 +327,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pr_logic.js') }}"></script>
 
 </body>

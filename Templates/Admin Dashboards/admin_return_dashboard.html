@@ -115,11 +115,11 @@
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td>
                                     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                                        <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                         {% if r.status == 'Pending' %}
-                                        <button type="button" class="btn-action btn-approve" title="Approve & Process" onclick="openApproveModal({{ r.return_id }}, '{{ r.return_number }}')"><span class="act-icon act-check" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn-action btn-approve" title="Approve & Process" onclick="openApproveModal({{ r.return_id }}, '{{ r.return_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
                                         <form method="POST" action="{{ url_for('reject_return_action', return_id=r.return_id) }}" style="display:inline;" onsubmit="return confirm('Reject {{ r.return_number }}?')">
-                                            <button type="submit" class="btn-action btn-reject" title="Reject"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                                            <button type="submit" class="btn-action btn-reject" title="Reject"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
                                         </form>
                                         {% endif %}
                                     </div>
@@ -199,7 +199,7 @@
         <div class="modal-box" style="width:520px;">
             <div class="modal-header">
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff;"><span class="act-icon act-check" aria-hidden="true"></span></div>
+                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff;"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></div>
                     <div><h3 style="font-size:17px; margin:0;">Confirm Return Approval</h3><p style="font-size:11px; color:#666; margin:0;">Serviceable restocks, Unserviceable flagged</p></div>
                 </div>
             </div>
@@ -209,7 +209,7 @@
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-modal-cancel" onclick="closeApproveModal()">Cancel</button>
-                <button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="confirmApprove()"><span class="act-icon act-check" aria-hidden="true"></span> Yes, Process Return</button>
+                <button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="confirmApprove()"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Yes, Process Return</button>
             </div>
         </div>
     </div>
@@ -217,6 +217,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_return_logic.js') }}"></script>
 
 </body>

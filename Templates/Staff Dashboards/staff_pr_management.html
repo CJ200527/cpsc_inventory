@@ -124,9 +124,9 @@
                                 <td><span class="price-badge">₱ {{ "{:,.2f}".format(r.total_price or 0) }}</span></td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td>
-                                    <button type="button" class="btn-action btn-view" title="View Submitted Items" onclick="openViewModal({{ r.pr_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
+                                    <button type="button" class="btn-action btn-view" title="View Submitted Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                     {% if r.status == 'Pending' %}
-                                    <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><span class="act-icon act-edit" aria-hidden="true"></span></button>
+                                    <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -316,6 +316,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pr_logic.js') }}"></script>
 
 </body>

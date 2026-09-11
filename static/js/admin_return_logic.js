@@ -127,7 +127,7 @@
                 <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
                 <td><span id="r-unit-${rowId}">—</span></td>
                 <td><select name="condition_status[]" id="r-cond-${rowId}" required><option value="Serviceable">Serviceable / Unused</option><option value="Unserviceable">Unserviceable / Defective</option></select></td>
-                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><span class="act-icon act-x" aria-hidden="true"></span></button></td>
+                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
         }
@@ -142,7 +142,7 @@
                 <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" max="${issuedQty}" placeholder="max ${issuedQty}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="validateReturnQty(${rowId})" required></td>
                 <td>${unit}</td>
                 <td><select name="condition_status[]" required><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select></td>
-                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><span class="act-icon act-x" aria-hidden="true"></span></button></td>
+                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
         }
@@ -218,7 +218,7 @@
                 html+=`</tbody></table>`;
                 if(data.header.status==='Pending'){
                     html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">⏳ Pending — serviceable will restock on approve.</div>`;
-                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.return_id}, '${data.header.return_number}')">✓ Approve & Process</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.return_id})">✕ Reject</button>`;
+                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.return_id}, '${data.header.return_number}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Process</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.return_id})"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg> Reject</button>`;
                     document.getElementById('view-approve-area').classList.remove('hidden');
                 } else {
                     document.getElementById('view-approve-area').classList.add('hidden');

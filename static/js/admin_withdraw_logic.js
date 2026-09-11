@@ -71,7 +71,7 @@
                 <td><span id="w-cat-${rowId}">—</span></td>
                 <td><span id="w-stock-${rowId}" class="stock-info">—</span></td>
                 <td><input type="number" name="quantity[]" id="w-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="calcWithdrawSubtotal(${rowId})" required></td>
-                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><span class="act-icon act-x" aria-hidden="true"></span></button></td>
+                <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
         }
@@ -219,7 +219,7 @@
                 html+=`<p style="text-align:right; font-size:14px; font-weight:700; color:#0d233a;">Grand Total: <span style="color:#2e7d32;">${fmtPeso(total)}</span></p>`;
                 if(data.header.status==='Pending'){
                     html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">⏳ Pending — stock not yet deducted. Awaiting Admin approval.</div>`;
-                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.withdraw_id}, '${data.header.ris_number}')">✓ Approve & Issue</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.withdraw_id})">✕ Reject</button>`;
+                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.withdraw_id}, '${data.header.ris_number}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Issue</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.withdraw_id})"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg> Reject</button>`;
                     document.getElementById('view-approve-area').classList.remove('hidden');
                 } else {
                     document.getElementById('view-approve-area').classList.add('hidden');

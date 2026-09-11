@@ -108,7 +108,7 @@
                                 <td style="text-align:center; font-weight:700;">{{ w.total_qty or 0 }}</td>
                                 <td><span class="badge badge-{{ w.status|lower }}">{{ w.status }}</span></td>
                                 <td>
-                                    <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
+                                    <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -173,6 +173,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/staff_withdraw_logic.js') }}"></script>
 
 </body>

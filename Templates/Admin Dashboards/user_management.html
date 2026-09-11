@@ -153,20 +153,20 @@
                                                 data-role="{{ u.role }}"
                                                 data-contact="{{ u.contact_number or '' }}"
                                                 onclick="openEditModal(this)">
-                                             <span class="act-icon act-edit" aria-hidden="true"></span>
+                                             <svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg>
                                         </button>
 
                                         {% if u.is_approved == 0 %}
                                         <!-- Approve Action Button -->
                                         <form method="POST" action="/admin/users/approve/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
-                                            <button type="submit" class="btn-action btn-approve" title="Approve Account"><span class="act-icon act-check" aria-hidden="true"></span></button>
+                                            <button type="submit" class="btn-action btn-approve" title="Approve Account"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
                                         </form>
                                         {% endif %}
 
                                         {% if u.is_approved == 1 %}
                                         <!-- Reject Action Button -->
                                         <form method="POST" action="/admin/users/reject/{{ u.user_id }}?search={{ search }}&date_filter={{ date_filter }}">
-                                            <button type="submit" class="btn-action btn-reject" title="Reject / Set Pending"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                                            <button type="submit" class="btn-action btn-reject" title="Reject / Set Pending"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
                                         </form>
                                         {% endif %}
 
@@ -174,7 +174,7 @@
                                         <button type="button" class="btn-action btn-delete" title="Delete User"
                                                 data-user-id="{{ u.user_id }}"
                                                 data-username="{{ u.username }}"
-                                                 onclick="openDeleteUserModal(this)"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                                                 onclick="openDeleteUserModal(this)"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button>
                                     </div>
                                 </td>
                             </tr>
@@ -274,6 +274,7 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/user_logic.js') }}"></script>
 
 </body>

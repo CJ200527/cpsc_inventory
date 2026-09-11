@@ -122,9 +122,9 @@
                                 <td>{% if d.is_partial %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
                                 <td>
                                     <div style="display:flex;gap:6px;align-items:center;">
-                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                         {% if d.show_complete == 1 %}
-                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.delivery_id }})"><span class="act-icon act-plus" aria-hidden="true"></span></button>
+                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -260,6 +260,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/delivery_logic.js') }}"></script>
 
 </body>

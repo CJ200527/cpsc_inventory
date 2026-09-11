@@ -112,7 +112,7 @@
                                 <td>{{ r.date_returned.strftime('%Y-%m-%d') if r.date_returned else '' }}</td>
                                 <td style="text-align:center; font-weight:700;">{{ r.total_qty or 0 }}</td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
-                                <td><button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><span class="act-icon act-view" aria-hidden="true"></span></button></td>
+                                <td><button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button></td>
                             </tr>
                             {% endfor %}
                         {% else %}
@@ -181,6 +181,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/staff_return_logic.js') }}"></script>
 
 </body>

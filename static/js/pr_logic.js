@@ -254,7 +254,7 @@
                 <td><div class="fx21-field"><input type="text" name="price[]" class="effect-21" inputmode="decimal" placeholder="0.00" required value="${priceVal}" oninput="formatPriceInput(this)" onblur="finishPriceInput(this)"><span class="focus-border"><i></i></span></div></td>
                 <td><div class="fx21-field"><input type="number" name="quantity[]" class="effect-21" value="${it.quantity || 1}" min="1" step="1" required oninput="calcPrRowTotal(this)"><span class="focus-border"><i></i></span></div></td>
                 <td><input type="text" class="pr-row-total" value="0.00" readonly tabindex="-1"></td>
-                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)"><span class="act-icon act-x" aria-hidden="true"></span></button>
+                <td><button type="button" class="btn-remove-row" onclick="removePrRow(this)"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button>
             `;
             tbody.appendChild(tr);
             calcPrRowTotal(tr.querySelector('input[name="price[]"]'));
