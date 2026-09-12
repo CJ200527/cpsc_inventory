@@ -137,7 +137,7 @@
         .modal-form textarea:focus {
             background-color: #ffffff;
             border-color: #53c5f1;
-            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+            box-shadow: none;
         }
         .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }

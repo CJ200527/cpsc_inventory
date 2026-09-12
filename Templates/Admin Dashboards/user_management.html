@@ -203,47 +203,53 @@
             </div>
 
             <form id="edit-form" method="POST" class="modal-form">
-                <div class="input-group">
-                    <label>User ID:</label>
-                    <input type="text" id="edit-user-id" readonly>
+                <div class="fx21-field">
+                    <input type="text" id="edit-user-id" class="effect-21" readonly tabindex="-1" style="background-color: #e9ecef; cursor: not-allowed;">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-user-id">User ID:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>User Name:</label>
-                    <input type="text" id="edit-username" name="username" required autocomplete="off">
+                <div class="fx21-field">
+                    <input type="text" id="edit-username" name="username" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-username">User Name:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>First Name:</label>
-                    <input type="text" id="edit-first-name" name="first_name" required autocomplete="off">
+                <div class="fx21-field">
+                    <input type="text" id="edit-first-name" name="first_name" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-first-name">First Name:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>Middle Initial:</label>
-                    <input type="text" id="edit-mi" name="middle_initial" maxlength="2" autocomplete="off">
+                <div class="fx21-field">
+                    <input type="text" id="edit-mi" name="middle_initial" class="effect-21" maxlength="2" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-mi">Middle Initial:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>Last Name:</label>
-                    <input type="text" id="edit-last-name" name="last_name" required autocomplete="off">
+                <div class="fx21-field">
+                    <input type="text" id="edit-last-name" name="last_name" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-last-name">Last Name:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>User Role:</label>
-                    <select id="edit-role" name="role">
+                <div class="fx21-field">
+                    <select id="edit-role" name="role" class="effect-21">
                         <option value="Staff">Staff</option>
                         <option value="Admin">Admin</option>
                     </select>
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-role">User Role:</label>
                 </div>
 
-                <div class="input-group">
-                    <label>Contact Number:</label>
-                    <input type="text" id="edit-contact" name="contact_number" 
+                <div class="fx21-field">
+                    <input type="text" id="edit-contact" name="contact_number" class="effect-21" 
                     pattern="^09[0-9]{9}$"
                     maxlength="11" 
-                    placeholder="09XXXXXXXXX"
                     title="must be a valid 11-digit Philippine mobile number starting with 09"
-                    autocomplete="off">
+                    autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="edit-contact">Contact Number:</label>
                 </div>
 
                 <div class="modal-buttons">

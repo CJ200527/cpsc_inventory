@@ -39,23 +39,25 @@
                 <form method="POST" action="/login">
                     <div class="input-group">
                         <label>User Name:</label>
-                        <div class="input-wrapper">
+                        <div class="input-wrapper fx21-field">
                             <svg viewBox="0 0 24 24" fill="none">
                                 <circle cx="12" cy="8" r="4" fill="#ff9800"/>
                                 <path d="M4 20c0-4 4-7 8-7s8 3 8 7" stroke="#2196f3" stroke-width="2" fill="none"/>
                             </svg>
-                            <input type="text" name="username" required autocomplete="off">
+                            <input type="text" name="username" class="effect-21" required autocomplete="off">
+                            <span class="focus-border"><i></i></span>
                         </div>
                     </div>
 
                     <div class="input-group">
                         <label>Password:</label>
-                        <div class="input-wrapper">
+                        <div class="input-wrapper fx21-field">
                             <svg viewBox="0 0 24 24" fill="none">
                                 <rect x="5" y="10" width="14" height="10" rx="2" fill="#00bcd4"/>
                                 <path d="M8 10V7a4 4 0 118 0v3" stroke="#00bcd4" stroke-width="2" fill="none"/>
                             </svg>
-                            <input type="password" name="password" required>
+                            <input type="password" name="password" class="effect-21" required>
+                            <span class="focus-border"><i></i></span>
                         </div>
                     </div>
 
@@ -73,48 +75,69 @@
                 <form method="POST" action="/register">
                     <div class="input-group">
                         <label>User Name:</label>
-                        <input type="text" name="username" class="input-box" required autocomplete="off">
+                        <div class="fx21-field">
+                            <input type="text" name="username" class="input-box effect-21" required autocomplete="off">
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>Password:</label>
-                        <input type="password" name="password" class="input-box" required>
+                        <div class="fx21-field">
+                            <input type="password" name="password" class="input-box effect-21" required>
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>First Name:</label>
-                        <input type="text" name="first_name" class="input-box" required autocomplete="off">
+                        <div class="fx21-field">
+                            <input type="text" name="first_name" class="input-box effect-21" required autocomplete="off">
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>Middle Initial:</label>
-                        <input type="text" name="middle_initial" class="input-box" maxlength="2" required autocomplete="off">
+                        <div class="fx21-field">
+                            <input type="text" name="middle_initial" class="input-box effect-21" maxlength="2" required autocomplete="off">
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>Last Name:</label>
-                        <input type="text" name="last_name" class="input-box" required autocomplete="off">
+                        <div class="fx21-field">
+                            <input type="text" name="last_name" class="input-box effect-21" required autocomplete="off">
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>Contact Number:</label>
-                        <input type="tel" 
+                        <div class="fx21-field">
+                            <input type="tel" 
                                name="contact_number" 
-                               class="input-box" 
+                               class="input-box effect-21" 
                                pattern="^09[0-9]{9}$" 
                                maxlength="11" 
                                placeholder="09351234567" 
                                title="Must be a valid 11-digit Philippine mobile number starting with 09" 
                                required 
                                autocomplete="off">
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <div class="input-group">
                         <label>User Role:</label>
-                        <select name="role" class="input-box">
-                            <option value="Staff" selected>Staff</option>
-                            <option value="Admin">Admin</option>
-                        </select>
+                        <div class="fx21-field">
+                            <select name="role" class="input-box effect-21">
+                                <option value="Staff" selected>Staff</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                            <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn-primary">Sign Up</button>

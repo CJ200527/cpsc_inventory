@@ -103,6 +103,8 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
                     filtered.append(r)
                 elif stock_status=="Out of Stock" and stock==0:
                     filtered.append(r)
+                elif stock_status=="Needs Attention" and stock <= reorder:
+                    filtered.append(r)
             rows=filtered
         # Normalize types
         for r in rows:

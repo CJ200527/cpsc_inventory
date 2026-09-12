@@ -130,32 +130,32 @@
                         <div class="metric-sub">In-stock products</div>
                     </div>
 
-                    <div class="metric-card metric-warning">
+                    <a href="{{ url_for('staff_inventory_dashboard', stock_status='Needs Attention') }}" class="metric-card metric-warning" style="text-decoration:none;color:inherit;cursor:pointer;" title="View low and out-of-stock items">
                         <div class="metric-title">Low Stock Alerts</div>
                         <div class="metric-body">
                             <div class="metric-icon-box">⚠️</div>
                             <div class="metric-value">{{ kpi.low_stock_count | default(0) }}</div>
                         </div>
                         <div class="metric-sub">Needs replenishment</div>
-                    </div>
+                    </a>
 
-                    <div class="metric-card">
+                    <a href="{{ url_for('pr_management', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending purchase requests">
                         <div class="metric-title">My Pending PRs</div>
                         <div class="metric-body">
                             <div class="metric-icon-box">📋</div>
                             <div class="metric-value">{{ kpi.my_pending_prs | default(0) }}</div>
                         </div>
                         <div class="metric-sub">Awaiting approval</div>
-                    </div>
+                    </a>
 
-                    <div class="metric-card">
+                    <a href="{{ url_for('staff_withdraw_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending withdrawals">
                         <div class="metric-title">My Pending Withdrawals</div>
                         <div class="metric-body">
                             <div class="metric-icon-box">📤</div>
                             <div class="metric-value">{{ kpi.my_pending_withdrawals | default(0) }}</div>
                         </div>
                         <div class="metric-sub">Awaiting release</div>
-                    </div>
+                    </a>
                 </div>
             </section>
 
@@ -199,9 +199,9 @@
                             <span class="alert-icon">⚠️</span>
                             <div class="alert-text">
                                 <strong>Low stock items to monitor</strong>
-                                <span>{{ kpi.low_stock_count | default(0) }} item(s) at or below reorder level.</span>
+                                <span>{{ kpi.low_stock_count | default(0) }} item(s) at or below reorder level (includes out-of-stock).</span>
                             </div>
-                            <a href="{{ url_for('staff_inventory_dashboard') }}" class="alert-link">View →</a>
+                            <a href="{{ url_for('staff_inventory_dashboard', stock_status='Needs Attention') }}" class="alert-link">View →</a>
                         </li>
                     {% endif %}
                 </ul>

@@ -143,23 +143,23 @@
                         <div class="metric-sub">Stock × Price</div>
                     </div>
 
-                    <div class="metric-card metric-warning">
+                    <a href="{{ url_for('admin_inventory_dashboard', stock_status='Needs Attention') }}" class="metric-card metric-warning" style="text-decoration:none;color:inherit;cursor:pointer;" title="View low and out-of-stock items">
                         <div class="metric-title">Low Stock Alerts</div>
                         <div class="metric-body">
                             <div class="metric-icon-box">⚠️</div>
                             <div class="metric-value">{{ admin_kpi.low_stock_alerts | default(0) }}</div>
                         </div>
                         <div class="metric-sub">Needs replenishment</div>
-                    </div>
+                    </a>
 
-                    <div class="metric-card">
+                    <a href="{{ url_for('pr_management', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending purchase requests">
                         <div class="metric-title">Pending PRs for Approval</div>
                         <div class="metric-body">
                             <div class="metric-icon-box">📋</div>
                             <div class="metric-value">{{ admin_kpi.pending_prs | default(0) }}</div>
                         </div>
                         <div class="metric-sub">Awaiting admin action</div>
-                    </div>
+                    </a>
 
                     <div class="metric-card">
                         <div class="metric-title">Active Users</div>
@@ -385,13 +385,15 @@
                 </div>
             </div>
             <div class="form-row-2">
-                <div class="form-field">
+                <div class="form-field fx21-field">
+                    <input type="date" id="custom-from" class="modal-input effect-21" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
                     <label for="custom-from">From</label>
-                    <input type="date" id="custom-from" class="modal-input">
                 </div>
-                <div class="form-field">
+                <div class="form-field fx21-field">
+                    <input type="date" id="custom-to" class="modal-input effect-21" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
                     <label for="custom-to">To</label>
-                    <input type="date" id="custom-to" class="modal-input">
                 </div>
             </div>
             <p class="modal-error hidden" id="custom-date-error"></p>
@@ -414,9 +416,10 @@
                     </div>
                 </div>
             </div>
-            <div class="form-field">
+            <div class="form-field fx21-field">
+                <input type="number" id="specify-year-input" class="modal-input effect-21" min="2000" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                <span class="focus-border"><i></i></span>
                 <label for="specify-year-input">Year (YYYY)</label>
-                <input type="number" id="specify-year-input" class="modal-input" min="2000" placeholder="e.g. 2025">
             </div>
             <p class="modal-error hidden" id="specify-year-error"></p>
             <div class="modal-buttons">

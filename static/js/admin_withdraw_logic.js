@@ -23,18 +23,36 @@
         }
 
         function fmtPeso(n){ return '₱ ' + Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+        function shortWdNum(s){
+            s=String(s||'');
+            if(s.indexOf('-')===-1) return s;
+            const parts=s.split('-');
+            const tail=(parts.pop()||'').trim();
+            const head=(parts[0]||'').trim();
+            if(!tail||!head) return s;
+            return head+'-'+tail;
+        }
+        const VIEW_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+        function fmtViewDate(s){
+            s=String(s||'').trim();
+            const m=s.match(/(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/);
+            if(!m) return s||'—';
+            let h=parseInt(m[4]||'0',10); const ap=h>=12?'PM':'AM'; h=h%12||12;
+            return `${VIEW_MONTHS[parseInt(m[2],10)-1]} ${parseInt(m[3],10)}, ${m[1]} | ${h}:${m[5]||'00'} ${ap}`;
+        }
         function todayLocal(){ const n=new Date(); const p=x=>String(x).padStart(2,'0'); return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; }
         /* Withdraw Number: daily server sequence (offline fallback keeps the
            WD-YYYY-MM-DD shape with a random suffix; DB enforces uniqueness). */
         function fetchWithdrawNumber(numEl){
             if(!numEl) return;
-            numEl.value=''; numEl.placeholder='Loading...';
+            numEl.value=''; numEl.classList.remove('has-content'); numEl.placeholder='Loading...';
             fetch('/withdraw/get_next_number').then(r=>r.json()).then(dt=>{
-                if(dt.withdraw_number) numEl.value=dt.withdraw_number;
+                if(dt.withdraw_number){ numEl.value=dt.withdraw_number; numEl.classList.add('has-content'); }
                 else numEl.placeholder='Auto-generated';
             }).catch(()=>{
                 const n=new Date(); const p=x=>String(x).padStart(2,'0');
                 numEl.value=`WD-${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}-${Math.floor(1000+Math.random()*9000)}`;
+                numEl.classList.add('has-content');
             });
         }
         /* Duplicate guard (PR-style): one product per request — scan hidden product_id[] values. */
@@ -54,7 +72,7 @@
             addWithdrawRow();
             document.getElementById('withdraw-modal').classList.remove('hidden');
             const numEl=document.querySelector('#withdraw-modal input[name="ris_number"]'); if(numEl && !numEl.value) fetchWithdrawNumber(numEl);
-            const d=document.querySelector('#withdraw-modal input[name="date_requested"]'); if(d){ if(!d.value) d.valueAsDate=new Date(); d.max=todayLocal(); }
+            const d=document.querySelector('#withdraw-modal input[name="date_requested"]'); if(d){ if(!d.value) d.valueAsDate=new Date(); d.max=todayLocal(); d.classList.toggle('has-content',!!d.value); }
         }
         function closeWithdrawModal(){ document.getElementById('withdraw-modal').classList.add('hidden'); }
 
@@ -64,13 +82,13 @@
             const tr=document.createElement('tr');
             tr.innerHTML=`
                 <td>
-                    <div class="custom-dropdown-wrap"><input type="text" placeholder="Select Product" autocomplete="off" required oninput="onWithdrawSearchInput(this)" onfocus="showWithdrawDropdown(this)" onblur="hideWithdrawDropdown(this)"><input type="hidden" name="product_id[]" id="w-prod-${rowId}"><div class="custom-dropdown-list hidden"></div></div>
+                    <div class="custom-dropdown-wrap fx21-field"><input type="text" class="effect-21" placeholder="Select Product" autocomplete="off" required oninput="onWithdrawSearchInput(this)" onfocus="showWithdrawDropdown(this)" onblur="hideWithdrawDropdown(this)" style="padding-right:26px;"><span class="focus-border"><i></i></span><span class="dd-caret">▾</span><input type="hidden" name="product_id[]" id="w-prod-${rowId}"><div class="custom-dropdown-list hidden"></div></div>
                 </td>
                 <td><span id="w-spec-${rowId}" class="readonly-cell">—</span></td>
                 <td><span id="w-unit-${rowId}">—</span></td>
                 <td><span id="w-cat-${rowId}">—</span></td>
                 <td><span id="w-stock-${rowId}" class="stock-info">—</span></td>
-                <td><input type="number" name="quantity[]" id="w-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="calcWithdrawSubtotal(${rowId})" required></td>
+                <td><div class="fx21-field" style="display:inline-block;"><input type="number" name="quantity[]" id="w-qty-${rowId}" class="effect-21" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" oninput="calcWithdrawSubtotal(${rowId})" required><span class="focus-border"><i></i></span></div></td>
                 <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
@@ -200,26 +218,25 @@
         function openViewModal(id){
             const c=document.getElementById('view-modal-content');
             c.innerHTML='Loading...';
+            const gtot0=document.getElementById('view-modal-grand-total');
+            if(gtot0) gtot0.innerHTML='Grand Total: <span>₱ 0.00</span>';
             document.getElementById('view-modal').classList.remove('hidden');
             fetch('/withdraw/details/'+id).then(r=>r.json()).then(data=>{
                 if(data.error){ c.innerHTML=data.error; return; }
-                document.getElementById('view-ris-number').innerText=data.header.ris_number + ' Details';
-                let html=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#f8fcff; border:1px solid #e2f0fb; border-radius:8px; padding:12px; margin-bottom:12px; font-size:12px;">`;
-                html+=`<div><strong>RIS #:</strong> ${data.header.ris_number}</div><div><strong>Department:</strong> ${data.header.department}</div>`;
-                html+=`<div><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname}</div><div><strong>Purpose:</strong> ${data.header.purpose}</div>`;
-                html+=`<div><strong>Date Requested:</strong> ${data.header.date_requested}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
-                if(data.header.issuer_first) html+=`<div><strong>Issued By:</strong> ${data.header.issuer_first} ${data.header.issuer_last}</div>`;
+                document.getElementById('view-ris-number').innerText=shortWdNum(data.header.ris_number) + ' Details';
+                let html=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#333;">`;
+                html+=`<div><strong>WD No.:</strong> <span title="${data.header.ris_number||''}">${shortWdNum(data.header.ris_number)}</span></div><div><strong>Department:</strong> ${data.header.department||'-'}</div><div><strong>Date:</strong> ${fmtViewDate(data.header.date_requested)}</div>`;
+                html+=`<div><strong>Requested by:</strong> ${data.header.Firstname||''} ${data.header.Lastname||''}</div><div><strong>Purpose:</strong> ${data.header.purpose||'-'}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
+                if(data.header.issuer_first) html+=`<div></div><div></div><div><strong>Issued By:</strong> ${data.header.issuer_first} ${data.header.issuer_last}</div>`;
                 html+=`</div>`;
-                html+=`<table class="item-table"><thead><tr><th>Item</th><th>Unit</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>`;
+                html+=`<table class="item-table"><thead><tr><th>Item Name</th><th>Category</th><th>Specification</th><th>Unit</th><th>QTY</th></tr></thead><tbody>`;
                 data.items.forEach(i=>{
-                    html+=`<tr><td>${i.item_name}</td><td>${i.unit}</td><td>${i.quantity}</td><td>${fmtPeso(i.unit_price)}</td><td>${fmtPeso(i.total_price)}</td></tr>`;
+                    html+=`<tr><td><strong>${i.item_name}</strong></td><td>${i.category||'-'}</td><td>${i.withdraw_details||i.details||'—'}</td><td>${i.unit||'pcs'}</td><td style="text-align:center;font-weight:700;">${i.quantity}</td></tr>`;
                 });
                 html+=`</tbody></table>`;
-                const total = data.items.reduce((a,b)=>a+parseFloat(b.total_price||0),0);
-                html+=`<p style="text-align:right; font-size:14px; font-weight:700; color:#0d233a;">Grand Total: <span style="color:#2e7d32;">${fmtPeso(total)}</span></p>`;
                 if(data.header.status==='Pending'){
-                    html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">⏳ Pending — stock not yet deducted. Awaiting Admin approval.</div>`;
-                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-action btn-approve" onclick="openApproveModal(${data.header.withdraw_id}, '${data.header.ris_number}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Issue</button> <button type="button" class="btn-action btn-reject" onclick="rejectFromView(${data.header.withdraw_id})"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg> Reject</button>`;
+                    html+=`<div style="margin-top:10px; padding:8px; background:#fff3cd; border:1px solid #ffe082; border-radius:6px; font-size:11px; color:#856404;">Pending — stock not yet deducted. Awaiting Admin approval.</div>`;
+                    document.getElementById('view-approve-area').innerHTML=`<button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="openApproveModal(${data.header.withdraw_id}, '${data.header.ris_number}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Issue</button><button type="button" class="btn-modal-cancel" onclick="rejectFromView(${data.header.withdraw_id})"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg> Reject</button>`;
                     document.getElementById('view-approve-area').classList.remove('hidden');
                 } else {
                     document.getElementById('view-approve-area').classList.add('hidden');

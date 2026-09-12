@@ -50,6 +50,19 @@
             }
         }
     
+        // fx21 label sync (covers typed text AND late browser autofill,
+        // which fires no input event — re-check after paint).
+        function syncAuthFx21(){
+            document.querySelectorAll('.form-container .effect-21').forEach(inp=>{
+                inp.classList.toggle('has-content',(inp.value||'').trim()!=='');
+            });
+        }
+        document.addEventListener('DOMContentLoaded', function(){
+            syncAuthFx21();
+            setTimeout(syncAuthFx21, 400);
+            setTimeout(syncAuthFx21, 1200);
+        });
+
         // Smooth transition for Forgot Password link
 
         document.addEventListener('DOMContentLoaded', function() {

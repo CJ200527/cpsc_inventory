@@ -5,6 +5,55 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — System-Wide fx21 Rollout + Return/Withdraw Details (2026-09-12)
+
+> The Delivery caption-row trial (`Label: [box]`, frozen labels, animation-only focus) won and was rolled out to **every form surface**: Receive, Complete, PR create/edit, Withdraw, Return, Add Product, Edit User, Login/Signup/Forgot, and dashboard filter modals. Glow shadows deleted project-wide; labels parked (never rise/drop).
+
+#### Added
+- **Caption-row headers everywhere** — `fx21-inline` (`Label:` + flex box) + `fx21-box` draw stage; globalized from the Receive trial. Section titles de-AI'd (`Section 1:` / `Section 2:`) and shortened (`Delivery Items`, `PR Items`, `Withdraw Items`, `Return Items`).
+- **Dropdown carets + in-box guides** — monochrome `▾` on custom pickers, `Dropdown`/`e.g. Bonita`/`e.g. PO-2026-001` placeholder guides, required `*` moved from labels into placeholders.
+- **Combined `Needs Attention` stock filter** (`stock <= reorder`, low + out) in `crud_inventory.py`, exposed as `Low & Out of Stock` in both inventory toolbelts.
+- **Dashboard card click-throughs** — Low Stock (low + out) → filtered inventory; Pending PRs/Withdrawals → filtered queues, staff + admin (backend; needs Flask restart to load).
+- **Withdraw/Return Details overhauls** — 3-column headers, short titles (`WD-001 Details`), `ph_datetime` dates, Grand Total docked in footers, footer action buttons, universal Close hover, money stripped from Withdraw items view.
+- **Return Tools/Equipment scoping** — `issued_withdrawals` limited to withdrawals containing Tools/Equipment; Return item picker offers only the chosen withdrawal's Tools/Equipment lines (empty until picked); Withdraw item picker restored to all in-stock (any category).
+
+#### Changed
+- **PR Fund Source** opens empty with an `e.g. Fund 05` hint (no autofill); Edit keeps its value.
+- **Return table columns** rebuilt (Item Name · Category · Specification · Unit · Qty in view; reordered create rows with Category + Condition).
+- **Login/Signup** use fixed top labels + animation-only boxes (float experiment reverted); Chrome autofill wash neutralized with load-time label sync.
+
+#### Fixed
+- **`create_return_action` NameError** — passed undefined `withdraw_id`; now `withdrawal_id or None`, so Return records save.
+- **fx21 wrapper overshoot** (inline-block shrink-wrap), **peso-in-number-input revert**, **missing header close tag**, **Add Remaining white-on-hover** (amber hover keeps dark text).
+
+#### Pending (agreed, not yet implemented)
+- **Return restock policy (Option B):** Serviceable restocks (`+qty`) on approve; Unserviceable stays history-only. Submit gate switches to issued-minus-returned for linked returns. Spec approved 2026-09-12; implementation + live test is tomorrow's first job.
+
+---
+
+## [Unreleased] — Delivery Module UI/UX Parity (2026-09-11)
+
+> Context: the preceding pass brought **PR + Withdraw + Return** to the shared design language (effect-21 fields, `pr-modal-large` shell, section cards, monochrome row actions, `action-icons.js` sprite). This release brings the **Delivery dashboards** (staff + admin) to the same bar. No backend bindings changed anywhere — `name=`, Jinja, element IDs, form actions, and `url_for` endpoints verified intact after every edit.
+
+#### Added
+- **fx21 Section 1 headers in Receive + Complete** — 3-column pinned grids (`Approved PR + auto numbers | PO-Ref + inspectors | supplier + date + remarks` for Receive; `auto/inherited numbers | supplier + inspectors | date + remarks` for Complete) with floating black labels and focus-only `#53c5f1` border draw, replicating the PR Section 1 pattern.
+- **Pinned-Section-1 modal structure for deliveries** — title + PR banner + Section 1 live in `.delivery-modal-header` (never scrolls); `.delivery-modal-body` scrolls the Section 2 items table only (same contract as PR's `.pr-modal-header`/`.pr-modal-body`).
+- **Label-free fx21 item rows** — unit-price + received/complete-qty inputs wrapped in shrink-hugged `fx21-field` (`display:inline-block`) so the animation traces the box, not the cell; no labels (column headers caption them).
+- **Complete-table enrichment** — Category, Unit, and Item/Specs (name + details + size) columns rendered from the existing `/delivery/remaining` payload (no backend change; fields were already shipped, just unrendered); Remaining reordered adjacent to Complete Qty.
+- **Short display numbers + readable dates on delivery tables** — `short_pr` filter on Delivery/IAR/PR cells (`DEL-2026-09-11-001` → `DEL-001`, full value on `title` hover); `ph_datetime` on Delivery Date (`September 11, 2026 | 12:00 AM` shape — time reads midnight, deliveries store date-only).
+
+#### Changed
+- **PR Fund Source no longer prefilled** — Create modal opens empty with the label inside the box (label floats on click/type, matching Delivery); Edit modal and view fallback keep their `Fund 05` default.
+- **Delivery table copy** — `Delivery #/IAR #/PR #/PO Ref #` → full `Delivery Number/IAR Number/PR Number/PO Ref Number` headers; `Unit Price (editable)` → `Unit Price`; search placeholders updated to match.
+- **Receive/Complete row styling** — resting borders docked to header gray `#d0dbe5`, transparent fills (section card carries the surface), centered Category/Unit/price/qty columns, docked thead widths so Item/Specs absorbs free space.
+
+#### Fixed
+- **fx21 wrapper overshoot** — block-level `.fx21-field` in table cells drew the animation at full column width; `inline-block` shrink-wrap + narrowed inputs fixed it.
+- **Peso sign inside number input** — reverted; `type=number` cannot hold `₱` (it wrapped above the box and broke the frame). Currency context stays in Total/footer, as in PR.
+- **Unclosed pinned header** — div-balance check caught a missing `.delivery-modal-header` close mid-edit; recounted to 75/75 (staff) and 92/92 (admin).
+
+---
+
 ## [Unreleased] — Inventory Workspace & Delivery Pricing Integrity (2026-09-07)
 
 #### Added

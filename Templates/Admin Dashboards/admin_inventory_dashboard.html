@@ -97,6 +97,7 @@
                         <option value="In Stock" {% if stock_filter == 'In Stock' %}selected{% endif %}>In Stock</option>
                         <option value="Low Stock" {% if stock_filter == 'Low Stock' %}selected{% endif %}>Low Stock</option>
                         <option value="Out of Stock" {% if stock_filter == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
+                        <option value="Needs Attention" {% if stock_filter == 'Needs Attention' %}selected{% endif %}>Low & Out of Stock</option>
                     </select><span class="focus-border"><i></i></span></div>
                     <a href="{{ url_for('admin_inventory_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                 </div>

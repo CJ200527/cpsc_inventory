@@ -140,12 +140,14 @@
                 if ($('date_from_input') && $('date_from_input').value) {
                     fromInput.value = $('date_from_input').value;
                 }
+                fromInput.classList.toggle('has-content',!!fromInput.value);
             }
             if (toInput) {
                 toInput.max = TODAY_ISO;
                 if ($('date_to_input') && $('date_to_input').value) {
                     toInput.value = $('date_to_input').value;
                 }
+                toInput.classList.toggle('has-content',!!toInput.value);
             }
             hideError('custom-date-error');
             closeDropdown();

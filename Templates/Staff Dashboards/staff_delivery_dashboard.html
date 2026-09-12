@@ -71,7 +71,7 @@
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Delivery #, IAR #, PR #, PO Ref #, Supplier..." autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Delivery Number, IAR Number, PR Number, PO Ref Number, Supplier..." autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
@@ -97,10 +97,10 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Delivery #</th>
-                            <th>IAR #</th>
-                            <th>PR #</th>
-                            <th>PO Ref #</th>
+                            <th>Delivery Number</th>
+                            <th>IAR Number</th>
+                            <th>PR Number</th>
+                            <th>PO Ref Number</th>
                             <th>Supplier</th>
                             <th>Delivery Date</th>
                             <th>Status</th>
@@ -112,12 +112,12 @@
                         {% if deliveries %}
                             {% for d in deliveries %}
                             <tr>
-                                <td><strong>{{ d.delivery_number }}</strong></td>
-                                <td>{{ d.iar_number or '-' }}</td>
-                                <td><strong>{{ d.pr_number }}</strong></td>
+                                <td><strong title="{{ d.delivery_number }}">{{ d.delivery_number | short_pr }}</strong></td>
+                                <td title="{{ d.iar_number or '' }}">{{ d.iar_number | short_pr or '-' }}</td>
+                                <td><strong title="{{ d.pr_number }}">{{ d.pr_number | short_pr }}</strong></td>
                                 <td>{{ d.po_reference_number or '-' }}</td>
                                 <td>{{ d.supplier_name or 'N/A' }}</td>
-                                <td>{{ d.delivery_date.strftime('%Y-%m-%d') if d.delivery_date else '' }}</td>
+                                <td>{{ d.delivery_date | ph_datetime }}</td>
                                 <td><span class="badge badge-{{ d.status|lower }}">{{ d.status }}</span></td>
                                 <td>{% if d.is_partial %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
                                 <td>
@@ -143,23 +143,26 @@
     <div id="receive-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box delivery-modal-large">
             <form method="POST" action="{{ url_for('create_delivery_action') }}" id="receive-form" onsubmit="return validateReceiveForm()">
-                <!-- 1. STICKY HEADER (Title only) -->
+                <!-- 1. PINNED HEADER (Title + Section 1: never scrolls) -->
                 <div class="delivery-modal-header">
                     <h3>Receive Delivery & Submit IAR</h3>
-                </div>
-
-                <!-- 2. SCROLLABLE BODY (Search, fields & items table) -->
-                <div class="delivery-modal-body">
-                <div class="form-section-card section-1">
-                    <h4>Section 1 — Delivery Header</h4>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Select Purchase Request (Approved) *</label>
+                <div class="form-section-card section-1" style="margin-top:12px;margin-bottom:0;">
+                    <h4>Section 1: Delivery Header</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <!-- COL 1: PR picker + auto numbers -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="pr-smart-search">Purchase Request:</label>
+                        <div class="fx21-box">
                         <div class="custom-dropdown-wrap">
-                            <input type="text" id="pr-smart-search" placeholder="Type to filter Approved PRs..." autocomplete="off" oninput="filterPRDropdown(this)" onfocus="showPRDropdown(this)" onblur="hidePRDropdown(this)">
-                            <input type="hidden" name="pr_id" id="pr-id-hidden">
-                            <div class="custom-dropdown-list hidden" id="pr-dropdown-list"></div>
+                        <input type="text" id="pr-smart-search" class="effect-21" placeholder="Dropdown" autocomplete="off" oninput="filterPRDropdown(this);this.classList.toggle('has-content',this.value.trim()!=='')" onfocus="showPRDropdown(this)" onblur="hidePRDropdown(this)" style="width:100%;padding:8px 28px 8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        <span class="dd-caret">▾</span>
+                        <input type="hidden" name="pr_id" id="pr-id-hidden">
+                        <div class="custom-dropdown-list hidden" id="pr-dropdown-list"></div>
                         </div>
+                        </div>
+                    </div>
                         <select id="pr-select" style="display:none;" aria-hidden="true" tabindex="-1">
                             <option value="" disabled selected>— Choose Approved PR —</option>
                             {% for pr in deliverable_prs|default(deliverable_pos) %}
@@ -168,25 +171,82 @@
                             <option disabled>No eligible Approved PRs</option>
                             {% endfor %}
                         </select>
-                        <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;">No matching PRs — try another search.</div>
+                        <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;margin-left:162px;">No matching PRs — try another search.</div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="delivery-number-auto">Delivery Number:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="delivery_number" id="delivery-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
                     </div>
-                    <div class="form-group"><label>PO / Bidding Reference Number</label><input type="text" name="po_reference_number" placeholder="e.g. PO-2026-001 (optional)"></div>
-                    <div class="form-group"><label>Delivery Number (auto)</label><input type="text" name="delivery_number" id="delivery-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>Supplier Name *</label><input type="text" name="supplier_name" placeholder="Supplier name" required></div>
-                    <div class="form-group"><label>IAR Number (auto)</label><input type="text" name="iar_number" id="iar-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" placeholder="Inspector name" required></div>
-                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" max="{{ current_date }}" required></div>
-                    <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" placeholder="Supply officer name" required></div>
-                    <div class="form-group full remarks-compact"><label>Remarks</label><input type="text" name="remarks" placeholder="Optional"></div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="iar-number-auto">IAR Number:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="iar_number" id="iar-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- COL 2: PO ref + inspectors -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-po-ref">PO Reference No.:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="po_reference_number" id="receive-po-ref" class="effect-21" placeholder="e.g. PO-2026-001" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-inspected-by">Inspected By:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="inspected_by" id="receive-inspected-by" class="effect-21" placeholder="Inspector name *" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-supply-officer">Supply Officer:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="supply_officer" id="receive-supply-officer" class="effect-21" placeholder="Supply officer name *" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- COL 3: supplier + date + remarks -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-supplier">Supplier Name:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="supplier_name" id="receive-supplier" class="effect-21" placeholder="e.g. Bonita *" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-delivery-date">Delivery Date:</label>
+                        <div class="fx21-box">
+                        <input type="date" name="delivery_date" id="receive-delivery-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-remarks">Remarks:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="remarks" id="receive-remarks" class="effect-21" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                </div>
                 </div>
                 </div>
 
+                <!-- 2. SCROLLABLE BODY (Section 2 items table only) -->
+                <div class="delivery-modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2 — Delivery Line Items</h4>
+                    <h4>Section 2: Delivery Items</h4>
                 <div id="delivery-items-wrap">
                     <p id="delivery-items-empty" style="font-size:12px;color:#666;text-align:center;padding:14px;">Select an approved purchase request above to load line items.</p>
                     <table class="item-table">
-                        <thead><tr><th>Item / Specs</th><th>Category</th><th>Unit</th><th>Unit Price (editable)</th><th>Ordered</th><th>Received *</th><th>Total</th></tr></thead>
+                        <thead><tr><th>Item / Specs</th><th style="width:110px;text-align:center;">Category</th><th style="width:70px;text-align:center;">Unit</th><th style="width:115px;text-align:center;">Unit Price</th><th style="width:60px;text-align:center;">Ordered</th><th style="width:95px;text-align:center;">Received *</th><th style="width:110px;text-align:center;">Total</th></tr></thead>
                         <tbody id="delivery-items-tbody"></tbody>
                     </table>
                 </div>
@@ -207,31 +267,88 @@
     <div id="complete-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box delivery-modal-large">
             <form method="POST" id="complete-form" onsubmit="return validateCompleteForm()">
-                <!-- 1. STICKY HEADER (Title only) -->
+                <!-- 1. PINNED HEADER (Title + PR banner + Section 1: never scrolls) -->
                 <div class="delivery-modal-header">
                     <h3>Complete Remaining Delivery</h3>
+                <div id="complete-pr-meta" style="margin-top:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PR remaining...</div>
+                <div class="form-section-card section-1" style="margin-top:12px;margin-bottom:0;">
+                    <h4>Section 1: Delivery Header</h4>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <!-- LEFT: auto + inherited numbers (all locked) -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-delivery-number-auto">Delivery Number:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="delivery_number" id="complete-delivery-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-iar-number-auto">IAR Number:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="iar_number" id="complete-iar-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-po-ref">PO Reference No.:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="po_reference_number" id="complete-po-ref" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- MIDDLE: supplier + inspectors -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-supplier">Supplier Name:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="supplier_name" id="complete-supplier" class="effect-21" placeholder="e.g. Bonita" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-inspected-by">Inspected By:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="inspected_by" id="complete-inspected-by" class="effect-21" placeholder="Inspector name *" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-supply-officer">Supply Officer:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="supply_officer" id="complete-supply-officer" class="effect-21" placeholder="Supply officer name *" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                    <!-- RIGHT: date + remarks -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-delivery-date">Delivery Date:</label>
+                        <div class="fx21-box">
+                        <input type="date" name="delivery_date" id="complete-delivery-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-remarks">Remarks:</label>
+                        <div class="fx21-box">
+                        <input type="text" name="remarks" id="complete-remarks" class="effect-21" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                </div>
                 </div>
 
-                <!-- 2. SCROLLABLE BODY (All inputs & items table) -->
+                <!-- 2. SCROLLABLE BODY (Section 2 items table only) -->
                 <div class="delivery-modal-body">
-                <div id="complete-pr-meta" style="margin-bottom:10px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PR remaining...</div>
-                <div class="form-section-card section-1">
-                    <h4>Section 1 — Delivery Header</h4>
-                <div class="form-grid">
-                    <div class="form-group"><label>Delivery Number (auto)</label><input type="text" name="delivery_number" id="complete-delivery-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>IAR Number (auto)</label><input type="text" name="iar_number" id="complete-iar-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>PO / Bidding Reference Number</label><input type="text" name="po_reference_number" id="complete-po-ref" placeholder="Inherited from original delivery" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                    <div class="form-group"><label>Supplier Name</label><input type="text" name="supplier_name" id="complete-supplier" placeholder="Defaults to original"></div>
-                    <div class="form-group"><label>Inspected By *</label><input type="text" name="inspected_by" required></div>
-                    <div class="form-group"><label>Supply Officer *</label><input type="text" name="supply_officer" required></div>
-                    <div class="form-group"><label>Delivery Date *</label><input type="date" name="delivery_date" max="{{ current_date }}" required></div>
-                    <div class="form-group full remarks-compact"><label>Remarks</label><input type="text" name="remarks" placeholder="Completion of remaining"></div>
-                </div>
-                </div>
                 <div class="form-section-card section-2">
-                    <h4>Section 2 — Delivery Line Items</h4>
+                    <h4>Section 2: Delivery Items</h4>
                 <table class="item-table">
-                    <thead><tr><th>Item</th><th>Remaining (Ordered−Received)</th><th>Unit Price (editable)</th><th>Complete Qty *</th><th>Total</th></tr></thead>
+                    <thead><tr><th>Item / Specs</th><th style="width:110px;text-align:center;">Category</th><th style="width:70px;text-align:center;">Unit</th><th style="width:115px;text-align:center;">Unit Price</th><th style="width:150px;text-align:center;">Remaining</th><th style="width:95px;text-align:center;">Complete Qty *</th><th style="width:110px;text-align:center;">Total</th></tr></thead>
                     <tbody id="complete-items-tbody"></tbody>
                 </table>
                 </div>
@@ -254,7 +371,10 @@
                 <h3 id="view-delivery-title">Delivery Details</h3>
             </div>
             <div id="view-modal-content" style="font-size:12px;color:#333;">Loading...</div>
-            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+            <div class="modal-buttons" style="display:flex;justify-content:space-between;align-items:center;">
+                <div class="footer-total-display" id="view-modal-grand-total">Grand Total: <span>₱ 0.00</span></div>
+                <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
+            </div>
         </div>
     </div>
 

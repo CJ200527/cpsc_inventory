@@ -67,7 +67,7 @@
                 <form method="GET" action="{{ url_for('staff_return_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
                         <span style="margin-right:8px;">🔍</span>
-                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Return #, RIS #, Reason..." autocomplete="off">
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Return Number, Withdraw Number, Department..." autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
@@ -89,11 +89,10 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Return #</th>
-                            <th>Ref RIS #</th>
+                            <th>Return Number</th>
+                            <th>Withdraw Number</th>
                             <th>Department</th>
-                            <th>Returned By</th>
-                            <th>Reason</th>
+                            <th>Condition</th>
                             <th>Date Returned</th>
                             <th>Total Qty</th>
                             <th>Status</th>
@@ -104,19 +103,19 @@
                         {% if returns %}
                             {% for r in returns %}
                             <tr>
-                                <td><strong>{{ r.return_number }}</strong></td>
-                                <td>{{ r.ris_number or '— Direct' }}</td>
+                                <td><strong title="{{ r.return_number }}">{{ r.return_number | short_pr }}</strong></td>
+                                <td title="{{ r.ris_number or '' }}">{{ r.ris_number | short_pr or '— Direct' }}</td>
                                 <td>{{ r.department }}</td>
-                                <td>{{ r.Firstname }} {{ r.Lastname }}</td>
-                                <td style="max-width:160px; white-space:normal;">{{ r.reason }}</td>
-                                <td>{{ r.date_returned.strftime('%Y-%m-%d') if r.date_returned else '' }}</td>
+                                {% set conds = r.conditions or '' %}
+                                <td>{% if conds == 'Serviceable' %}<span style="color:#2e7d32;font-weight:700;">Serviceable</span>{% elif conds == 'Unserviceable' %}<span style="color:#c62828;font-weight:700;">Unserviceable</span>{% else %}{{ conds or '-' }}{% endif %}</td>
+                                <td>{{ r.date_returned | ph_datetime }}</td>
                                 <td style="text-align:center; font-weight:700;">{{ r.total_qty or 0 }}</td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
                                 <td><button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button></td>
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="9" style="text-align:center; color:#888; padding:25px;">No returns. Click "+ New Return".</td></tr>
+                            <tr><td colspan="8" style="text-align:center; color:#888; padding:25px;">No returns. Click "+ New Return".</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -129,38 +128,81 @@
         <div class="modal-box pr-modal-large">
             <form method="POST" action="{{ url_for('create_return_action') }}" id="return-form" onsubmit="return validateReturnForm()">
                 <div class="modal-header">
-                    <div><h3>New Return Slip</h3></div>
+                    <div><h3>Return Items</h3></div>
                 </div>
-                <div class="modal-body">
-                    <div class="form-grid">
-                        <div class="wh-col">
-                            <div class="form-group"><label>Return Slip Number (auto)</label><input type="text" name="return_number" id="return-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                            <div class="form-group">
-                                <label>Withdraw Number *</label>
-                                <div class="custom-dropdown-wrap">
-                                    <input type="text" id="withdraw-smart-search" placeholder="Type to filter Withdraw Numbers..." autocomplete="off" oninput="filterWithdrawDropdown(this)" onfocus="showWithdrawDropdown(this)" onblur="hideWithdrawDropdown(this)">
-                                    <input type="hidden" name="withdraw_id" id="withdraw-id-hidden">
-                                    <div class="custom-dropdown-list hidden" id="withdraw-dropdown-list"></div>
+                <!-- PINNED HEADER (Section 1: never scrolls) -->
+                <div class="pr-modal-header">
+                <div class="form-section-card section-1" style="margin-bottom:0;">
+                    <h4>Section 1: Return Headers</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                        <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="return-number-auto">Return Number:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="return_number" id="return-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                                <span class="focus-border"><i></i></span>
                                 </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-smart-search">Withdraw Number:</label>
+                                <div class="fx21-box">
+                                <div class="custom-dropdown-wrap">
+                                <input type="text" id="withdraw-smart-search" class="effect-21" placeholder="Dropdown" autocomplete="off" oninput="filterWithdrawDropdown(this);this.classList.toggle('has-content',this.value.trim()!=='')" onfocus="showWithdrawDropdown(this)" onblur="hideWithdrawDropdown(this)" style="width:100%;padding:8px 28px 8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                <span class="dd-caret">▾</span>
+                                <input type="hidden" name="withdraw_id" id="withdraw-id-hidden">
+                                <div class="custom-dropdown-list hidden" id="withdraw-dropdown-list"></div>
+                                </div>
+                                </div>
+                            </div>
                                 <select id="withdraw-select" style="display:none;" aria-hidden="true" tabindex="-1">
                                     <option value="" disabled selected>— Select Withdraw Number —</option>
                                     {% for w in issued_withdrawals %}
                                     <option value="{{ w.withdraw_id }}" data-ris="{{ w.ris_number }}" data-dept="{{ w.department }}">{{ w.ris_number }} — {{ w.department }}</option>
                                     {% endfor %}
                                 </select>
-                            </div>
-                            <div class="form-group"><label>Department *</label><input type="text" name="department" placeholder="e.g., Registrar" required></div>
                         </div>
-                        <div class="wh-col">
-                            <div class="form-group"><label>Date Returned *</label><input type="date" name="date_returned" required></div>
-                            <div class="form-group"><label>Reason *</label><input type="text" name="reason" placeholder="Reason..." required></div>
+                        <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="return-department">Department:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="department" id="return-department" class="effect-21" placeholder="e.g. Registrar" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="return-reason">Reason:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="reason" id="return-reason" class="effect-21" placeholder="Reason..." required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="return-date">Date Returned:</label>
+                                <div class="fx21-box">
+                                <input type="date" name="date_returned" id="return-date" class="effect-21 has-content" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <p style="font-size:12px; font-weight:700; color:#0d233a; margin:8px 0 0;">Line Items</p>
+                </div>
+                </div>
+
+                <!-- SCROLLABLE BODY (Section 2 items table only) -->
+                <div class="modal-body">
+                <div class="form-section-card section-2" style="margin-bottom:0;">
+                    <h4>Section 2: Return Items</h4>
                     <table class="item-table">
-                        <thead><tr><th>Item Name *</th><th>Specification</th><th>Max Returnable</th><th>Return Qty *</th><th>Unit</th><th>Condition *</th><th>Action</th></tr></thead>
+                        <thead><tr><th>Item Name</th><th>Specification</th><th>Unit</th><th>Category</th><th>Condition</th><th>Max Returnable</th><th>Return Qty</th><th>Action</th></tr></thead>
                         <tbody id="return-items-body"></tbody>
                     </table>
+
+                <button type="button" class="icon-btn" onclick="addReturnRow()">+ Add Item</button>
+
+                </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-modal-cancel" onclick="closeReturnModal()">Cancel</button>

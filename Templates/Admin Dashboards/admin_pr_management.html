@@ -162,24 +162,38 @@
                 <div class="pr-modal-header">
                 <!-- ===== SECTION 1: PR HEADER ===== -->
                 <div class="form-section-card section-1">
-                    <h4>Section 1 — PR Header</h4>
-                    <div style="display:flex;flex-direction:column;gap:12px;max-width:50%;">
-                        <div class="fx21-field">
+                    <h4>Section 1: PR Header</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <!-- COL 1: number + fund -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <div class="fx21-field fx21-inline">
+                            <label for="pr-number-preview">PR Number:</label>
+                            <div class="fx21-box">
                             <input type="text" id="pr-number-preview" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
                             <span class="focus-border"><i></i></span>
-                            <label for="pr-number-preview">PR Number</label>
+                            </div>
                         </div>
-                        <div class="fx21-field">
-                            <input type="text" id="pr-fund-source" name="fund_source" class="effect-21 has-content" value="Fund 05" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <div class="fx21-field fx21-inline">
+                            <label for="pr-fund-source">Fund Source:</label>
+                            <div class="fx21-box">
+                            <input type="text" id="pr-fund-source" name="fund_source" class="effect-21" placeholder="e.g. Fund 05" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                             <span class="focus-border"><i></i></span>
-                            <label for="pr-fund-source">Fund Source</label>
+                            </div>
                         </div>
-                        <div class="fx21-field">
+                    </div>
+                    <!-- COL 2: date -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <div class="fx21-field fx21-inline">
+                            <label for="pr-date-requested">Date Requested:</label>
+                            <div class="fx21-box">
                             <input type="text" id="pr-date-requested" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
                             <span class="focus-border"><i></i></span>
-                            <label for="pr-date-requested">Date Requested</label>
                             <input type="hidden" name="date_requested" id="pr-date-requested-value" required>
+                            </div>
                         </div>
+                    </div>
+                    <!-- COL 3: intentionally blank -->
+                    <div></div>
                     </div>
                 </div>
                 </div>
@@ -187,7 +201,7 @@
                 <!-- ===== SECTION 2: PR LINE ITEMS (type new or existing product details) ===== -->
                 <div class="pr-modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2 — PR Line Items</h4>
+                    <h4>Section 2: PR Items</h4>
                 <table class="item-table" id="pr-items-table">
                     <thead>
                         <tr>
@@ -238,24 +252,38 @@
                 <div class="pr-modal-header">
                 <!-- ===== SECTION 1: PR HEADER ===== -->
                 <div class="form-section-card section-1">
-                    <h4>Section 1 — PR Header</h4>
-                    <div style="display:flex;flex-direction:column;gap:12px;max-width:50%;">
-                        <div class="fx21-field">
+                    <h4>Section 1: PR Header</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <!-- COL 1: number + fund -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <div class="fx21-field fx21-inline">
+                            <label for="edit-pr-number">PR Number:</label>
+                            <div class="fx21-box">
                             <input type="text" id="edit-pr-number" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
                             <span class="focus-border"><i></i></span>
-                            <label for="edit-pr-number">PR Number</label>
+                            </div>
                         </div>
-                        <div class="fx21-field">
+                        <div class="fx21-field fx21-inline">
+                            <label for="edit-fund-source">Fund Source:</label>
+                            <div class="fx21-box">
                             <input type="text" name="fund_source" id="edit-fund-source" class="effect-21 has-content" value="Fund 05" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                             <span class="focus-border"><i></i></span>
-                            <label for="edit-fund-source">Fund Source</label>
+                            </div>
                         </div>
-                        <div class="fx21-field">
+                    </div>
+                    <!-- COL 2: date -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                        <div class="fx21-field fx21-inline">
+                            <label for="edit-date-requested">Date Requested:</label>
+                            <div class="fx21-box">
                             <input type="text" id="edit-date-requested" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
                             <span class="focus-border"><i></i></span>
-                            <label for="edit-date-requested">Date Requested</label>
                             <input type="hidden" name="date_requested" id="edit-date-requested-value" required>
+                            </div>
                         </div>
+                    </div>
+                    <!-- COL 3: intentionally blank -->
+                    <div></div>
                     </div>
                 </div>
                 </div>
@@ -263,7 +291,7 @@
                 <!-- ===== SECTION 2: PR LINE ITEMS ===== -->
                 <div class="pr-modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2 — PR Line Items</h4>
+                    <h4>Section 2: PR Items</h4>
                 <table class="item-table" id="pr-edit-items-table">
                     <thead>
                         <tr>

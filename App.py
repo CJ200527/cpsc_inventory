@@ -521,7 +521,7 @@ def admin_dashboard():
                 asset_value = 0.0
         admin_kpi = {
             "total_asset_value": f"₱ {asset_value:,.2f}",
-            "low_stock_alerts": int(summary.get("low_stock_count", 0) or 0),
+            "low_stock_alerts": int(summary.get("low_stock_count", 0) or 0) + int(summary.get("out_of_stock_count", 0) or 0),
             "pending_prs": pending_prs,
             "active_users": active_users,
         }
@@ -663,7 +663,8 @@ def staff_dashboard():
             print(f"[staff_dashboard] inventory summary error: {err}")
             summary = {}
         available_items = int(summary.get("in_stock_count", 0) or 0)
-        low_stock_count = int(summary.get("low_stock_count", 0) or 0)
+        # Low-stock card counts low AND out-of-stock (both need attention).
+        low_stock_count = int(summary.get("low_stock_count", 0) or 0) + int(summary.get("out_of_stock_count", 0) or 0)
 
         # --- KPI 3 & 4 + alerts: this user's own PRs / withdrawals ---
         try:
@@ -697,9 +698,9 @@ def staff_dashboard():
         }
 
         # --- Row 2: Actionable Alerts & Pending Tasks ---
-        def _link(endpoint, fallback):
+        def _link(endpoint, fallback, **kwargs):
             try:
-                return url_for(endpoint)
+                return url_for(endpoint, **kwargs)
             except Exception:
                 return fallback
 
@@ -724,9 +725,9 @@ def staff_dashboard():
             actionable_alerts.append({
                 "icon": "⚠️",
                 "title": "Low stock items to monitor",
-                "detail": f"{low_stock_count} item(s) at or below reorder level.",
+                "detail": f"{low_stock_count} item(s) at or below reorder level (includes out-of-stock).",
                 "severity": "warning",
-                "link": _link("staff_inventory_dashboard", "/staff/inventory"),
+                "link": _link("staff_inventory_dashboard", "/staff/inventory", stock_status="Needs Attention"),
             })
         if pending_prs:
             actionable_alerts.append({
@@ -734,7 +735,7 @@ def staff_dashboard():
                 "title": "PRs awaiting approval",
                 "detail": f"{pending_prs} purchase request(s) still pending.",
                 "severity": "info",
-                "link": _link("pr_management", "/pr"),
+                "link": _link("pr_management", "/pr", status_filter="Pending"),
             })
 
         # --- Row 3: Available Inventory Snapshot (top in-stock items) ---
@@ -2095,7 +2096,7 @@ def create_return_action():
         except (ValueError, IndexError, AttributeError):
             flash(f"Invalid row {i+1}.", "error")
             return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
-    success, result = create_return(user_id, return_number, withdraw_id or None, department, reason, date_returned, items)
+    success, result = create_return(user_id, return_number, withdrawal_id or None, department, reason, date_returned, items)
     if success:
         flash(f"Return {return_number} submitted! Pending approval (will DEDUCT from stock on approve, like Withdrawal).", "success")
     else:

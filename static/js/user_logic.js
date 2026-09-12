@@ -37,6 +37,10 @@
             document.getElementById('edit-username').value = username;
             document.getElementById('edit-role').value = role;
             document.getElementById('edit-contact').value = contact;
+            // fx21: float the label of every pre-filled field.
+            document.querySelectorAll('#edit-form .effect-21').forEach(inp=>{
+                inp.classList.toggle('has-content',(inp.value||'').trim()!=='');
+            });
 
             document.getElementById('edit-modal').classList.remove('hidden');
         }

@@ -123,38 +123,48 @@
         <div class="modal-box">
             <div class="modal-header"><h3>Add New Product</h3></div>
             <form method="POST" action="{{ url_for('admin_add_product') }}" class="modal-form" id="add-product-form" onsubmit="return validateProductForm(this)">
-                <div class="input-group">
-                    <label>Product ID (Auto-Generated):</label>
-                    <input type="text" value="PRD-{{ '%03d'|format((products[0].product_id + 1) if products else 1) }}" readonly style="background-color: #e9ecef; cursor: not-allowed;">
+                <div class="fx21-field">
+                    <input type="text" id="prod-id-preview" class="effect-21 has-content" value="PRD-{{ '%03d'|format((products[0].product_id + 1) if products else 1) }}" readonly tabindex="-1" style="background-color: #e9ecef; cursor: not-allowed;">
+                    <span class="focus-border"><i></i></span>
+                    <label for="prod-id-preview">Product ID (Auto-Generated):</label>
                 </div>
-                <div class="input-group"><label>Product Name *:</label><input type="text" name="product_name" required autocomplete="off"></div>
+                <div class="fx21-field">
+                    <input type="text" name="product_name" id="prod-name" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                    <span class="focus-border"><i></i></span>
+                    <label for="prod-name">Product Name *:</label>
+                </div>
                 <div class="form-grid-2">
-                    <div class="input-group">
-                        <label>Category *:</label>
-                        <select name="category" required>
+                    <div class="fx21-field">
+                        <select name="category" id="prod-category" class="effect-21 has-content" required>
                             <option value="Consumables" selected>Consumables</option>
                             <option value="Tools">Tools</option>
                             <option value="Equipment">Equipment</option>
                         </select>
+                        <span class="focus-border"><i></i></span>
+                        <label for="prod-category">Category *:</label>
                     </div>
-                    <div class="input-group">
-                        <label>Unit *:</label>
-                        <input type="text" name="unit" list="unitList" placeholder="Select or type unit" required autocomplete="off">
+                    <div class="fx21-field">
+                        <input type="text" name="unit" id="prod-unit" class="effect-21" list="unitList" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                        <span class="focus-border"><i></i></span>
+                        <label for="prod-unit">Unit *:</label>
                     </div>
                 </div>
                 <div class="form-grid-2">
-                    <div class="input-group">
-                        <label>Size *:</label>
-                        <input type="text" name="size" list="sizeList" placeholder="Select or type size" required autocomplete="off">
+                    <div class="fx21-field">
+                        <input type="text" name="size" id="prod-size" class="effect-21" list="sizeList" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                        <span class="focus-border"><i></i></span>
+                        <label for="prod-size">Size *:</label>
                     </div>
-                    <div class="input-group">
-                        <label>Price (₱) *:</label>
-                        <input type="number" name="price" step="0.01" min="0" placeholder="0.00" required>
+                    <div class="fx21-field">
+                        <input type="number" name="price" id="prod-price" class="effect-21" step="0.01" min="0" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
+                        <span class="focus-border"><i></i></span>
+                        <label for="prod-price">Price (₱) *:</label>
                     </div>
                 </div>
-                <div class="input-group">
-                    <label>Specification *:</label>
-                    <textarea name="details" placeholder="Enter specification (e.g., 70gsm, Heavy Duty, Standard)" required rows="2"></textarea>
+                <div class="fx21-field">
+                    <textarea name="details" id="prod-details" class="effect-21" required rows="2" oninput="this.classList.toggle('has-content',this.value.trim()!=='')"></textarea>
+                    <span class="focus-border"><i></i></span>
+                    <label for="prod-details">Specification *:</label>
                 </div>
                 <div class="modal-buttons">
                     <button type="button" class="btn-modal-cancel" onclick="closeAddModal()">Cancel</button>

@@ -26,19 +26,20 @@
            RET-YYYY-MM-DD shape with a random suffix; DB enforces uniqueness). */
         function fetchReturnNumber(numEl){
             if(!numEl) return;
-            numEl.value=''; numEl.placeholder='Loading...';
+            numEl.value=''; numEl.classList.remove('has-content'); numEl.placeholder='Loading...';
             fetch('/returns/get_next_number').then(r=>r.json()).then(dt=>{
-                if(dt.return_number) numEl.value=dt.return_number;
+                if(dt.return_number){ numEl.value=dt.return_number; numEl.classList.add('has-content'); }
                 else numEl.placeholder='Auto-generated';
-            }).catch(()=>{ numEl.value=`RET-${todayLocal()}-${Math.floor(1000+Math.random()*9000)}`; });
+            }).catch(()=>{ numEl.value=`RET-${todayLocal()}-${Math.floor(1000+Math.random()*9000)}`; numEl.classList.add('has-content'); });
         }
         async function openReturnModal(){
             try { await returnCatalogReady; } catch (e) {} document.getElementById('return-items-body').innerHTML=''; addReturnRow(); document.getElementById('return-modal').classList.remove('hidden');
             const numEl=document.getElementById('return-number-auto'); if(numEl && !numEl.value) fetchReturnNumber(numEl);
-            const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d){ if(!d.value) d.valueAsDate=new Date(); d.max=todayLocal(); }
-            const sInput=document.getElementById('withdraw-smart-search'); if(sInput) sInput.value='';
+            const d=document.querySelector('#return-modal input[name="date_returned"]'); if(d){ if(!d.value) d.valueAsDate=new Date(); d.max=todayLocal(); d.classList.toggle('has-content',!!d.value); }
+            const sInput=document.getElementById('withdraw-smart-search'); if(sInput){ sInput.value=''; sInput.classList.remove('has-content'); }
             const sHidden=document.getElementById('withdraw-id-hidden'); if(sHidden) sHidden.value='';
-            const sList=document.getElementById('withdraw-dropdown-list'); if(sList){ sList.innerHTML=''; sList.classList.add('hidden'); } }
+            const sList=document.getElementById('withdraw-dropdown-list'); if(sList){ sList.innerHTML=''; sList.classList.add('hidden'); }
+            returnSourceItems=[]; }
         function closeReturnModal(){ document.getElementById('return-modal').classList.add('hidden'); }
         /* Withdraw Number smart search (delivery-picker pattern): click shows
            the list, typing filters it; only an explicit pick links a record. */
@@ -80,63 +81,106 @@
             if(list) list.classList.add('hidden');
             const input=document.getElementById('withdraw-smart-search');
             const hidden=document.getElementById('withdraw-id-hidden');
-            if(input) input.value=el.dataset.ris||'';
+            if(input){ input.value=el.dataset.ris||''; input.classList.toggle('has-content',(input.value||'').trim()!==''); }
             if(hidden) hidden.value=el.dataset.wid||'';
             if(el.dataset.wid) onWithdrawalSelect(el.dataset.wid);
         }
         function onWithdrawalSelect(val){
             const tbody=document.getElementById('return-items-body');
             tbody.innerHTML='';
-            if(!val){ addReturnRow(); return; }
+            if(!val){ returnSourceItems=[]; addReturnRow(); return; }
             fetch('/withdraw/details/'+val).then(r=>r.json()).then(data=>{
-                if(data.error){ addReturnRow(); return; }
+                if(data.error){ returnSourceItems=[]; addReturnRow(); return; }
                 // Department follows the chosen withdrawn record.
                 const deptInput=document.querySelector('#return-modal input[name="department"]');
-                if(deptInput && data.header && data.header.department) deptInput.value=data.header.department;
-                data.items.forEach(it=>{ addReturnRowWithProduct(it.product_id, it.item_name, it.unit, it.quantity, it.withdraw_details || it.details); });
+                if(deptInput && data.header && data.header.department){ deptInput.value=data.header.department; deptInput.classList.add('has-content'); }
+                // Item picker offers only this withdrawal's Tools/Equipment lines.
+                returnSourceItems=(data.items||[]).filter(it=>it.category==='Tools'||it.category==='Equipment').map(it=>({id:it.product_id,name:it.item_name,unit:it.unit||'pcs',category:it.category||'',specs:[it.withdraw_details||it.details,it.size].filter(Boolean).join(' '),maxQty:parseInt(it.quantity||0)}));
+                returnSourceItems.forEach(it=>{ addReturnRowWithProduct(it.id, it.name, it.unit, it.maxQty, it.specs, it.category); });
                 if(tbody.children.length===0) addReturnRow();
             });
         }
+        let returnSourceItems=[]; // chosen withdrawal's Tools/Equipment lines; empty until a Withdraw Number is picked
+        function returnToolsEq(p){ return p && (p.category==='Tools'||p.category==='Equipment'); }
+        function returnSourceList(){
+            return returnSourceItems;
+        }
+        function returnItemSpecs(it){ return it.specs||[it.details,it.size].filter(Boolean).join(' '); }
+        function filterReturnItemHits(q){
+            q=(q||'').trim().toLowerCase();
+            const out=[];
+            returnSourceList().forEach((it,idx)=>{
+                const hay=`${it.name||''} ${returnItemSpecs(it)} ${it.category||''}`.toLowerCase();
+                if(!q || hay.includes(q)) out.push({it, idx});
+            });
+            return out.slice(0,50);
+        }
+        function renderReturnItemDropdown(input, hits){
+            const tr=input.closest('tr');
+            const list=tr ? tr.querySelector('.custom-dropdown-list') : null;
+            if(!list) return;
+            if(hits.length===0){ list.innerHTML=`<div class="custom-dropdown-empty">No matching products.</div>`; }
+            else {
+                list.innerHTML=hits.map(h=>{
+                    const p=h.it;
+                    const specLine=[returnItemSpecs(p), p.category].filter(Boolean).join(' | ');
+                    return `<div class="custom-dropdown-item" data-idx="${h.idx}" onmousedown="selectReturnItem(this)">`
+                        +`<span class="cd-text"><span class="cd-name">${escHtml(p.name)}</span>`
+                        +`<span class="cd-specs">${escHtml(specLine) || '&nbsp;'}</span></span>`
+                        +`<span class="cd-price">${escHtml(p.unit||'pcs')}</span></div>`;
+                }).join('');
+            }
+            list.classList.remove('hidden');
+        }
+        function onReturnSearchInput(input){ renderReturnItemDropdown(input, filterReturnItemHits(input.value)); }
+        function showReturnDropdown(input){ renderReturnItemDropdown(input, filterReturnItemHits('')); }
+        function hideReturnDropdown(input){
+            const tr=input.closest('tr');
+            const list=tr ? tr.querySelector('.custom-dropdown-list') : null;
+            if(list) setTimeout(()=>list.classList.add('hidden'),150);
+        }
+        function selectReturnItem(el){
+            const tr=el.closest('tr'); if(!tr) return;
+            const list=tr.querySelector('.custom-dropdown-list'); if(list) list.classList.add('hidden');
+            const src=returnSourceList()[parseInt(el.dataset.idx||'-1',10)];
+            if(!src) return;
+            const input=tr.querySelector('.return-item-search'); if(input) input.value=src.name||'';
+            const hidden=tr.querySelector('input[name="product_id[]"]'); if(hidden) hidden.value=src.id||'';
+            const spec=tr.querySelector('.r-spec'); if(spec) spec.innerText=returnItemSpecs(src)||'—';
+            const unit=tr.querySelector('.r-unit'); if(unit) unit.innerText=src.unit||'pcs';
+            const cat=tr.querySelector('.r-cat'); if(cat) cat.innerText=src.category||'—';
+            const issued=tr.querySelector('.r-issued'); if(issued) issued.innerText=src.maxQty;
+            const qty=tr.querySelector('input[name="returned_quantity[]"]'); if(qty){ qty.max=src.maxQty; qty.value=''; }
+        }
         function addReturnRow(){
             const tbody=document.getElementById('return-items-body');
-            const rowId=tbody.rows.length;
             const tr=document.createElement('tr');
-            let opts='<option value="" disabled selected>Select Product</option>';
-            availableProducts.forEach(p=>{ opts+=`<option value="${p.id}">${p.name} — ${p.unit}</option>`; });
             tr.innerHTML=`
-                <td><select onchange="onReturnProductSelect(this, ${rowId})" required>${opts}</select><input type="hidden" name="product_id[]" id="r-prod-${rowId}"></td>
-                <td><span id="r-spec-${rowId}" class="readonly-cell">—</span></td>
-                <td><span id="r-issued-${rowId}" class="stock-info">—</span></td>
-                <td><input type="number" name="returned_quantity[]" id="r-qty-${rowId}" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required></td>
-                <td><span id="r-unit-${rowId}">—</span></td>
-                <td><select name="condition_status[]" required><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select></td>
+                <td><div class="custom-dropdown-wrap fx21-field"><input type="text" class="effect-21 return-item-search" placeholder="Select Product" autocomplete="off" required oninput="onReturnSearchInput(this)" onfocus="showReturnDropdown(this)" onblur="hideReturnDropdown(this)" style="width:100%;padding:6px;font-size:12px;border:1px solid #ccc;border-radius:4px;padding-right:26px;"><span class="focus-border"><i></i></span><span class="dd-caret">▾</span><input type="hidden" name="product_id[]"><div class="custom-dropdown-list hidden"></div></div></td>
+                <td><span class="readonly-cell r-spec">—</span></td>
+                <td><span class="r-unit">—</span></td>
+                <td><span class="r-cat">—</span></td>
+                <td><div class="fx21-field"><select name="condition_status[]" class="effect-21" required style="width:100%;padding:6px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#ffffff;"><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select><span class="focus-border"><i></i></span></div></td>
+                <td><span class="stock-info r-issued">—</span></td>
+                <td><div class="fx21-field" style="display:inline-block;"><input type="number" name="returned_quantity[]" class="effect-21" min="1" placeholder="0" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required><span class="focus-border"><i></i></span></div></td>
                 <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
         }
-        function addReturnRowWithProduct(pid, name, unit, issuedQty, specs){
+        function addReturnRowWithProduct(pid, name, unit, issuedQty, specs, category){
             const tbody=document.getElementById('return-items-body');
             const tr=document.createElement('tr');
             tr.innerHTML=`
                 <td><span style="font-weight:600;">${name}</span><input type="hidden" name="product_id[]" value="${pid}"></td>
                 <td><span class="readonly-cell">${specs || '—'}</span></td>
-                <td><span class="stock-info">${issuedQty}</span></td>
-                <td><input type="number" name="returned_quantity[]" min="1" max="${issuedQty}" placeholder="max ${issuedQty}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required></td>
                 <td>${unit}</td>
-                <td><select name="condition_status[]" required><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select></td>
+                <td>${category || '—'}</td>
+                <td><div class="fx21-field"><select name="condition_status[]" class="effect-21" required style="width:100%;padding:6px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#ffffff;"><option value="Serviceable">Serviceable</option><option value="Unserviceable">Unserviceable</option></select><span class="focus-border"><i></i></span></div></td>
+                <td><span class="stock-info">${issuedQty}</span></td>
+                <td><div class="fx21-field" style="display:inline-block;"><input type="number" name="returned_quantity[]" class="effect-21" min="1" max="${issuedQty}" placeholder="max ${issuedQty}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required><span class="focus-border"><i></i></span></div></td>
                 <td><button type="button" class="btn-action btn-delete" title="Remove row" onclick="this.closest('tr').remove()"><svg class="act-icon" aria-hidden="true"><use href="#i-x"/></svg></button></td>
             `;
             tbody.appendChild(tr);
-        }
-        function onReturnProductSelect(sel,rowId){
-            const p=availableProducts.find(x=>String(x.id)===String(sel.value));
-            if(!p) return;
-            document.getElementById(`r-prod-${rowId}`).value=p.id;
-            document.getElementById(`r-spec-${rowId}`).innerText=[p.details, p.size].filter(Boolean).join(' ') || '—';
-            document.getElementById(`r-unit-${rowId}`).innerText=p.unit;
-            document.getElementById(`r-issued-${rowId}`).innerText=p.stock;
-            const qty=document.getElementById(`r-qty-${rowId}`);
-            if(qty){ qty.max=p.stock; qty.value=''; }
         }
         function validateReturnForm(){
             const widHidden=document.getElementById('withdraw-id-hidden');

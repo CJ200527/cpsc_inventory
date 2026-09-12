@@ -100,11 +100,11 @@
                         {% if withdrawals %}
                             {% for w in withdrawals %}
                             <tr>
-                                <td><strong>{{ w.ris_number }}</strong></td>
+                                <td><strong title="{{ w.ris_number }}">{{ w.ris_number | short_pr }}</strong></td>
                                 <td>{{ w.department }}</td>
-                                <td>{{ w.Firstname }} {{ w.Lastname }}</td>
+                                <td>{{ w.received_by or '-' }}</td>
                                 <td style="max-width:180px; white-space:normal;">{{ w.purpose }}</td>
-                                <td>{{ w.date_requested.strftime('%Y-%m-%d') if w.date_requested else '' }}</td>
+                                <td>{{ w.date_requested | ph_datetime }}</td>
                                 <td style="text-align:center; font-weight:700;">{{ w.total_qty or 0 }}</td>
                                 <td><span class="badge badge-{{ w.status|lower }}">{{ w.status }}</span></td>
                                 <td>
@@ -126,25 +126,65 @@
         <div class="modal-box pr-modal-large">
             <form method="POST" action="{{ url_for('create_withdrawal_action') }}" id="withdraw-form" onsubmit="return validateWithdrawForm()">
                 <div class="modal-header">
-                    <div><h3>New Withdrawal — RIS</h3></div>
+                    <div><h3>Withdraw Items</h3></div>
                 </div>
-                <div class="modal-body">
-                <div class="form-section-card section-1">
-                    <h4>Section 1 — Withdrawal Details</h4>
-                    <div class="form-grid">
-                        <div class="wh-col">
-                            <div class="form-group"><label>Withdraw Number *</label><input type="text" name="ris_number" id="withdraw-number-auto" placeholder="Auto-generated" readonly tabindex="-1" style="background-color:#e9ecef;cursor:not-allowed;"></div>
-                            <div class="form-group"><label>Department / Office *</label><input type="text" name="department" placeholder="e.g., Registrar" required></div>
-                            <div class="form-group"><label>Received By *</label><input type="text" name="received_by" placeholder="Receiver" required></div>
-                        </div>
-                        <div class="wh-col">
-                            <div class="form-group"><label>Date Withdrawn *</label><input type="date" name="date_requested" required></div>
-                            <div class="form-group"><label>Purpose *</label><input type="text" name="purpose" placeholder="Purpose..." required></div>
-                        </div>
+                <!-- PINNED HEADER (Section 1: never scrolls) -->
+                <div class="pr-modal-header">
+                <div class="form-section-card section-1" style="margin-bottom:0;">
+                    <h4>Section 1: Withdrawal Details</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <!-- COL 1: number + department -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-number-auto">Withdraw Number:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="ris_number" id="withdraw-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-department">Department / Office:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="department" id="withdraw-department" class="effect-21" placeholder="e.g. Production Office" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                    </div>
+                    <!-- COL 2: receiver + purpose -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-received-by">Received By:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="received_by" id="withdraw-received-by" class="effect-21" placeholder="Receiver name" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-purpose">Purpose:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="purpose" id="withdraw-purpose" class="effect-21" placeholder="e.g. Office Use" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                    </div>
+                    <!-- COL 3: withdraw date -->
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="withdraw-date">Date Withdrawn:</label>
+                                <div class="fx21-box">
+                                <input type="date" name="date_requested" id="withdraw-date" class="effect-21 has-content" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
                     </div>
                 </div>
+                </div>
+                </div>
+
+                <!-- SCROLLABLE BODY (Section 2 items table only) -->
+                <div class="modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2 — Withdrawal Line Items</h4>
+                    <h4>Section 2: Withdraw Items</h4>
                     <table class="item-table">
                     <thead><tr><th>Item Name *</th><th>Specification</th><th>Unit</th><th>Category</th><th>Available</th><th>Requested Qty *</th><th>Action</th></tr></thead>
                     <tbody id="withdraw-items-body"></tbody>

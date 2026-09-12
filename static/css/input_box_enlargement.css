@@ -32,7 +32,7 @@
 #pr-edit-items-body select:focus,
 #pr-edit-items-body textarea:focus {
     border-color: #53c5f1;
-    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+    box-shadow: none;
     outline: none;
 }
 
@@ -47,7 +47,7 @@
 #pr-edit-items-body textarea:focus {
     min-height: 140px;
     border-color: #53c5f1;
-    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+    box-shadow: none;
     outline: none;
 }
 

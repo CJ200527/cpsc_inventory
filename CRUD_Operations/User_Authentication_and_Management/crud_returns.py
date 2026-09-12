@@ -56,6 +56,12 @@ def get_issued_withdrawals():
             FROM `withdraw` w
             JOIN users u ON w.user_id = u.id
             WHERE w.status='Approved'
+              AND EXISTS (
+                  SELECT 1 FROM `withdraw_items` wi
+                  LEFT JOIN products p ON wi.product_id = p.product_id
+                  WHERE wi.withdraw_id = w.withdraw_id
+                    AND p.category IN ('Tools','Equipment')
+              )
             ORDER BY w.withdraw_id DESC
         """)
         return cur.fetchall()
@@ -206,7 +212,8 @@ def get_all_returns(search_query="", status_filter="All", user_id=None):
                    au.Firstname AS approver_first, au.Lastname AS approver_last,
                    w.ris_number,
                    (SELECT COALESCE(SUM(ri.returned_quantity),0) FROM return_items ri WHERE ri.return_id=r.return_id) AS total_qty,
-                   (SELECT COALESCE(SUM(ri.total_price),0) FROM return_items ri WHERE ri.return_id=r.return_id) AS total_amount
+                   (SELECT COALESCE(SUM(ri.total_price),0) FROM return_items ri WHERE ri.return_id=r.return_id) AS total_amount,
+                   (SELECT GROUP_CONCAT(DISTINCT ri.condition_status SEPARATOR '/') FROM return_items ri WHERE ri.return_id=r.return_id) AS conditions
             FROM `return` r
             JOIN users u ON r.user_id = u.id
             LEFT JOIN users au ON r.approved_by = au.id

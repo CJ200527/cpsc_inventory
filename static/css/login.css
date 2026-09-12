@@ -105,7 +105,7 @@
 
         /* INPUT TEXTBOX HOVER & FOCUS STATES */
         .input-group {
-            margin-bottom: 12px;
+            margin-bottom: 26px;
             text-align: left;
         }
 
@@ -138,7 +138,7 @@
         .input-box:focus {
             background-color: #ffffff;
             border-color: #53c5f1;
-            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+            box-shadow: none;
         }
 
         .input-group:focus-within label {
@@ -163,7 +163,7 @@
         .input-wrapper:focus-within {
             background-color: #ffffff;
             border-color: #53c5f1;
-            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+            box-shadow: none;
         }
 
         .input-wrapper svg {
@@ -181,6 +181,32 @@
             outline: none;
             font-size: 13px;
             color: #333;
+        }
+
+        /* fx21 on auth boxes (4px radius): draw clips tighter than the 6px
+           global; icon-box labels rest right of the glyph. */
+        .form-container .fx21-field > .focus-border,
+        .input-wrapper.fx21-field > .focus-border {
+            border-radius: 4px;
+        }
+        .input-wrapper.fx21-field > label {
+            left: 36px;
+        }
+
+        /* Chrome autofill: keep the auth gray (never the pale-blue wash) and
+           keep the text readable over the transparent fx21 inputs. */
+        .form-container input:-webkit-autofill,
+        .form-container input:-webkit-autofill:hover,
+        .form-container input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 100px #f0f0f0 inset;
+            -webkit-text-fill-color: #333;
+            caret-color: #333;
+            transition: background-color 9999s ease-in-out 0s;
+        }
+        /* Focused icon box goes fully white (signup behavior): the saved
+           autofill fill follows so no gray/white split shows mid-box. */
+        .input-wrapper:focus-within input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 100px #ffffff inset;
         }
 
         .forgot-pass {

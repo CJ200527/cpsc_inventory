@@ -15,6 +15,9 @@
     top: 0;
     z-index: 5;
     background: #ffffff;
+    /* Match .modal-body's horizontal insets so Section 1 and Section 2
+       cards share identical widths (no ragged card edges). */
+    padding: 4px 10px 4px 2px;
 }
 
 .pr-modal-body {
@@ -193,6 +196,8 @@
     width: 100%;
     height: 100%;
     pointer-events: none;
+    border-radius: 6px;
+    overflow: hidden;
 }
 .effect-21 ~ .focus-border:before,
 .effect-21 ~ .focus-border:after {
@@ -250,26 +255,21 @@
 .effect-21:focus ~ .focus-border i:after {
     transition-delay: 0.4s;
 }
+/* Fixed-caption labels (signup language): permanently parked above the box —
+   never rises, never drops, no transition. Clicks run only the border-draw
+   animation on the input. Pointer-transparent and chipless. */
 .fx21-field > label {
     position: absolute;
-    left: 14px;
-    top: 10px;
-    margin: 0;
-    font-size: 12px;
-    color: #000000;
-    letter-spacing: 0.5px;
-    transition: all 0.3s ease;
-    pointer-events: none;
-}
-.effect-21:focus ~ label,
-.has-content.effect-21 ~ label {
-    top: -9px;
     left: 10px;
+    top: -18px;
+    margin: 0;
     font-size: 11px;
     font-weight: 600;
     color: #000000;
-    background: #f8fcff;
+    letter-spacing: 0.5px;
+    background: transparent;
     padding: 0 5px;
+    pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
     .effect-21 ~ .focus-border:before,
@@ -279,6 +279,95 @@
     .fx21-field > label {
         transition: none;
     }
+}
+
+/* --- fx21 vertical rhythm: raised labels (-18px + ~11px text) need 26px
+   between stacked boxes so floats never touch the field above. Covers the
+   Return wh-col stacks and the bare Product/User modal-form stacks. --- */
+#return-modal .wh-col {
+    gap: 26px;
+}
+.modal-form .fx21-field {
+    margin-bottom: 26px;
+}
+.modal-form .form-grid-2 {
+    margin-bottom: 26px;
+}
+
+/* Horizontal caption rows — "Label: [box]" (system-wide; trialed on
+   Receive first). The draw stage moves into .fx21-box so it frames the
+   input alone; sibling selectors still match (input ~ span unchanged). */
+.fx21-inline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.fx21-inline > label {
+    position: static;
+    flex: 0 0 150px;
+    text-align: left;
+    margin: 0;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 600;
+    color: #000000;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+.fx21-box {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.fx21-box .focus-border {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    border-radius: 6px;
+    overflow: hidden;
+}
+/* Dropdown caret pinned at the box end (pickers) — same glyph family as
+   the dashboard filter chevrons, monochrome, never intercepts clicks. */
+.dd-caret {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888888;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+/* --- View-footer "Add Remaining": pale-amber fill must keep dark text on
+   hover (the shared Cancel hover turns text white — unreadable here). --- */
+#view-modal-approve-area .btn-modal-cancel:hover {
+    background: linear-gradient(135deg, #ffe082, #ffca28);
+    color: #3e2f00;
+    border-color: #ffca28;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+}
+
+/* --- Universal Close/Cancel hover (red gradient system, all modals) ---
+   Pages without a scoped cancel hover (plain view modals, auth-adjacent
+   dialogs) get the same red language as the pr/delivery scopes. */
+.btn-modal-cancel {
+    transition: all 0.2s ease-in-out;
+}
+.btn-modal-cancel:hover {
+    background: linear-gradient(135deg, #e57373, #ef5350);
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(239, 83, 80, 0.4);
+}
+.btn-modal-cancel:active {
+    background: #e53935;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(229, 57, 53, 0.4);
 }
 
 /* --- System-wide control hovers: Search submits + Create buttons speak the
@@ -478,11 +567,14 @@ textarea {
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* --- Animation-only focus system (every page, every form) ---
+   fx21 fields show the border-draw run; every other control gets a flat
+   border recolor. No glow shadows anywhere — approved as the replacement. */
 input:focus,
 select:focus,
 textarea:focus {
     border-color: #53c5f1;
-    box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+    box-shadow: none;
     outline: none;
 }
 
