@@ -89,13 +89,15 @@
             const tbody=document.getElementById('return-items-body');
             tbody.innerHTML='';
             if(!val){ returnSourceItems=[]; addReturnRow(); return; }
-            fetch('/withdraw/details/'+val).then(r=>r.json()).then(data=>{
+            fetch('/returns/returnable-items/'+val).then(r=>r.json()).then(data=>{
                 if(data.error){ returnSourceItems=[]; addReturnRow(); return; }
-                // Department follows the chosen withdrawn record.
                 const deptInput=document.querySelector('#return-modal input[name="department"]');
-                if(deptInput && data.header && data.header.department){ deptInput.value=data.header.department; deptInput.classList.add('has-content'); }
-                // Item picker offers only this withdrawal's Tools/Equipment lines.
-                returnSourceItems=(data.items||[]).filter(it=>it.category==='Tools'||it.category==='Equipment').map(it=>({id:it.product_id,name:it.item_name,unit:it.unit||'pcs',category:it.category||'',specs:[it.withdraw_details||it.details,it.size].filter(Boolean).join(' '),maxQty:parseInt(it.quantity||0)}));
+                if(deptInput){
+                    fetch('/withdraw/details/'+val).then(r=>r.json()).then(wd=>{
+                        if(wd.header && wd.header.department){ deptInput.value=wd.header.department; deptInput.classList.add('has-content'); }
+                    });
+                }
+                returnSourceItems=(data.items||[]).map(it=>({id:it.product_id,name:it.name,unit:it.unit||'pcs',category:it.category||'',specs:it.specs||'',maxQty:parseInt(it.maxQty||0)}));
                 returnSourceItems.forEach(it=>{ addReturnRowWithProduct(it.id, it.name, it.unit, it.maxQty, it.specs, it.category); });
                 if(tbody.children.length===0) addReturnRow();
             });
@@ -108,8 +110,13 @@
         function returnItemSpecs(it){ return it.specs||[it.details,it.size].filter(Boolean).join(' '); }
         function filterReturnItemHits(q){
             q=(q||'').trim().toLowerCase();
+            const usedIds=new Set();
+            document.querySelectorAll('#return-items-body input[name="product_id[]"]').forEach(inp=>{
+                if(inp.value) usedIds.add(parseInt(inp.value));
+            });
             const out=[];
             returnSourceList().forEach((it,idx)=>{
+                if(usedIds.has(it.id)) return;
                 const hay=`${it.name||''} ${returnItemSpecs(it)} ${it.category||''}`.toLowerCase();
                 if(!q || hay.includes(q)) out.push({it, idx});
             });
@@ -198,23 +205,24 @@
             if(!ok){ alert(msg); return false; }
             return true;
         }
+        function shortRetNum(s){ s=String(s||''); if(s.indexOf('-')===-1) return s; const parts=s.split('-'); const tail=(parts.pop()||'').trim(); const head=(parts[0]||'').trim(); if(!tail||!head) return s; return head+'-'+tail; }
         function openViewModal(id){
             const c=document.getElementById('view-modal-content');
             c.innerHTML='Loading...';
             document.getElementById('view-modal').classList.remove('hidden');
             fetch('/returns/details/'+id).then(r=>r.json()).then(data=>{
                 if(data.error){ c.innerHTML=data.error; return; }
-                document.getElementById('view-return-number').innerText=data.header.return_number + ' Details';
+                document.getElementById('view-return-number').innerText=shortRetNum(data.header.return_number) + ' Details';
                 let html=`<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#f8fcff; border:1px solid #e2f0fb; border-radius:8px; padding:12px; margin-bottom:12px; font-size:12px;">`;
-                html+=`<div><strong>Return #:</strong> ${data.header.return_number}</div><div><strong>Ref RIS:</strong> ${data.header.ris_number || '— Direct'}</div>`;
+                html+=`<div><strong>Return Number:</strong> <span title="${data.header.return_number||''}">${shortRetNum(data.header.return_number)}</span></div><div><strong>Ref Withdrawal:</strong> <span title="${data.header.ris_number||''}">${shortRetNum(data.header.ris_number) || '— Direct'}</span></div>`;
                 html+=`<div><strong>Department:</strong> ${data.header.department}</div><div><strong>Returned By:</strong> ${data.header.Firstname} ${data.header.Lastname}</div>`;
                 html+=`<div><strong>Reason:</strong> ${data.header.reason}</div><div><strong>Date:</strong> ${data.header.date_returned}</div>`;
                 html+=`<div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
                 html+=`</div>`;
-                html+=`<table class="item-table"><thead><tr><th>Item</th><th>Qty</th><th>Condition</th><th>Unit Price</th><th>Total</th></tr></thead><tbody>`;
+                html+=`<table class="item-table"><thead><tr><th>Item Name</th><th>Specification</th><th>Unit</th><th>Size</th><th>Category</th><th>Condition</th></tr></thead><tbody>`;
                 data.items.forEach(i=>{
                     const col=i.condition_status==='Serviceable'?'#2e7d32':'#c62828';
-                    html+=`<tr><td>${i.item_name}</td><td>${i.returned_quantity}</td><td style="color:${col}; font-weight:700;">${i.condition_status}</td><td>₱ ${Number(i.unit_price).toLocaleString('en-US',{minimumFractionDigits:2})}</td><td>₱ ${Number(i.total_price).toLocaleString('en-US',{minimumFractionDigits:2})}</td></tr>`;
+                    html+=`<tr><td>${i.item_name}</td><td>${i.details || i.return_details || '—'}</td><td>${i.unit || '—'}</td><td>${i.size || '—'}</td><td>${i.category || '—'}</td><td style="color:${col}; font-weight:700;">${i.condition_status}</td></tr>`;
                 });
                 html+=`</tbody></table>`;
                 c.innerHTML=html;

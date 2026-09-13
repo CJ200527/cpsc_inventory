@@ -1,10 +1,8 @@
 """crud_returns.py — Return Slip Workflow (finalized schema)
-Return = taking items OUT of inventory (like Withdrawal).
-Staff creates return directly from products,
-Admin approves → deducts exact returned_quantity from products.current_stock, logs stock_movements.
-`return` linked back to `withdraw` via withdraw_id (optional reference to an Approved RIS).
-No DDL in this module — schema is finalized, DO NOT create/modify tables.
-All queries use finalized singular tables `return` and `return_items`.
+Unserviceable: record only, no stock change. Saved for history + admin audit.
+Serviceable: restocks (current_stock += qty) on approval, log Return movement.
+Staff creates return linked to Approved withdrawal (withdraw_id optional).
+Admin approves/rejects. Unserviceable logged as Return-Unserviceable (0 change).
 """
 
 from db import get_db_connection
@@ -104,7 +102,8 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
     """
     items_list: [{'product_id':1,'returned_quantity':2,'condition_status':'Serviceable'}, ...]
     withdraw_id: optional reference to an Approved `withdraw` row (kept for traceability).
-    Validates returned <= current_stock, inserts Pending.
+    Unserviceable: record only, no stock check.
+    Serviceable: must not exceed issued minus already-returned (linked) or current stock (direct).
     """
     conn=None; cur=None
     try:
@@ -129,7 +128,8 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
                 return False, "Invalid RIS reference."
         else:
             wid=None
-        # Validate items - Return is OUT of inventory, like Withdrawal
+        # Validate items — Unserviceable: record only, no stock check.
+        # Serviceable: must not exceed what was issued (linked) or current stock (direct).
         for it in items_list:
             try:
                 pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
@@ -143,9 +143,26 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
             prod = cur.fetchone()
             if not prod:
                 return False, f"Product {pid} not found."
+            if cond == 'Unserviceable':
+                continue
             cur_stock = int(prod['cur_stock'] or 0)
-            if qty > cur_stock:
-                return False, f"Insufficient stock for '{prod['product_name']}': trying to return {qty} but only {cur_stock} available in inventory."
+            if wid:
+                cur.execute("SELECT quantity AS issued_quantity FROM withdraw_items WHERE withdraw_id=%s AND product_id=%s LIMIT 1", (wid, pid))
+                wi = cur.fetchone()
+                issued = int(wi['issued_quantity'] or 0) if wi else 0
+                cur.execute("""
+                    SELECT COALESCE(SUM(ri.returned_quantity),0) AS already_ret
+                    FROM return_items ri
+                    JOIN `return` r ON r.return_id = ri.return_id
+                    WHERE r.withdraw_id = %s AND ri.product_id = %s AND r.status IN ('Pending','Approved')
+                """, (wid, pid))
+                already = int(cur.fetchone()['already_ret'] or 0)
+                max_ret = issued - already
+                if qty > max_ret:
+                    return False, f"Insufficient returnable qty for '{prod['product_name']}': issued {issued}, already returned {already}, trying to return {qty}."
+            else:
+                if qty > cur_stock:
+                    return False, f"Insufficient stock for '{prod['product_name']}': trying to return {qty} but only {cur_stock} available in inventory."
         if not date_returned:
             date_returned=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         elif len(date_returned)==10:
@@ -186,7 +203,19 @@ def create_return(user_id, return_number, withdraw_id, department, reason, date_
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (rid, pid, iname, qty, cond, unit, price, total))
         conn.commit()
-        return True, rid
+        all_unserv = all(it.get('condition_status','Serviceable')=='Unserviceable' for it in items_list)
+        if all_unserv:
+            cur.execute("UPDATE `return` SET status='Approved', approved_by=%s WHERE return_id=%s", (user_id, rid))
+            for it in items_list:
+                pid=int(it['product_id']); qty=int(it['returned_quantity'])
+                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
+                bal=int(cur.fetchone()['bal'] or 0)
+                cur.execute("""
+                    INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
+                    VALUES (%s,'Return-Unserviceable',%s,0,%s,%s)
+                """, (pid, rid, bal, user_id))
+            conn.commit()
+        return True, rid, all_unserv
     except Exception as e:
         if conn:
             try: conn.rollback()
@@ -268,7 +297,7 @@ def get_return_details(return_id):
             return None, []
         det_select = "ri.details AS return_details, " if _return_items_has_details(cur) else "NULL AS return_details, "
         cur.execute(f"""
-            SELECT ri.*, {det_select} p.product_name, p.category, p.details, p.unit AS p_unit, p.price AS p_price,
+            SELECT ri.*, {det_select} p.product_name, p.category, p.details, p.size, p.unit AS p_unit, p.price AS p_price,
                    COALESCE(p.current_stock, p.quantity,0) AS cur_stock
             FROM return_items ri
             LEFT JOIN products p ON ri.product_id = p.product_id
@@ -305,24 +334,17 @@ def approve_return(return_id, admin_user_id):
         for it in items:
             pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it['condition_status']
             if cond == 'Serviceable':
-                # DEDUCT stock (Return OUT of inventory, like Withdrawal)
-                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS chk_stock FROM products WHERE product_id=%s", (pid,))
-                chk = int(cur.fetchone()['chk_stock'] or 0)
-                if qty > chk:
-                    return False, f"Insufficient stock to return '{it['item_name']}': need {qty}, have {chk}."
-                cur.execute(f"UPDATE products SET {STOCK_COL} = {STOCK_COL} - %s WHERE product_id=%s", (qty, pid))
+                cur.execute(f"UPDATE products SET {STOCK_COL} = {STOCK_COL} + %s WHERE product_id=%s", (qty, pid))
                 try:
                     cur.execute("UPDATE products SET quantity = current_stock WHERE product_id=%s", (pid,))
                 except: pass
-                # Balance after
                 cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
                 bal=int(cur.fetchone()['bal'] or 0)
                 cur.execute("""
                     INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
                     VALUES (%s,'Return',%s,%s,%s,%s)
-                """, (pid, return_id, -qty, bal, admin_user_id))
+                """, (pid, return_id, qty, bal, admin_user_id))
             else:
-                # Unserviceable: log for audit with 0 change
                 cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
                 bal=int(cur.fetchone()['bal'] or 0)
                 cur.execute("""
@@ -331,7 +353,7 @@ def approve_return(return_id, admin_user_id):
                 """, (pid, return_id, bal, admin_user_id))
         cur.execute("UPDATE `return` SET status='Approved', approved_by=%s WHERE return_id=%s", (admin_user_id, return_id))
         conn.commit()
-        return True, f"Return {header['return_number']} approved. Serviceable items deducted from stock (like Withdrawal)."
+        return True, f"Return {header['return_number']} approved. Serviceable items restocked."
     except Exception as e:
         if conn:
             try: conn.rollback()

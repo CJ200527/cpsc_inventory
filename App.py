@@ -2096,9 +2096,14 @@ def create_return_action():
         except (ValueError, IndexError, AttributeError):
             flash(f"Invalid row {i+1}.", "error")
             return redirect(request.referrer or (url_for("staff_return_dashboard") if session.get("role")=="Staff" else url_for("admin_return_dashboard")))
-    success, result = create_return(user_id, return_number, withdrawal_id or None, department, reason, date_returned, items)
+    ret = create_return(user_id, return_number, withdrawal_id or None, department, reason, date_returned, items)
+    success = ret[0]; result = ret[1]
     if success:
-        flash(f"Return {return_number} submitted! Pending approval (will DEDUCT from stock on approve, like Withdrawal).", "success")
+        auto_approved = bool(ret[2]) if len(ret)>2 else False
+        if auto_approved:
+            flash(f"Return {return_number} saved. All items Unserviceable — no approval needed.", "success")
+        else:
+            flash(f"Return {return_number} submitted! Pending approval (Serviceable items will be restocked, Unserviceable items recorded for history).", "success")
     else:
         flash(f"Failed: {result}", "error")
     if session.get("role")=="Admin":
@@ -2115,6 +2120,65 @@ def get_next_return_number_api():
     except Exception as err:
         print(f"[get_next_return_number_api] DB error: {err}")
         return {"error": str(err)}, 500
+
+# --- API ROUTE: Returnable items from a withdrawal (Tools/Equipment only, minus already returned) ---
+@app.route("/returns/returnable-items/<int:withdraw_id>")
+def get_returnable_items_api(withdraw_id):
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    conn=None; cur=None
+    try:
+        conn=get_db_connection()
+        cur=conn.cursor(dictionary=True)
+        cur.execute("""
+            SELECT wi.product_id, wi.quantity AS issued, wi.unit_price,
+                   wi.details AS withdraw_details,
+                   p.product_name, p.category, p.details, p.unit, p.price
+            FROM withdraw_items wi
+            LEFT JOIN products p ON wi.product_id=p.product_id
+            WHERE wi.withdraw_id=%s AND p.category IN ('Tools','Equipment')
+        """, (withdraw_id,))
+        items=cur.fetchall()
+        if not items:
+            return {"items":[]}
+        ret_map={}
+        if items:
+            pids=[int(it['product_id']) for it in items]
+            ph=','.join(['%s']*len(pids))
+            cur.execute(f"""
+                SELECT ri.product_id, SUM(ri.returned_quantity) AS ret_qty
+                FROM return_items ri
+                JOIN `return` r ON r.return_id=ri.return_id
+                WHERE r.withdraw_id=%s AND ri.product_id IN ({ph})
+                  AND r.status IN ('Pending','Approved')
+                GROUP BY ri.product_id
+            """, (withdraw_id, *pids))
+            for row in cur.fetchall():
+                ret_map[int(row['product_id'])]=int(row['ret_qty'] or 0)
+        result=[]
+        for it in items:
+            issued=int(it['issued'] or 0)
+            already=ret_map.get(int(it['product_id']),0)
+            remaining=issued-already
+            if remaining>0:
+                specs=' '.join(filter(None,[it['withdraw_details'],it.get('details')]))
+                result.append({
+                    "product_id":it['product_id'],"name":it['product_name'],
+                    "unit":it['unit'] or 'pcs',"category":it['category'] or '',
+                    "specs":specs,"maxQty":remaining,
+                    "unit_price":float(it['unit_price'] or it['price'] or 0)
+                })
+        return {"items":result}
+    except Exception as e:
+        print(f"[get_returnable_items_api] {e}")
+        return {"error":str(e)},500
+    finally:
+        if cur:
+            try: cur.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass
 
 @app.route("/returns/details/<int:return_id>")
 def get_return_details_api(return_id):

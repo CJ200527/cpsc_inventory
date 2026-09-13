@@ -61,7 +61,6 @@
         <div class="dashboard-container">
             
 
-            <div style="background:#e3f2fd; border:1px solid #90caf9; border-radius:8px; padding:10px 12px; font-size:11px; color:#0d47a1;">🔄 Return queue — <strong>Serviceable</strong> restocks <code>products.current_stock</code> on approve; <strong>Unserviceable</strong> flagged for disposal (no stock credit) but logged in <code>stock_movements</code>.</div>
 
             <!-- ===== CONTROL BAR (Search + Date Filter + Refresh + Add) ===== -->
             <div class="control-card">
@@ -241,12 +240,12 @@
             <div class="modal-header">
                 <div style="display:flex; gap:10px; align-items:center;">
                     <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff;"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></div>
-                    <div><h3 style="font-size:17px; margin:0;">Confirm Return Approval</h3><p style="font-size:11px; color:#666; margin:0;">Serviceable restocks, Unserviceable flagged</p></div>
+                    <div><h3 style="font-size:17px; margin:0;">Confirm Return Approval</h3><p style="font-size:11px; color:#666; margin:0;">Serviceable items will be restocked to inventory</p></div>
                 </div>
             </div>
             <div style="background:#f8fcff; border:1px solid #e2f0fb; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12px;">
                 <div><strong>Return #:</strong> <span id="approve-return-number" style="font-weight:700; color:#0d233a;"></span></div>
-                <div style="margin-top:6px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:8px; padding:8px; font-size:11px; color:#2e7d32;">Serviceable → stock credited; Unserviceable → no credit, logged for disposal audit.</div>
+                <div style="margin-top:6px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:8px; padding:8px; font-size:11px; color:#2e7d32;">Serviceable → restocked to inventory. Unserviceable returns auto-approve on save.</div>
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-modal-cancel" onclick="closeApproveModal()">Cancel</button>
