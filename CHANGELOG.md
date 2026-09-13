@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — System Settings, Return Restock Policy & Security Hardening (2026-09-14)
+
+> The Settings module landed (5 tabs, 28 defaults, CRUD + route), the return restock policy was implemented end-to-end (Unserviceable auto-approve, Serviceable requires admin approval + restock), and security hardening was applied (env-var secrets, `.gitignore`, plaintext passwords restored after hashing revert).
+
+#### Added
+- **System Settings module** — `crud_settings.py` (key-value `admin_settings` table, `ensure_settings_table()`, `init_default_settings()`, `get_all_settings()`, `get_setting()`, `save_settings()`); `/admin/settings` GET/POST route + `/api/settings` JSON endpoint; `admin_settings.html` template with 5 tabs (Branding, Theme, Business Rules, Stock Alerts, UI Preferences), 28 default settings, fx21 fields, color picker, toggle switch, sticky save bar; Settings button added to all 8 admin dashboard sidebars.
+- **Return restock policy (implemented)** — `create_return()` auto-approves Unserviceable-only returns (record only, zero stock change); Serviceable returns save as `Pending` requiring admin approval → `approve_return()` restocks (`current_stock += qty`) on approve; Mixed returns (both conditions) stay Pending; `crud_returns.py` submit gate: Unserviceable skips stock check, Serviceable linked checks issued-minus-returned, Serviceable direct checks current_stock.
+- **Returnable items endpoint** — `/returns/returnable-items/<withdraw_id>` joins `withdraw_items` + `return_items`, filters Tools/Equipment, returns items where `issued - already_returned > 0` with `maxQty = remaining`; "+ Add Item" dropdown excludes items already in the table (by product_id).
+- **Security hardening** — Flask secret key from env var `FLASK_SECRET_KEY`; DB credentials from env vars in `db.py` (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`); `.gitignore` created (excludes `__pycache__/`, `*.pyc`, `*.pyo`, `.env`, `*.db`).
+
+#### Changed
+- **Return view modal redesigned (staff + admin)** — Columns now: Item Name / Specification / Unit / Size / Category / Condition (money removed); title uses short numbers (`RET-001 Details`); headers show "Return Number" and "Ref Withdrawal".
+- **Return table columns rebuilt (staff + admin)** — Return Number / Withdraw Number / Department / Condition / Date / Total Qty / Status / Actions with `short_pr`/`shortRetNum`/`shortWdNum`, `ph_datetime`, Condition color-coded (green Serviceable / red Unserviceable).
+- **Approve modal text updated** — "Serviceable items will be restocked to inventory".
+- **Return dashboard info banners removed** (staff + admin).
+
+#### Fixed
+- **Stale `cpython-314.pyc` cache** — Flask runs on Python 3.14 but `__pycache__` clearing targeted 3.12; old hashed `crud_users.cpython-314.pyc` was re-loaded on every restart, re-hashing plaintext passwords. Cleared 3.14 caches, confirmed all users plaintext `123`.
+- **Settings page `BuildError`** — `admin_pr_management` endpoint corrected to `pr_management`.
+- **Settings page `TemplateNotFound`** — switched from `safe_render_template` to `render_template` directly; removed `@app.before_request` hook that ran DB queries on every request.
+
+#### Removed
+- **All werkzeug password hashing** — `generate_password_hash`/`check_password_hash` removed from `crud_users.py`; all `__pycache__` directories cleared; passwords confirmed plaintext.
+- **Dashboard info banners from Return pages** (staff + admin).
+
+#### Pending
+- **Settings page UI redesign** — sidebar structure inconsistent with other admin pages (wrong class names, missing `nav-menu`, wrong logo path, custom button styles instead of shared `.btn-modal-save`/`.btn-modal-cancel`); Theme tab bypasses fx21 pattern. Scheduled for next session.
+
+---
+
 ## [Unreleased] — System-Wide fx21 Rollout + Return/Withdraw Details (2026-09-12)
 
 > The Delivery caption-row trial (`Label: [box]`, frozen labels, animation-only focus) won and was rolled out to **every form surface**: Receive, Complete, PR create/edit, Withdraw, Return, Add Product, Edit User, Login/Signup/Forgot, and dashboard filter modals. Glow shadows deleted project-wide; labels parked (never rise/drop).
@@ -26,8 +56,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 - **`create_return_action` NameError** — passed undefined `withdraw_id`; now `withdrawal_id or None`, so Return records save.
 - **fx21 wrapper overshoot** (inline-block shrink-wrap), **peso-in-number-input revert**, **missing header close tag**, **Add Remaining white-on-hover** (amber hover keeps dark text).
 
-#### Pending (agreed, not yet implemented)
-- **Return restock policy (Option B):** Serviceable restocks (`+qty`) on approve; Unserviceable stays history-only. Submit gate switches to issued-minus-returned for linked returns. Spec approved 2026-09-12; implementation + live test is tomorrow's first job.
+#### ~~Pending~~ (implemented 2026-09-14)
+- **Return restock policy (Option B):** Serviceable restocks (`+qty`) on approve; Unserviceable stays history-only. See entry above.
 
 ---
 

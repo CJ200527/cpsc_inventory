@@ -109,12 +109,18 @@ from crud_returns import (
     reject_return,
     generate_return_number,
 )
+from crud_settings import get_all_settings, save_settings, ensure_settings_table, init_default_settings
 
 # Initialize Flask Application
 app = Flask(__name__)
 
 # Secret key required by Flask to handle user sessions and flash notification messages
-app.secret_key = "cpsc_inventory_secret_key"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "cpsc_inventory_secret_key_change_me_in_production")
+
+# Initialize settings table + defaults once at startup
+with app.app_context():
+    ensure_settings_table()
+    init_default_settings()
 
 
 # Helper function to render template regardless of whether it's in a subfolder or root templates directory
@@ -2220,5 +2226,31 @@ def reject_return_action(return_id):
     return redirect(url_for("admin_return_dashboard"))
 
 
+# --- SETTINGS ROUTES ---
+@app.route("/admin/settings", methods=["GET", "POST"])
+def admin_settings():
+    if session.get("role") != "Admin":
+        flash("Admin required.", "error")
+        return redirect(url_for("admin_dashboard"))
+    if request.method == "POST":
+        data = {}
+        for key in request.form:
+            data[key] = request.form[key]
+        if save_settings(data):
+            flash("Settings saved.", "success")
+        else:
+            flash("Failed to save settings.", "error")
+        return redirect(url_for("admin_settings"))
+    settings = get_all_settings()
+    return render_template("Admin Dashboards/admin_settings.html", settings=settings)
+
+@app.route("/api/settings")
+def api_settings():
+    if "user_id" not in session:
+        return {"error": "Unauthorized"}, 401
+    settings = get_all_settings()
+    return settings
+
+
 if __name__ == "__main__":
-    app.run(debug=False, use_reloader=False, port=5000) 
+    app.run(debug=True, use_reloader=False, port=5000) 

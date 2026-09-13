@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - System Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main_theme.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+    <style>
+        .settings-wrap{max-width:900px;margin:0 auto;padding:20px;}
+        .settings-tabs{display:flex;gap:4px;border-bottom:2px solid #e0e0e0;margin-bottom:20px;flex-wrap:wrap;}
+        .settings-tab{padding:10px 18px;border:none;background:transparent;cursor:pointer;font-size:13px;font-weight:600;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;}
+        .settings-tab:hover{color:#333;}
+        .settings-tab.active{color:#0d47a1;border-bottom-color:#53c5f1;background:#f0f9ff;}
+        .settings-panel{display:none;}
+        .settings-panel.active{display:block;}
+        .settings-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+        .settings-row.full{grid-template-columns:1fr;}
+        .settings-group{margin-bottom:24px;}
+        .settings-group-title{font-size:14px;font-weight:700;color:#0d47a1;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #e3f2fd;}
+        .settings-save-bar{position:sticky;bottom:0;background:#fff;border-top:1px solid #e0e0e0;padding:14px 20px;display:flex;justify-content:flex-end;gap:10px;border-radius:0 0 10px 10px;z-index:10;}
+        .color-picker-wrap{display:flex;align-items:center;gap:8px;}
+        .color-picker-wrap input[type="color"]{width:40px;height:32px;border:1px solid #ccc;border-radius:4px;cursor:pointer;padding:2px;}
+        .toggle-switch{position:relative;display:inline-block;width:44px;height:24px;}
+        .toggle-switch input{opacity:0;width:0;height:0;}
+        .toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s;}
+        .toggle-slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s;}
+        .toggle-switch input:checked+.toggle-slider{background:#53c5f1;}
+        .toggle-switch input:checked+.toggle-slider:before{transform:translateX(20px);}
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <img src="{{ url_for('static', filename='images/cpsc_logo.png') }}" alt="Logo" class="sidebar-logo">
+                <div class="sidebar-header-text">
+                    <div class="school-name">Camiguin Polytechnic State College</div>
+                    <div class="school-address">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+            <div class="nav-scroll">
+                <div class="nav-section">
+                    <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">📊</span><span>Dashboard</span></a>
+                    <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Purchase Request</span></a>
+                    <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                    <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
+                    <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
+                    <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
+                    <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
+                    <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
+                </div>
+            </div>
+            <div>
+                <a href="{{ url_for('admin_settings') }}" class="nav-btn active"><span class="icon">⚙</span><span>Settings</span></a>
+                <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a>
+                <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+            </div>
+        </div>
+        <div class="main-wrapper">
+            <div class="top-header">
+                <div class="header-title-box">
+                    <h1>System Settings</h1>
+                    <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+                </div>
+                <div class="header-profile">
+                    <span class="header-username">{{ session.get('username', '') }}</span>
+                    <span class="header-role">{{ session.get('role', '') }}</span>
+                </div>
+            </div>
+            <div class="content-area">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                {% for cat, msg in messages %}
+                <div class="toast toast-{{ cat }}" style="display:block; margin-bottom:12px;">{{ msg }}</div>
+                {% endfor %}
+                {% endif %}
+                {% endwith %}
+                <div class="settings-wrap">
+                    <form method="POST" action="{{ url_for('admin_settings') }}" id="settings-form">
+                        <div class="settings-tabs">
+                            <button type="button" class="settings-tab active" data-tab="branding">Branding</button>
+                            <button type="button" class="settings-tab" data-tab="theme">Theme</button>
+                            <button type="button" class="settings-tab" data-tab="business">Business Rules</button>
+                            <button type="button" class="settings-tab" data-tab="stock">Stock Alerts</button>
+                            <button type="button" class="settings-tab" data-tab="ui">UI Preferences</button>
+                        </div>
+
+                        <!-- BRANDING -->
+                        <div class="settings-panel active" id="tab-branding">
+                            <div class="settings-group">
+                                <div class="settings-group-title">Institution Identity</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="institution_name" class="effect-21" value="{{ settings.get('institution_name','') }}" placeholder="Institution Name"><span class="focus-border"><i></i></span><label class="fx21-label">Institution Name</label></div>
+                                    <div class="fx21-field"><input type="text" name="institution_address" class="effect-21" value="{{ settings.get('institution_address','') }}" placeholder="Address"><span class="focus-border"><i></i></span><label class="fx21-label">Address</label></div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="app_title" class="effect-21" value="{{ settings.get('app_title','') }}" placeholder="App Title"><span class="focus-border"><i></i></span><label class="fx21-label">App Title</label></div>
+                                    <div class="fx21-field"><input type="text" name="footer_text" class="effect-21" value="{{ settings.get('footer_text','') }}" placeholder="Footer Text"><span class="focus-border"><i></i></span><label class="fx21-label">Footer Text</label></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- THEME -->
+                        <div class="settings-panel" id="tab-theme">
+                            <div class="settings-group">
+                                <div class="settings-group-title">Appearance</div>
+                                <div class="settings-row">
+                                    <div>
+                                        <label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">Theme Mode</label>
+                                        <select name="theme_mode" class="effect-21" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                            <option value="light" {% if settings.get('theme_mode')=='light' %}selected{% endif %}>Light</option>
+                                            <option value="dark" {% if settings.get('theme_mode')=='dark' %}selected{% endif %}>Dark</option>
+                                            <option value="auto" {% if settings.get('theme_mode')=='auto' %}selected{% endif %}>Auto (System)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">Primary Accent Color</label>
+                                        <div class="color-picker-wrap">
+                                            <input type="color" name="primary_color" value="{{ settings.get('primary_color','#53c5f1') }}">
+                                            <span style="font-size:12px;color:#666;">{{ settings.get('primary_color','#53c5f1') }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BUSINESS RULES -->
+                        <div class="settings-panel" id="tab-business">
+                            <div class="settings-group">
+                                <div class="settings-group-title">Product Categories</div>
+                                <div class="settings-row full">
+                                    <div class="fx21-field"><input type="text" name="product_categories" class="effect-21" value="{{ settings.get('product_categories','') }}" placeholder="Comma-separated"><span class="focus-border"><i></i></span><label class="fx21-label">Categories (comma-separated)</label></div>
+                                </div>
+                                <div class="settings-row full">
+                                    <div class="fx21-field"><input type="text" name="returnable_categories" class="effect-21" value="{{ settings.get('returnable_categories','') }}" placeholder="Comma-separated"><span class="focus-border"><i></i></span><label class="fx21-label">Returnable Categories (comma-separated)</label></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Defaults</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="default_fund_source" class="effect-21" value="{{ settings.get('default_fund_source','') }}" placeholder="e.g. Fund 05"><span class="focus-border"><i></i></span><label class="fx21-label">Default Fund Source</label></div>
+                                    <div class="fx21-field"><input type="text" name="default_unit" class="effect-21" value="{{ settings.get('default_unit','') }}" placeholder="pcs"><span class="focus-border"><i></i></span><label class="fx21-label">Default Unit</label></div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="default_size" class="effect-21" value="{{ settings.get('default_size','') }}" placeholder="N/A"><span class="focus-border"><i></i></span><label class="fx21-label">Default Size</label></div>
+                                    <div></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Currency & Validation</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="currency_symbol" class="effect-21" value="{{ settings.get('currency_symbol','') }}" placeholder="₱"><span class="focus-border"><i></i></span><label class="fx21-label">Currency Symbol</label></div>
+                                    <div class="fx21-field"><input type="text" name="currency_code" class="effect-21" value="{{ settings.get('currency_code','') }}" placeholder="PHP"><span class="focus-border"><i></i></span><label class="fx21-label">Currency Code</label></div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="text" name="phone_regex" class="effect-21" value="{{ settings.get('phone_regex','') }}" placeholder="^09[0-9]{9}$"><span class="focus-border"><i></i></span><label class="fx21-label">Phone Regex</label></div>
+                                    <div class="fx21-field"><input type="text" name="phone_hint" class="effect-21" value="{{ settings.get('phone_hint','') }}" placeholder="Hint text"><span class="focus-border"><i></i></span><label class="fx21-label">Phone Hint</label></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Return Policy</div>
+                                <div class="settings-row">
+                                    <div style="display:flex;align-items:center;gap:10px;">
+                                        <label class="toggle-switch"><input type="checkbox" name="auto_approve_unserviceable" value="true" {% if settings.get('auto_approve_unserviceable')=='true' %}checked{% endif %}><span class="toggle-slider"></span></label>
+                                        <span style="font-size:12px;font-weight:600;">Auto-approve Unserviceable returns</span>
+                                    </div>
+                                    <div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- STOCK ALERTS -->
+                        <div class="settings-panel" id="tab-stock">
+                            <div class="settings-group">
+                                <div class="settings-group-title">Default Reorder Level</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="default_reorder_level" class="effect-21" value="{{ settings.get('default_reorder_level','10') }}" min="0"><span class="focus-border"><i></i></span><label class="fx21-label">Global Default</label></div>
+                                    <div></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Category Thresholds</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="cat_reorder_consumables" class="effect-21" value="{{ settings.get('cat_reorder_consumables','10') }}" min="0"><span class="focus-border"><i></i></span><label class="fx21-label">Consumables Alert At</label></div>
+                                    <div class="fx21-field"><input type="number" name="cat_reorder_tools" class="effect-21" value="{{ settings.get('cat_reorder_tools','5') }}" min="0"><span class="focus-border"><i></i></span><label class="fx21-label">Tools Alert At</label></div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="cat_reorder_equipment" class="effect-21" value="{{ settings.get('cat_reorder_equipment','5') }}" min="0"><span class="focus-border"><i></i></span><label class="fx21-label">Equipment Alert At</label></div>
+                                    <div></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- UI PREFERENCES -->
+                        <div class="settings-panel" id="tab-ui">
+                            <div class="settings-group">
+                                <div class="settings-group-title">Dashboard Limits</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="top_items_limit" class="effect-21" value="{{ settings.get('top_items_limit','5') }}" min="1"><span class="focus-border"><i></i></span><label class="fx21-label">Top Items Shown</label></div>
+                                    <div class="fx21-field"><input type="number" name="activity_feed_limit" class="effect-21" value="{{ settings.get('activity_feed_limit','8') }}" min="1"><span class="focus-border"><i></i></span><label class="fx21-label">Activity Feed Limit</label></div>
+                                </div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="dashboard_snapshot_limit" class="effect-21" value="{{ settings.get('dashboard_snapshot_limit','10') }}" min="1"><span class="focus-border"><i></i></span><label class="fx21-label">Inventory Snapshot Limit</label></div>
+                                    <div class="fx21-field"><input type="number" name="all_time_lookback_months" class="effect-21" value="{{ settings.get('all_time_lookback_months','6') }}" min="1"><span class="focus-border"><i></i></span><label class="fx21-label">All-Time Lookback (months)</label></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Animation & Timing</div>
+                                <div class="settings-row">
+                                    <div class="fx21-field"><input type="number" name="toast_duration_ms" class="effect-21" value="{{ settings.get('toast_duration_ms','4000') }}" min="1000" step="500"><span class="focus-border"><i></i></span><label class="fx21-label">Toast Duration (ms)</label></div>
+                                    <div class="fx21-field"><input type="number" name="animation_lock_ms" class="effect-21" value="{{ settings.get('animation_lock_ms','1800') }}" min="0" step="100"><span class="focus-border"><i></i></span><label class="fx21-label">Animation Lock (ms)</label></div>
+                                </div>
+                            </div>
+                            <div class="settings-group">
+                                <div class="settings-group-title">Date Format</div>
+                                <div class="settings-row full">
+                                    <div class="fx21-field"><input type="text" name="date_format" class="effect-21" value="{{ settings.get('date_format','') }}" placeholder="Month Day, Year | h:mm AM/PM"><span class="focus-border"><i></i></span><label class="fx21-label">Date Display Format</label></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-save-bar">
+                            <a href="{{ url_for('admin_dashboard') }}" class="btn-modal-cancel">Cancel</a>
+                            <button type="submit" class="btn-modal-save"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Save Settings</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script>
+    document.querySelectorAll('.settings-tab').forEach(tab=>{
+        tab.addEventListener('click',()=>{
+            document.querySelectorAll('.settings-tab').forEach(t=>t.classList.remove('active'));
+            document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById('tab-'+tab.dataset.tab).classList.add('active');
+        });
+    });
+    document.querySelectorAll('input[type="color"]').forEach(picker=>{
+        picker.addEventListener('input',()=>{
+            picker.nextElementSibling.textContent=picker.value;
+        });
+    });
+    </script>
+</body>
+</html>
