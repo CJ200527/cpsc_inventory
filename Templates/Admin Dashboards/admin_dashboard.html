@@ -98,11 +98,11 @@
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
                 <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
                 <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
+                <a href="{{ url_for('admin_settings') }}" class="nav-btn"><span class="icon">⚙</span><span>Settings</span></a>
             </div>
         </div>
 
         <div>
-            <a href="{{ url_for('admin_settings') }}" class="nav-btn"><span class="icon">⚙</span><span>Settings</span></a>
             <a href="/logout" class="nav-btn logout-btn">
                 <span class="icon">🚩</span>
                 <span>Log Out</span>
@@ -173,15 +173,16 @@
                 </div>
             </section>
 
-            <!-- ROW 2: The Admin Toolbelt (Single Horizontal Card Box) -->
+<!-- ROW 2: The Admin Toolbelt (Single Horizontal Card Box) -->
             <section class="dashboard-card-container toolbelt">
                 <div class="toolbelt-left">
                     <button type="button" class="btn-import" title="Import Inventory — functionality to be added later">
                         <span>📥</span> Import Inventory
                     </button>
+                    <button type="submit" form="chart-filter-form" class="btn-action btn-view btn-refresh-icon" title="Refresh Data"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
                 </div>
                 <form id="chart-filter-form" method="GET" action="{{ url_for('admin_dashboard') }}" class="toolbelt-right">
-                    <label id="filter-dropdown-label">Comparative Report &amp; Chart Filters:</label>
+                    <label id="filter-dropdown-label">Chart Filters:</label>
                     <div class="custom-dropdown-wrap filter-dropdown-wrap" id="filter-dropdown">
                         <button type="button" class="filter-dropdown-btn" id="filter-dropdown-btn"
                                 aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-dropdown-label">
@@ -228,7 +229,6 @@
                     <input type="hidden" name="filter_year" id="filter_year_input" value="{{ filter_year | default('') }}">
                     <input type="hidden" name="date_from" id="date_from_input" value="{{ date_from | default('') }}">
                     <input type="hidden" name="date_to" id="date_to_input" value="{{ date_to | default('') }}">
-                    <button type="submit" class="btn-refresh" title="Refresh Data">🔄 Refresh</button>
                 </form>
             </section>
 
@@ -454,6 +454,7 @@
     <!-- Skeleton Screen Transition (Modular - disable via SKELETON_ENABLED=false) + Progressive Cascade Unveil -->
 
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
     (function () {

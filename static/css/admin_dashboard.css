@@ -419,6 +419,34 @@
             transform: translateY(-1px);
         }
 
+        /* Icon refresh button — unified 32px square (perfect refresh — this is the canonical) */
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid #d0dbe5;
+            background: transparent;
+            color: #54677a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .btn-action.btn-view:hover,
+        .btn-refresh-icon:hover {
+            background: #e1f3fe;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(83,197,241,0.25);
+        }
+        a.btn-action { text-decoration: none; }
+
         /* ROW 3: Visual Analytics (2-column grid) */
         .analytics-grid {
             display: grid;

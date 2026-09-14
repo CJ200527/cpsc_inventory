@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CPSC Inventory - System Settings</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main_theme.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
     <style>
@@ -31,42 +30,44 @@
     </style>
 </head>
 <body>
-    <div class="page-wrapper">
-        <div class="sidebar">
+    <div class="sidebar">
+        <div>
             <div class="sidebar-header">
-                <img src="{{ url_for('static', filename='images/cpsc_logo.png') }}" alt="Logo" class="sidebar-logo">
-                <div class="sidebar-header-text">
-                    <div class="school-name">Camiguin Polytechnic State College</div>
-                    <div class="school-address">Balbagon, Mambajao, Camiguin</div>
+                <img class="sidebar-logo"
+                     src="{{ url_for('static', filename='cpsc_logo.png') }}"
+                     alt="CPSC Seal"
+                     onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
                 </div>
             </div>
-            <div class="nav-scroll">
-                <div class="nav-section">
-                    <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">📊</span><span>Dashboard</span></a>
-                    <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Purchase Request</span></a>
-                    <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
-                    <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
-                    <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
-                    <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                    <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
-                    <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
-                </div>
-            </div>
-            <div>
+            <div class="nav-menu">
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
+                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
                 <a href="{{ url_for('admin_settings') }}" class="nav-btn active"><span class="icon">⚙</span><span>Settings</span></a>
-                <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a>
-                <div class="sidebar-footer">@ CPSC Production Office 2026</div>
             </div>
         </div>
-        <div class="main-wrapper">
+        <div>
+            <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+    <div class="main-wrapper">
             <div class="top-header">
                 <div class="header-title-box">
                     <h1>System Settings</h1>
                     <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
                 </div>
-                <div class="header-profile">
-                    <span class="header-username">{{ session.get('username', '') }}</span>
-                    <span class="header-role">{{ session.get('role', '') }}</span>
+                <div class="user-profile-box">
+                    <div class="user-name">{{ session.get('username', '') }}</div>
+                    <div class="user-role">{{ session.get('role', '') }}</div>
                 </div>
             </div>
             <div class="content-area">
@@ -107,20 +108,22 @@
                             <div class="settings-group">
                                 <div class="settings-group-title">Appearance</div>
                                 <div class="settings-row">
-                                    <div>
-                                        <label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">Theme Mode</label>
-                                        <select name="theme_mode" class="effect-21" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;font-size:12px;">
+                                    <div class="fx21-field">
+                                        <select name="theme_mode" class="effect-21">
                                             <option value="light" {% if settings.get('theme_mode')=='light' %}selected{% endif %}>Light</option>
                                             <option value="dark" {% if settings.get('theme_mode')=='dark' %}selected{% endif %}>Dark</option>
                                             <option value="auto" {% if settings.get('theme_mode')=='auto' %}selected{% endif %}>Auto (System)</option>
                                         </select>
+                                        <span class="focus-border"><i></i></span>
+                                        <label class="fx21-label">Theme Mode</label>
                                     </div>
-                                    <div>
-                                        <label style="font-size:12px;font-weight:600;color:#333;display:block;margin-bottom:6px;">Primary Accent Color</label>
+                                    <div class="fx21-field">
                                         <div class="color-picker-wrap">
                                             <input type="color" name="primary_color" value="{{ settings.get('primary_color','#53c5f1') }}">
                                             <span style="font-size:12px;color:#666;">{{ settings.get('primary_color','#53c5f1') }}</span>
                                         </div>
+                                        <span class="focus-border"><i></i></span>
+                                        <label class="fx21-label">Primary Accent Color</label>
                                     </div>
                                 </div>
                             </div>
@@ -229,7 +232,6 @@
                 </div>
             </div>
         </div>
-    </div>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script>

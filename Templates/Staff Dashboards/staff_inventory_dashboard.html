@@ -74,6 +74,7 @@
                         <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
+                    <a href="{{ url_for('staff_inventory_dashboard') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
                 </form>
                 <div class="filter-controls">
                     <div class="fx21-field"><select name="category" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
@@ -98,7 +99,6 @@
                         <option value="Out of Stock" {% if stock_filter == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
                         <option value="Needs Attention" {% if stock_filter == 'Needs Attention' %}selected{% endif %}>Low & Out of Stock</option>
                     </select><span class="focus-border"><i></i></span></div>
-                    <a href="{{ url_for('staff_inventory_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                 </div>
             </div>
 
@@ -150,6 +150,7 @@
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
 
 </body>
 </html>

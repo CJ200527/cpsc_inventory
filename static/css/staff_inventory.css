@@ -84,6 +84,10 @@
         .filter-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .filter-select { padding: 7px 12px; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 12px; outline: none; background: #ffffff; }
         .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
+        /* Icon refresh button — identical to admin_dashboard perfect refresh (32px square) */
+        .btn-action { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0dbe5; background: transparent; color: #54677a; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: all 0.2s ease; flex-shrink: 0; text-decoration: none; box-sizing: border-box; }
+        .btn-action.btn-view:hover, .btn-refresh-icon:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        a.btn-action { text-decoration: none; }
         /* ROW 2: Data Table Workspace */
         .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #e0e0e0; flex: 1; overflow-x: auto; }
         .workspace-table { display: flex; flex-direction: column; }

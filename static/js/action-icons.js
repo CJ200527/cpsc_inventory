@@ -35,7 +35,8 @@
         ['i-x', [['path', { d: 'M6 6l12 12M18 6L6 18' }]]],
         ['i-view', [['circle', { cx: '11', cy: '11', r: '6.5' }], ['path', { d: 'M16 16l4.5 4.5' }]]],
         ['i-edit', [['path', { d: 'M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19l-4 1z' }]]],
-        ['i-plus', [['path', { d: 'M12 5v14M5 12h14' }]]]
+        ['i-plus', [['path', { d: 'M12 5v14M5 12h14' }]]],
+        ['i-refresh', [['path', { d: 'M23 4v6h-6' }], ['path', { d: 'M1 20v-6h6' }], ['path', { d: 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10' }], ['path', { d: 'M1 14l4.64 4.36A9 9 0 0 0 20.49 15' }]]]
     ];
     defs.forEach(function (d) {
         var sym = document.createElementNS(NS, 'symbol');

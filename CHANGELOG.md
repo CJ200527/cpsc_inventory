@@ -29,9 +29,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 #### Removed
 - **All werkzeug password hashing** — `generate_password_hash`/`check_password_hash` removed from `crud_users.py`; all `__pycache__` directories cleared; passwords confirmed plaintext.
 - **Dashboard info banners from Return pages** (staff + admin).
+- **Dead files (2026-09-14 night)** — `CRUD_Operations/crud/` (orphan, only stale `cpython-311.pyc`, never imported), `Templates/base.html` (no route, no `extends`), `static/css/main_theme.css` (only used by `base.html` + settings; removed from settings `<head>`), all `__pycache__`/`*.pyc`.
+
+#### Changed (2026-09-14 night — partial)
+- **Settings structural pass** — `admin_settings.html` now uses canonical sidebar (`sidebar` + `main-wrapper`, `nav-menu`, `school-title`/`school-subtitle`, `cpsc_logo.png` + onerror, `💻` + `Submit PR`) and header (`user-profile-box`/`user-name`/`user-role`); Theme tab `select`/color wrapped in `.fx21-field` + `.focus-border` + `.fx21-label`; divs balanced 97/97; `App.py` compiles. Page still visually broken per screenshot — full polish deferred.
 
 #### Pending
-- **Settings page UI redesign** — sidebar structure inconsistent with other admin pages (wrong class names, missing `nav-menu`, wrong logo path, custom button styles instead of shared `.btn-modal-save`/`.btn-modal-cancel`); Theme tab bypasses fx21 pattern. Scheduled for next session.
+- **Reports + Print button (priority, 2026-09-15)** — build missing reports and a print-reports button; finish core system first.
+- **Settings full polish (after reports)** — fx21 label overlap, spacing, save-bar, functionality check; decide which of 5 tabs / 28 keys to keep.
+- **Create `AGENTS.md` (2026-09-15)** — session-proof operating guide so a fresh session never loses context.
 
 ---
 

@@ -40,9 +40,10 @@
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
                 <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
                 <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
+                <a href="{{ url_for('admin_settings') }}" class="nav-btn"><span class="icon">⚙</span><span>Settings</span></a>
             </div>
         </div>
-        <div><a href="{{ url_for('admin_settings') }}" class="nav-btn"><span class="icon">⚙</span><span>Settings</span></a><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
+        <div><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
     </div>
 
     <div class="main-wrapper">
@@ -69,6 +70,7 @@
                         <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
+                    <a href="{{ url_for('admin_withdraw_dashboard') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
                 </form>
                 <div class="filter-controls">
                     <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
@@ -77,7 +79,6 @@
                         <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
                         <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
                     </select><span class="focus-border"><i></i></span></div>
-                    <a href="{{ url_for('admin_withdraw_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                     <button type="button" class="btn-add-primary" onclick="openWithdrawModal()">+ New Withdrawal</button>
                 </div>
             </div>

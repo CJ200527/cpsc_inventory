@@ -200,14 +200,15 @@
         .badge-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
 
         .action-cell { display: flex; align-items: center; gap: 8px; }
-        /* Minimalist ledger actions: quiet monochrome icon buttons, color on hover. */
+        /* Minimalist ledger actions: quiet monochrome icon buttons — unified 32px refresh (matches admin_dashboard perfect) */
         .btn-action {
             width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0dbe5;
             background: transparent; color: #54677a;
             display: inline-flex; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 15px; transition: all 0.2s ease;
+            cursor: pointer; font-size: 15px; transition: all 0.2s ease; flex-shrink: 0; text-decoration: none; box-sizing: border-box;
         }
-        .btn-view:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        .btn-action.btn-view:hover, .btn-refresh-icon:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        a.btn-action { text-decoration: none; }
         .btn-edit:hover { background: #f3e5f5; border-color: #ce93d8; color: #6a1b9a; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(206,147,216,0.4); }
         .btn-approve:hover { background: #d4edda; border-color: #28a745; color: #155724; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(40,167,69,0.25); }
         .btn-complete:hover { background: #fff8e1; border-color: #ffc107; color: #6d4c00; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(255,193,7,0.25); }

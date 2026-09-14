@@ -71,6 +71,7 @@
                         <span class="focus-border"><i></i></span>
                     </div>
                     <button type="submit" class="icon-btn">Search</button>
+                    <a href="{{ url_for('staff_return_dashboard') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
                 </form>
                 <div class="filter-controls">
                     <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
@@ -79,7 +80,6 @@
                         <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
                         <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
                     </select><span class="focus-border"><i></i></span></div>
-                    <a href="{{ url_for('staff_return_dashboard') }}" class="btn-action btn-view" title="Refresh">🔄</a>
                     <button type="button" class="btn-add-primary" onclick="openReturnModal()">+ New Return</button>
                 </div>
             </div>

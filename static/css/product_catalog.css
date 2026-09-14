@@ -101,8 +101,9 @@
         .price-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
         .action-cell { display: flex; align-items: center; gap: 8px; }
         /* Minimalist ledger actions: quiet monochrome icon buttons, color on hover. */
-        .btn-action { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0dbe5; background: transparent; color: #54677a; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: all 0.2s ease; }
-        .btn-view:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        .btn-action { width: 32px; height: 32px; border-radius: 8px; border: 1px solid #d0dbe5; background: transparent; color: #54677a; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; transition: all 0.2s ease; flex-shrink: 0; text-decoration: none; box-sizing: border-box; }
+        .btn-action.btn-view:hover, .btn-refresh-icon:hover { background: #e1f3fe; border-color: #53c5f1; color: #0277bd; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(83,197,241,0.25); }
+        a.btn-action { text-decoration: none; }
         .btn-edit:hover { background: #f3e5f5; border-color: #ce93d8; color: #6a1b9a; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(206,147,216,0.4); }
         .btn-approve:hover { background: #d4edda; border-color: #28a745; color: #155724; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(40,167,69,0.25); }
         .btn-complete:hover { background: #fff8e1; border-color: #ffc107; color: #6d4c00; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(255,193,7,0.25); }
@@ -124,21 +125,24 @@
         .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .modal-form .input-group { margin-bottom: 10px; }
         .modal-form label { font-size: 11px; font-weight: 600; color: #444; display: block; margin-bottom: 3px; }
-        .modal-form input, .modal-form select, .modal-form textarea { width: 100%; padding: 8px 12px; background-color: #f2f2f2; border: 1.5px solid transparent; border-radius: 6px; font-size: 13px; outline: none; transition: all 0.2s ease; }
+        /* Add-Product textboxes — visible border matching dashboard fx21 style (replicated from toolbelt/filter inputs) */
+        .modal-form input, .modal-form select, .modal-form textarea { width: 100%; padding: 8px 12px; background-color: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; font-size: 13px; outline: none; transition: all 0.2s ease; }
         .modal-form textarea { resize: vertical; min-height: 55px; }
-        .modal-form input:hover, 
-        .modal-form select:hover, 
+        .modal-form input:hover,
+        .modal-form select:hover,
         .modal-form textarea:hover {
-            background-color: #e8e8e8;
-            border-color: #d0d0d0;
+            background-color: #ffffff;
+            border-color: #53c5f1;
         }
-        .modal-form input:focus, 
-        .modal-form select:focus, 
+        .modal-form input:focus,
+        .modal-form select:focus,
         .modal-form textarea:focus {
             background-color: #ffffff;
             border-color: #53c5f1;
-            box-shadow: none;
+            box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.2);
         }
+        /* fx21 animated border still draws on focus inside Add-Product — keep transparent shadow, color handled above */
+        .modal-form .fx21-field input:focus, .modal-form .fx21-field select:focus, .modal-form .fx21-field textarea:focus { box-shadow: none; }
         .modal-form input[readonly] { background-color: #e9ecef; color: #6c757d; cursor: not-allowed; }
         .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
         .btn-modal-cancel { padding: 8px 18px; background: #e0e0e0; color: #333; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease-in-out; }
