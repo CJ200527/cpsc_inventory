@@ -1268,6 +1268,108 @@ def get_pr_details_api(pr_id):
             item["total_price"] = 0.0
     return {"header": header, "items": items}
 
+# --- PRINT ROUTE: PR A4 form (single record, follows official paper layout) ---
+@app.route("/pr/print/<int:pr_id>")
+def pr_print_view(pr_id):
+    """Server-rendered A4 print sheet for one PR (Admin + Staff, any status).
+
+    Reuses get_pr_details(); Source column is filled from the PR header
+    fund_source for every row (per-item fund is not stored). Local browser
+    print (window.print) targets A4 bondpaper; Save-as-PDF comes free.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Purchase Requests.", "error")
+        return redirect(url_for("login"))
+    header, items = get_pr_details(pr_id)
+    if not header:
+        flash("Purchase request not found.", "error")
+        return redirect(url_for("pr_management"))
+    try:
+        raw_date = header.get("date_requested")
+        header["date_str"] = raw_date.strftime("%B %d, %Y") if hasattr(raw_date, "strftime") else str(raw_date or "")
+    except Exception:
+        header["date_str"] = str(header.get("date_requested", ""))
+    try:
+        header["total_price"] = float(header.get("total_price") or 0)
+    except Exception:
+        header["total_price"] = 0.0
+    for it in items:
+        try:
+            it["price"] = float(it.get("price") or 0)
+        except Exception:
+            it["price"] = 0.0
+        try:
+            it["quantity"] = int(it.get("quantity") or 0)
+        except Exception:
+            it["quantity"] = 0
+        try:
+            it["total_price"] = float(it.get("total_price") or it["price"] * it["quantity"] or 0)
+        except Exception:
+            it["total_price"] = 0.0
+    return render_template("pr_print.html", header=header, items=items, merged=False, merged_numbers=[])
+
+# --- PRINT ROUTE: Merged Approved-PRs sheet (multi-fund official transmittal) ---
+@app.route("/pr/print_merged")
+def pr_print_merged_view():
+    """One official sheet combining items from multiple Approved PRs.
+
+    ?ids=3,7,12 — each item row keeps its own parent fund_source (the
+    whole point: mixed funds on one paper, like the real office form).
+    Only existing + Approved PRs merge; others are skipped with a flash.
+    Admin + Staff. No DDL — presentation-layer merge only.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Purchase Requests.", "error")
+        return redirect(url_for("login"))
+    raw_ids = (request.args.get("ids", "") or "").strip()
+    seen, pr_ids = set(), []
+    for part in raw_ids.split(","):
+        part = part.strip()
+        if part.isdigit():
+            pid = int(part)
+            if pid not in seen:
+                seen.add(pid)
+                pr_ids.append(pid)
+    if not pr_ids:
+        flash("Select at least one Purchase Request to merge.", "error")
+        return redirect(url_for("pr_management"))
+    merged_items, merged_numbers, skipped = [], [], []
+    for pid in pr_ids:
+        header, items = get_pr_details(pid)
+        if not header:
+            skipped.append(f"PR-{pid:03d} (not found)")
+            continue
+        if str(header.get("status", "")) != "Approved":
+            skipped.append(str(header.get("pr_number") or f"PR-{pid:03d}"))
+            continue
+        fund = (header.get("fund_source") or "").strip()
+        for it in items:
+            try:
+                it["price"] = float(it.get("price") or 0)
+            except Exception:
+                it["price"] = 0.0
+            try:
+                it["quantity"] = int(it.get("quantity") or 0)
+            except Exception:
+                it["quantity"] = 0
+            try:
+                it["total_price"] = float(it.get("total_price") or it["price"] * it["quantity"] or 0)
+            except Exception:
+                it["total_price"] = 0.0
+            it["row_fund"] = fund
+            merged_items.append(it)
+        try:
+            merged_numbers.append(short_pr(header.get("pr_number") or f"PR-{pid:03d}"))
+        except Exception:
+            merged_numbers.append(str(header.get("pr_number") or f"PR-{pid:03d}"))
+    if skipped:
+        flash(f"Only Approved PRs can be merged. Skipped: {', '.join(skipped)}.", "error")
+    if not merged_items:
+        flash("No Approved PRs to merge.", "error")
+        return redirect(url_for("pr_management"))
+    return render_template("pr_print.html", header={"fund_source": ""},
+                           items=merged_items, merged=True, merged_numbers=merged_numbers)
+
 # --- API ROUTE: Next available PR number (for live display in Create PR modal) ---
 @app.route("/pr/get_next_number")
 def get_next_pr_number_api():

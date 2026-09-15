@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — PR Printing, Merged Multi-Fund Print & Global Numbering (2026-09-15)
+
+> Single-PR A4 official sheet + merged Approved-only multi-fund print landed; PR suffix made global so the short display can never repeat; trace strip, checkbox merge UI, and print-window flow added. Two UI carry-overs (merge hover, tab stacking) plus label rename scheduled next.
+
+#### Added
+- **Single-PR print** — `GET /pr/print/<pr_id>` (login only, Admin + Staff, any status) reusing `get_pr_details()`; `Templates/pr_print.html` mirrors the office paper: college header block, full-grid `#/Source/Item/Qty/Unit/Price/Total` table (Qty/Unit centered, Price/Total left), fixed `ROLAND L. VIOS / Director of Production` signatory, stacked inline `Received by: ____` + indented `Date: ____`, bottom-pinned footer, `@page` portrait + `@media print` hiding screen UI. Native dialog covers paper-size choice (A4/Letter/Legal) + Save-as-PDF.
+- **Merged Approved-only print** — `GET /pr/print_merged?ids=` (existing + `Approved` only, others skipped with flash); each row keeps its own parent `fund_source`; checkbox first column + header select-all (Approved rows only) + `🖨 Print Merged (N)` counter button on both PR dashboards; `pr_logic.js` selection/counter logic; screen-only `Merged from: (PR-001), (PR-002)` strip via `short_pr()` (hidden on paper).
+- **Print entry points** — printer cell icon (both dashboards) + `Print` button in View-modal footer + new `#i-print` sprite in `action-icons.js` with slate hover.
+- **Global PR numbering** — `generate_pr_number()` switched from per-day `COUNT+1` to global `MAX(suffix)+1`; `create_purchase_request()` regenerates + retries (up to 3x) on duplicate-key instead of failing. Stored `PR-YYYY-MM-DD-XXX` shape unchanged; suffix now means Nth PR ever.
+
+#### Fixed
+- **Display-collision diagnosis** — `PR-2026-09-14-001` vs `PR-2026-09-15-001` both rendering `PR-001` proven to be daily-reset + date-stripping, not a data duplicate (`fund_source` confirmed uninvolved); backend fixed, display intentionally untouched.
+- **Merge-button height parity** — `a.btn-add-primary` normalization in `admin_pr.css` + `staff_pr.css`; missing `:hover` added to `admin_pr.css`.
+
+#### Pending (carry-over, next session in order)
+1. **Merge-button hover still dead** — likely inline `pointer-events:none` while disabled + `modals.css` element-qualified `button.btn-add-primary:hover`; add explicit `a.btn-add-primary:hover` + disabled style, retest enabled after hard refresh.
+2. **Tab stacking persists** — cell icon + merge button still `target="_blank"`; decide same-tab-everywhere vs new-tab-with-reliable-close, then apply.
+3. **Rename `Print (A4)` labels** — drop `(A4)` from print-tab button, View-modal buttons, cell titles, merge text (paper size comes from the dialog).
+4. **Settings full polish (after print fixes)** + **`AGENTS.md`**.
+
+---
+
 ## [Unreleased] — System Settings, Return Restock Policy & Security Hardening (2026-09-14)
 
 > The Settings module landed (5 tabs, 28 defaults, CRUD + route), the return restock policy was implemented end-to-end (Unserviceable auto-approve, Serviceable requires admin approval + restock), and security hardening was applied (env-var secrets, `.gitignore`, plaintext passwords restored after hashing revert).

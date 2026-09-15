@@ -15,10 +15,11 @@ from db import get_db_connection
 from datetime import datetime
 
 def generate_pr_number():
-    """Generates the next daily PR number like PR-2026-09-08-001.
+    """Generates the next PR number like PR-2026-09-16-002.
 
-    Sequence resets each day (count of PRs already carrying today's prefix
-    + 1). Uniqueness is still enforced by the DB + route validation.
+    Global ever-incrementing suffix (MAX suffix across ALL rows + 1):
+    the trailing sequence never resets, so the short display (PR-002)
+    can never repeat. Stored shape keeps the current-day prefix.
     """
     conn = None
     cursor = None
@@ -26,9 +27,18 @@ def generate_pr_number():
         conn = get_db_connection()
         cursor = conn.cursor()
         prefix = datetime.now().strftime("PR-%Y-%m-%d")
-        cursor.execute("SELECT COUNT(*) FROM purchase_requests WHERE pr_number LIKE %s;", (prefix + "-%",))
-        count = cursor.fetchone()[0] + 1
-        return f"{prefix}-{count:03d}"
+        cursor.execute(
+            "SELECT MAX(CAST(SUBSTRING_INDEX(pr_number, '-', -1) AS UNSIGNED)) "
+            "FROM purchase_requests;"
+        )
+        row = cursor.fetchone()
+        try:
+            nxt = int(row[0] if not isinstance(row, dict) else list(row.values())[0] or 0) + 1
+        except Exception:
+            nxt = 1
+        if nxt < 1:
+            nxt = 1
+        return f"{prefix}-{nxt:03d}"
     except Exception as err:
         print(f"[generate_pr_number] DB error: {err}")
         return f"{datetime.now().strftime('PR-%Y-%m-%d')}-001"
@@ -202,20 +212,42 @@ def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_req
         if date_val and len(date_val) == 10:
             date_val = date_val + ' 00:00:00'
 
-        # A. Insert Header into purchase_requests (no has_po column in finalized schema)
+        # A. Insert Header into purchase_requests (no has_po column in finalized schema).
+        # Duplicate-key retry: two concurrent saves can generate the same
+        # global suffix; regenerate and retry instead of failing.
         if date_val:
             sql_pr = """
             INSERT INTO purchase_requests (user_id, pr_number, fund_source, date_requested, total_price, status)
             VALUES (%s, %s, %s, %s, %s, 'Pending');
             """
-            cursor.execute(sql_pr, (user_id, pr_number, fund_source, date_val, grand_total))
+            sql_args = lambda pn: (user_id, pn, fund_source, date_val, grand_total)
         else:
             sql_pr = """
             INSERT INTO purchase_requests (user_id, pr_number, fund_source, total_price, status)
             VALUES (%s, %s, %s, %s, 'Pending');
             """
-            cursor.execute(sql_pr, (user_id, pr_number, fund_source, grand_total))
-        pr_id = cursor.lastrowid
+            sql_args = lambda pn: (user_id, pn, fund_source, grand_total)
+        pr_id = None
+        for _attempt in range(3):
+            try:
+                cursor.execute(sql_pr, sql_args(pr_number))
+                pr_id = cursor.lastrowid
+                break
+            except Exception as ierr:
+                try:
+                    import mysql.connector as _mc
+                    is_dup = isinstance(ierr, _mc.errors.IntegrityError) and getattr(ierr, "errno", 0) in (1062,)
+                except Exception:
+                    is_dup = "duplicate" in str(ierr).lower()
+                if not is_dup or _attempt >= 2:
+                    raise
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                pr_number = generate_pr_number()
+        if pr_id is None:
+            raise RuntimeError("Could not allocate a unique PR number.")
 
         # B. Insert Items into pr_items (no supplier_id column in finalized schema)
         sql_item = """

@@ -468,6 +468,8 @@
             const content = document.getElementById('view-modal-content');
             content.innerHTML = 'Loading PR items...';
             document.getElementById('view-modal').classList.remove('hidden');
+            var printBtn = document.getElementById('view-print-btn');
+            if (printBtn) printBtn.href = '/pr/print/' + prId;
 
             fetch('/pr/details/' + prId)
                 .then(res => res.json())
@@ -493,4 +495,35 @@
                 });
         }
         function closeViewModal() { document.getElementById('view-modal').classList.add('hidden'); }
+
+        /* Merged-print selection: Approved-only checkboxes + counter button. */
+        function refreshMergeBtn() {
+            var btn = document.getElementById('merge-print-btn');
+            if (!btn) return;
+            var ids = Array.prototype.map.call(
+                document.querySelectorAll('.merge-check:checked'),
+                function (c) { return c.value; });
+            btn.textContent = '🖨 Print Merged (' + ids.length + ')';
+            if (ids.length >= 2) {
+                btn.href = '/pr/print_merged?ids=' + ids.join(',');
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+            } else {
+                btn.href = '#';
+                btn.style.opacity = '.5';
+                btn.style.pointerEvents = 'none';
+            }
+        }
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.id === 'merge-check-all') {
+                document.querySelectorAll('.merge-check').forEach(function (c) { c.checked = e.target.checked; });
+                refreshMergeBtn();
+            } else if (e.target && e.target.classList && e.target.classList.contains('merge-check')) {
+                var all = document.querySelectorAll('.merge-check');
+                var checked = document.querySelectorAll('.merge-check:checked');
+                var head = document.getElementById('merge-check-all');
+                if (head) head.checked = all.length > 0 && checked.length === all.length;
+                refreshMergeBtn();
+            }
+        });
     

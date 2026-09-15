@@ -101,6 +101,7 @@
                     </select><span class="focus-border"><i></i></span></div>
 
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Create PR</button>
+                    <a id="merge-print-btn" href="#" target="_blank" class="btn-add-primary" style="opacity:.5;pointer-events:none;text-decoration:none;" title="Select 2+ Approved PRs to merge">🖨 Print Merged (0)</a>
                 </div>
             </div>
 
@@ -110,6 +111,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all Approved"></th>
                             <th>PR Number</th>
                             <th>Requested By</th>
                             <th>Date Requested</th>
@@ -122,6 +124,7 @@
                         {% if requests %}
                             {% for r in requests %}
                             <tr>
+                                <td style="text-align:center;">{% if r.status == 'Approved' %}<input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged print">{% endif %}</td>
                                 <td><strong>{{ r.pr_number | short_pr }}</strong></td>
                                 <td>{{ r.Lastname }} ({{ r.Role|lower }})</td>
                                 <td>{{ r.date_requested | ph_datetime }}</td>
@@ -130,6 +133,7 @@
                                 <td>
                                     <div class="action-cell">
                                          <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                         <a href="/pr/print/{{ r.pr_id }}" target="_blank" class="btn-action btn-print" title="Print PR (A4)"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if r.status == 'Pending' %}
                                             <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
                                             <form method="POST" action="/admin/pr/approve/{{ r.pr_id }}" style="display:inline;">
@@ -144,7 +148,7 @@
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="6" style="text-align:center; color:#888; padding:25px;">No Purchase Requests found.</td></tr>
+                            <tr><td colspan="7" style="text-align:center; color:#888; padding:25px;">No Purchase Requests found.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -334,6 +338,7 @@
             </div>
             <div id="view-modal-content">Loading...</div>
             <div class="modal-buttons">
+                <a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print (A4)</a>
                 <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
             </div>
         </div>

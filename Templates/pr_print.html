@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Request {{ header.pr_number }} - Print</title>
+    <style>
+        /* PR A4 print sheet — mirrors the official paper form (photo):
+           header block, full-grid items table (#/Source/Item/Qty/Unit/Price/Total),
+           stacked Requested/Received footer pinned to page bottom.
+           No system meta (PR No/date/status) on paper — official PO doc.
+           Screen toolbar hidden on paper. */
+        @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
+        .screen-bar { max-width: 210mm; margin: 0 auto 12px auto; display: flex; gap: 8px; justify-content: flex-end; }
+        .screen-bar a, .screen-bar button { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; text-decoration: none; color: #000; }
+        .screen-bar .do-print { background: #0d47a1; border-color: #0d47a1; color: #fff; font-weight: 700; }
+        .sheet { max-width: 210mm; margin: 0 auto; background: #fff; padding: 8mm 7mm; display: flex; flex-direction: column; min-height: 257mm; }
+        .doc-head { text-align: center; line-height: 1.35; margin-bottom: 4px; }
+        .doc-head .college { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+        .doc-head .addr { font-size: 11px; }
+        .doc-head .office { font-size: 12px; font-weight: 700; margin-top: 8px; }
+        .doc-head .form-title { font-size: 12px; font-weight: 700; }
+        table.pr-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.pr-table th, table.pr-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+        table.pr-table thead { display: table-header-group; }
+        table.pr-table thead th { font-size: 10.5px; text-align: left; background: #fff; }
+        table.pr-table tr { page-break-inside: avoid; }
+        table.pr-table td.num, table.pr-table th.num { text-align: center; }
+        table.pr-table th.ctr, table.pr-table td.ctr { text-align: center; }
+        table.pr-table th.left, table.pr-table td.left { text-align: left; }
+        table.pr-table td.left { white-space: nowrap; }
+        table.pr-table td.item { text-align: left; }
+        /* Column widths follow the photo proportions */
+        col.c-no { width: 6mm; }
+        col.c-source { width: 22mm; }
+        col.c-item { width: auto; }
+        col.c-qty { width: 10mm; }
+        col.c-unit { width: 14mm; }
+        col.c-price { width: 26mm; }
+        col.c-total { width: 30mm; }
+        /* Stacked signatures pinned to page bottom: short lists still push
+           the block down (margin-top:auto on flex column); long lists flow
+           and the block lands at the bottom of the last page. */
+        .sign-col { margin-top: auto; padding-top: 12mm; font-size: 11px; }
+        .sign-box { margin-bottom: 8mm; }
+        .sign-box:last-child { margin-bottom: 0; }
+        .sign-box .lbl { margin-bottom: 12mm; }
+        /* Director name/title sit ~2 tabs right of the label (photo). */
+        .sign-box.req .name { font-weight: 700; text-transform: uppercase; margin-left: 18mm; }
+        .sign-box.req .title { margin-left: 18mm; }
+        /* Received/Date: label + underline on one line; Date tucks under the line. */
+        .recv-line { display: flex; align-items: flex-end; gap: 3mm; margin-bottom: 5mm; }
+        .recv-line .lbl-inline { white-space: nowrap; }
+        .recv-line .fill { flex: 1; border-bottom: 1px solid #000; min-height: 18px; max-width: 70mm; }
+        .recv-line.indent { margin-left: 10mm; }
+        .recv-line.indent .fill { flex: none; width: 55mm; }
+        .merged-strip { max-width: 210mm; margin: 0 auto 8px auto; font-size: 11px; color: #333; background: #e8f4fd; border: 1px solid #b6dcf5; border-radius: 6px; padding: 7px 12px; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .screen-bar { display: none !important; }
+            .merged-strip { display: none !important; }
+            .sheet { max-width: none; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-bar">
+        <button type="button" onclick="if (window.opener) { window.close(); } else { location.href='/pr'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print (A4)</button>
+    </div>
+    {% if merged %}
+    <div class="merged-strip">Merged from: ({{ merged_numbers | join('), (') }}) ({{ merged_numbers | length }} record{{ 's' if merged_numbers | length != 1 else '' }})</div>
+    {% endif %}
+    <div class="sheet">
+        <div class="doc-head">
+            <div class="college">CAMIGUIN POLYTECHNIC STATE COLLEGE</div>
+            <div class="addr">Balbagon, Mambajao, Camiguin</div>
+            <div class="office">PRODUCTION OFFICE</div>
+            <div class="form-title">Purchased Request</div>
+        </div>
+        <table class="pr-table">
+            <colgroup>
+                <col class="c-no"><col class="c-source"><col class="c-item"><col class="c-qty"><col class="c-unit"><col class="c-price"><col class="c-total">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="num"></th>
+                    <th>Source</th>
+                    <th>Item</th>
+                    <th class="num">Qty</th>
+                    <th class="ctr">Unit</th>
+                    <th class="left">Price</th>
+                    <th class="left">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td>{{ it.row_fund if merged else (header.fund_source or '') }}</td>
+                    <td class="item">{{ it.item_name }}{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                    <td class="ctr">{{ it.quantity }}</td>
+                    <td class="ctr">{{ it.unit or '' }}</td>
+                    <td class="left">Php {{ "{:,.2f}".format(it.price) }}</td>
+                    <td class="left">Php {{ "{:,.2f}".format(it.total_price) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="sign-col">
+            <div class="sign-box req">
+                <div class="lbl">Requested by:</div>
+                <div class="name">ROLAND L. VIOS</div>
+                <div class="title">Director of Production</div>
+            </div>
+            <div class="sign-box recv">
+                <div class="recv-line"><span class="lbl-inline">Received by:</span><span class="fill">&nbsp;</span></div>
+                <div class="recv-line indent"><span class="lbl-inline">Date:</span><span class="fill">&nbsp;</span></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
