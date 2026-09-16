@@ -67,8 +67,8 @@
 </head>
 <body>
     <div class="screen-bar">
-        <button type="button" onclick="if (window.opener) { window.close(); } else { location.href='/pr'; }">✕ Close</button>
-        <button type="button" class="do-print" onclick="window.print()">🖨 Print (A4)</button>
+        <button type="button" onclick="if (history.length > 1) { history.back(); } else { location.href='/pr'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print</button>
     </div>
     {% if merged %}
     <div class="merged-strip">Merged from: ({{ merged_numbers | join('), (') }}) ({{ merged_numbers | length }} record{{ 's' if merged_numbers | length != 1 else '' }})</div>

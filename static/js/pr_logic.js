@@ -506,12 +506,10 @@
             btn.textContent = '🖨 Print Merged (' + ids.length + ')';
             if (ids.length >= 2) {
                 btn.href = '/pr/print_merged?ids=' + ids.join(',');
-                btn.style.opacity = '1';
-                btn.style.pointerEvents = 'auto';
+                btn.classList.remove('is-disabled');
             } else {
                 btn.href = '#';
-                btn.style.opacity = '.5';
-                btn.style.pointerEvents = 'none';
+                btn.classList.add('is-disabled');
             }
         }
         document.addEventListener('change', function (e) {

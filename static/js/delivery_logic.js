@@ -274,6 +274,8 @@
             const gtot=document.getElementById('view-modal-grand-total');
             if(gtot) gtot.innerHTML='Grand Total: <span>₱ 0.00</span>';
             document.getElementById('view-modal').classList.remove('hidden');
+            var printBtn = document.getElementById('view-print-btn');
+            if (printBtn) printBtn.href = '/delivery/print/' + deliveryId;
             fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(data=>{
                 if(data.error){ content.innerHTML='<span style="color:#c62828;">'+data.error+'</span>'; return; }
                 document.getElementById('view-delivery-title').innerText=`${shortDelNum(data.header.delivery_number)} Details`;
@@ -342,4 +344,33 @@
             setTimeout(() => sessionStorage.removeItem(key), 5000);
             form.submit();
         }
+
+        /* Merged-print selection: Received-only checkboxes + counter button (mirrors pr_logic.js). */
+        function refreshMergeBtn() {
+            var btn = document.getElementById('merge-print-btn');
+            if (!btn) return;
+            var ids = Array.prototype.map.call(
+                document.querySelectorAll('.merge-check:checked'),
+                function (c) { return c.value; });
+            btn.textContent = '🖨 Print Merged (' + ids.length + ')';
+            if (ids.length >= 2) {
+                btn.href = '/delivery/print_merged?ids=' + ids.join(',');
+                btn.classList.remove('is-disabled');
+            } else {
+                btn.href = '#';
+                btn.classList.add('is-disabled');
+            }
+        }
+        document.addEventListener('change', function (e) {
+            if (e.target && e.target.id === 'merge-check-all') {
+                document.querySelectorAll('.merge-check').forEach(function (c) { c.checked = e.target.checked; });
+                refreshMergeBtn();
+            } else if (e.target && e.target.classList && e.target.classList.contains('merge-check')) {
+                var all = document.querySelectorAll('.merge-check');
+                var checked = document.querySelectorAll('.merge-check:checked');
+                var head = document.getElementById('merge-check-all');
+                if (head) head.checked = all.length > 0 && checked.length === all.length;
+                refreshMergeBtn();
+            }
+        });
     

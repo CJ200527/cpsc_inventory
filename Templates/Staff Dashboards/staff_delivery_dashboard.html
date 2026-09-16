@@ -89,6 +89,7 @@
                         <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
                     </select><span class="focus-border"><i></i></span></div>
                     <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive Delivery / IAR</button>
+                    <a id="merge-print-btn" href="#" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ Received deliveries to merge">🖨 Print Merged (0)</a>
                 </div>
             </div>
 
@@ -97,6 +98,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all Received"></th>
                             <th>Delivery Number</th>
                             <th>IAR Number</th>
                             <th>PR Number</th>
@@ -112,6 +114,7 @@
                         {% if deliveries %}
                             {% for d in deliveries %}
                             <tr>
+                                <td style="text-align:center;">{% if d.status == 'Received' %}<input type="checkbox" class="merge-check" value="{{ d.delivery_id }}" title="Include in merged print">{% endif %}</td>
                                 <td><strong title="{{ d.delivery_number }}">{{ d.delivery_number | short_pr }}</strong></td>
                                 <td title="{{ d.iar_number or '' }}">{{ d.iar_number | short_pr or '-' }}</td>
                                 <td><strong title="{{ d.pr_number }}">{{ d.pr_number | short_pr }}</strong></td>
@@ -123,6 +126,7 @@
                                 <td>
                                     <div style="display:flex;gap:6px;align-items:center;">
                                         <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                        <a href="/delivery/print/{{ d.delivery_id }}" class="btn-action btn-print" title="Print IAR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if d.show_complete == 1 %}
                                         <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
                                         {% endif %}
@@ -373,7 +377,10 @@
             <div id="view-modal-content" style="font-size:12px;color:#333;">Loading...</div>
             <div class="modal-buttons" style="display:flex;justify-content:space-between;align-items:center;">
                 <div class="footer-total-display" id="view-modal-grand-total">Grand Total: <span>₱ 0.00</span></div>
-                <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a>
+                    <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
+                </div>
             </div>
         </div>
     </div>

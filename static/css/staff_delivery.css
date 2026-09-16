@@ -85,6 +85,10 @@
         .icon-btn { padding: 8px 14px; background: #ffffff; border: 1.5px solid #d0dbe5; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; text-decoration: none; color: #333; }
         .btn-add-primary { padding: 9px 18px; background: #53c5f1; color: #ffffff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 3px 8px rgba(83, 197, 241, 0.35); transition: all 0.2s ease; }
         .btn-add-primary:hover { background: #3ba9d4; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(83, 197, 241, 0.4); }
+        a.btn-add-primary { display: inline-flex; align-items: center; line-height: 1.2; box-sizing: border-box; text-decoration: none; transition: all 0.2s ease; }
+        /* Merge-print hover matches + Receive green (modals.css) — no blue override here. */
+        a.btn-add-primary.is-disabled { opacity: .5; pointer-events: none; cursor: not-allowed; }
+        a.btn-add-primary:not(.is-disabled) { opacity: 1; pointer-events: auto; cursor: pointer; }
         .table-card { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #eef2f5; flex: 1; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; min-width: 980px; }
         th { background-color: #53c5f1; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; white-space: nowrap; }

@@ -386,7 +386,8 @@ button[type="submit"].icon-btn:hover {
 .btn-add-primary {
     transition: all 0.2s ease-in-out;
 }
-button.btn-add-primary:hover {
+button.btn-add-primary:hover,
+a.btn-add-primary:not(.is-disabled):hover {
     background: linear-gradient(135deg, #81c784, #4caf50);
     color: #ffffff;
     border-color: #4caf50;

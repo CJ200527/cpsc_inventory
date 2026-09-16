@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — PR Print Fixes Done + Delivery IAR Printing (2026-09-16/17)
+
+> All three PR carry-overs closed (green hover match, same-tab everywhere, `Print` rename) and the Delivery IAR print shipped one-shot: single + merged Received-only stacked sheets mirroring the office paper, same checkbox/merge UX as PR, plus a Jinja dict-method crash fix.
+
+#### Added
+- **Delivery IAR print** — `GET /delivery/print/<delivery_id>` (login only, Admin + Staff, any status) + `GET /delivery/print_merged?ids=` (existing + `Received` only, others skipped with flash); new `Templates/delivery_iar_print.html` mirrors the photo: `Inspection & Acceptance Report` title, `Supplier / P.O. No. / P.O. Date: -` + `IAR No.: delivery_number (for now) / IAR Date: delivery_date`, `Requisitioning Dept: Production`, `Fund Source: parent fund_source`, `No. / Qty. / Unit / Supply and delivery of the following: / Unit Cost / Total Cost` grid + `TOTAL =` row (received qty × actual delivery price), `[X] Inspected...` + `Complete / Partial` from `is_partial`, dynamic `inspected_by / supply_officer` signatures (fallback `NATHANIEL B. STA. ELENA / MARIA EILEEN H. BAGTASOS`); stacked blocks with page-break + screen-only merged strip; `@page` A4 portrait.
+- **Delivery merge UX (same as PR)** — checkbox first column + header select-all (Received rows only) + `🖨 Print Merged (N)` counter `btn-add-primary is-disabled` on both delivery dashboards; cell `Print IAR` icon (same-tab) + View-modal `🖨 Print` (same-tab via `delivery_logic.js`); `refreshMergeBtn()` classList toggle; `admin_delivery.css`/`staff_delivery.css` anchor states (green hover via `modals.css`, no blue override).
+- **Backend (no DDL)** — `get_delivery_details()` now selects `pr.fund_source, pr.date_requested`; `App.py` `_normalize_delivery_for_print()` (date `MM/DD/YYYY`, received-qty totals, `is_partial` int).
+
+#### Fixed
+- **PR merge-button hover now matches + Create PR green** — removed per-page blue `a.btn-add-primary:not(.is-disabled):hover` from `admin_pr.css`/`staff_pr.css`; single source `modals.css:389-390` green `linear-gradient(135deg, #81c784, #4caf50)` + `scale(1.05)` wins for both `<button>` and `<a>` (generic blue `0,2,0` loses to `0,2,1 / 0,3,1`).
+- **PR tab stacking closed** — `target="_blank"` dropped from merge button + cell icon (both PR dashboards); `pr_print.html` Close is `history.back()` fallback `/pr`.
+- **PR `Print (A4)` rename done** — `Print` in toolbar, View-modals, cell titles (0 hits left).
+- **Delivery merged/single 500 crash** — `delivery_iar_print.html:64-65` `bundle.items` hit the dict method in Jinja; switched to `bundle['header']` / `bundle['items']`; verified single + 2-block merged render.
+
+#### Pending (tomorrow, in order)
+1. **IAR signature alignment** — supply-officer block sits lower (unequal top content in `.foot-grid`); fix flex alignment so both `.sig` baselines match; retest single + merged.
+2. **Action-button crowding (PR + Delivery)** — tall rows from wrapping View/Print/Complete/Approve + `by Admin` text; fix with nowrap action-cell + tighter gap + approver into `title` tooltip (bindings untouched).
+3. **Print enhancements batch** (user list tomorrow) → **Settings full polish** → **`AGENTS.md`**.
+
+---
+
 ## [Unreleased] — PR Printing, Merged Multi-Fund Print & Global Numbering (2026-09-15)
 
 > Single-PR A4 official sheet + merged Approved-only multi-fund print landed; PR suffix made global so the short display can never repeat; trace strip, checkbox merge UI, and print-window flow added. Two UI carry-overs (merge hover, tab stacking) plus label rename scheduled next.

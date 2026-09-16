@@ -1370,6 +1370,125 @@ def pr_print_merged_view():
     return render_template("pr_print.html", header={"fund_source": ""},
                            items=merged_items, merged=True, merged_numbers=merged_numbers)
 
+# --- PRINT ROUTE: Single Delivery IAR sheet (Inspection & Acceptance Report) ---
+@app.route("/delivery/print/<int:delivery_id>")
+def delivery_print_view(delivery_id):
+    """Server-rendered IAR sheet for one delivery (Admin + Staff, any status).
+
+    Mirrors pr_print_view. IAR No. shows the Delivery Number for now and
+    P.O. Date shows '-' (interview verification pending). Signatories use
+    the delivery's inspected_by / supply_officer with office fallbacks.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Deliveries.", "error")
+        return redirect(url_for("login"))
+    header, items = get_delivery_details(delivery_id)
+    if not header:
+        flash("Delivery not found.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    bundle = _normalize_delivery_for_print(header, items)
+    if not bundle:
+        flash("Delivery not found.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    return render_template("delivery_iar_print.html", deliveries=[bundle],
+                           merged=False, merged_numbers=[])
+
+# --- PRINT ROUTE: Merged Received-deliveries IAR sheets (stacked blocks) ---
+@app.route("/delivery/print_merged")
+def delivery_print_merged_view():
+    """Stacked IAR blocks for multiple Received deliveries (?ids=1,2,3).
+
+    Mirrors pr_print_merged_view: only existing + Received deliveries merge;
+    others are skipped with a flash. Each block keeps its own supplier /
+    numbers. Admin + Staff. No DDL — presentation-layer merge only.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Deliveries.", "error")
+        return redirect(url_for("login"))
+    raw_ids = (request.args.get("ids", "") or "").strip()
+    seen, delivery_ids = set(), []
+    for part in raw_ids.split(","):
+        part = part.strip()
+        if part.isdigit():
+            did = int(part)
+            if did not in seen:
+                seen.add(did)
+                delivery_ids.append(did)
+    if not delivery_ids:
+        flash("Select at least one Delivery to merge.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    bundles, merged_numbers, skipped = [], [], []
+    for did in delivery_ids:
+        header, items = get_delivery_details(did)
+        if not header:
+            skipped.append(f"DEL-{did:03d} (not found)")
+            continue
+        if str(header.get("status", "")) != "Received":
+            try:
+                skipped.append(short_pr(header.get("delivery_number") or f"DEL-{did:03d}"))
+            except Exception:
+                skipped.append(str(header.get("delivery_number") or f"DEL-{did:03d}"))
+            continue
+        bundle = _normalize_delivery_for_print(header, items)
+        if not bundle:
+            skipped.append(f"DEL-{did:03d} (not found)")
+            continue
+        bundles.append(bundle)
+        try:
+            merged_numbers.append(short_pr(bundle["header"].get("delivery_number") or f"DEL-{did:03d}"))
+        except Exception:
+            merged_numbers.append(str(bundle["header"].get("delivery_number") or f"DEL-{did:03d}"))
+    if skipped:
+        flash(f"Only Received deliveries can be merged. Skipped: {', '.join(skipped)}.", "error")
+    if not bundles:
+        flash("No Received deliveries to merge.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    return render_template("delivery_iar_print.html", deliveries=bundles,
+                           merged=True, merged_numbers=merged_numbers)
+
+
+def _normalize_delivery_for_print(header, items):
+    """Normalize one delivery header + items for the IAR print sheet."""
+    if not header:
+        return None
+    header = dict(header)
+    try:
+        raw_date = header.get("delivery_date")
+        header["date_str"] = raw_date.strftime("%m/%d/%Y") if hasattr(raw_date, "strftime") else str(raw_date or "")
+    except Exception:
+        header["date_str"] = str(header.get("delivery_date", ""))
+    norm_items = []
+    grand = 0.0
+    for it in (items or []):
+        try:
+            row = dict(it)
+        except Exception:
+            continue
+        try:
+            row["ordered_quantity"] = int(row.get("ordered_quantity") or 0)
+        except Exception:
+            row["ordered_quantity"] = 0
+        try:
+            row["received_quantity"] = int(row.get("received_quantity") or 0)
+        except Exception:
+            row["received_quantity"] = 0
+        try:
+            row["price"] = float(row.get("price") or 0)
+        except Exception:
+            row["price"] = 0.0
+        try:
+            row["total_price"] = float(row.get("total_price") or row["received_quantity"] * row["price"] or 0)
+        except Exception:
+            row["total_price"] = 0.0
+        grand += float(row["total_price"] or 0)
+        norm_items.append(row)
+    header["grand_total"] = round(grand, 2)
+    try:
+        header["is_partial"] = int(header.get("is_partial") or 0)
+    except Exception:
+        header["is_partial"] = 0
+    return {"header": header, "items": norm_items}
+
 # --- API ROUTE: Next available PR number (for live display in Create PR modal) ---
 @app.route("/pr/get_next_number")
 def get_next_pr_number_api():

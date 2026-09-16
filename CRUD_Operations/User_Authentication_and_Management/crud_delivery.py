@@ -664,7 +664,7 @@ def get_delivery_details(delivery_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         sql_header = """
-            SELECT d.*, pr.pr_number,
+            SELECT d.*, pr.pr_number, pr.fund_source, pr.date_requested AS pr_date_requested,
                    u.Firstname, u.Lastname, u.username,
                    approver.Firstname AS approver_first, approver.Lastname AS approver_last
             FROM deliveries d

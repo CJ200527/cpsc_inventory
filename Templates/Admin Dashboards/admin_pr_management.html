@@ -101,7 +101,7 @@
                     </select><span class="focus-border"><i></i></span></div>
 
                     <button type="button" class="btn-add-primary" onclick="openAddModal()">+ Create PR</button>
-                    <a id="merge-print-btn" href="#" target="_blank" class="btn-add-primary" style="opacity:.5;pointer-events:none;text-decoration:none;" title="Select 2+ Approved PRs to merge">🖨 Print Merged (0)</a>
+                    <a id="merge-print-btn" href="#" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ Approved PRs to merge">🖨 Print Merged (0)</a>
                 </div>
             </div>
 
@@ -133,7 +133,7 @@
                                 <td>
                                     <div class="action-cell">
                                          <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
-                                         <a href="/pr/print/{{ r.pr_id }}" target="_blank" class="btn-action btn-print" title="Print PR (A4)"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
+                                         <a href="/pr/print/{{ r.pr_id }}" class="btn-action btn-print" title="Print PR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if r.status == 'Pending' %}
                                             <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
                                             <form method="POST" action="/admin/pr/approve/{{ r.pr_id }}" style="display:inline;">
@@ -338,7 +338,7 @@
             </div>
             <div id="view-modal-content">Loading...</div>
             <div class="modal-buttons">
-                <a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print (A4)</a>
+                <a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a>
                 <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
             </div>
         </div>
