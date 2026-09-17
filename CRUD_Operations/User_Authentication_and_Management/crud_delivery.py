@@ -1,62 +1,63 @@
-"""crud_delivery.py — Delivery 2-Step Workflow (PR-to-Delivery, finalized schema)
-Step 1 create_delivery(): inserts deliveries (Pending) + delivery_items (no stock change), is_partial auto-computed.
-Step 2 approve_delivery(): Admin only — sets Received, approved_by, credits products.current_stock.
+"""crud_delivery.py — IAR 2-Step Workflow (PR-to-IAR, finalized schema)
+Step 1 create_iar(): inserts iar (Pending) + iar_items (no stock change), is_partial auto-computed.
+Step 2 approve_iar(): Admin only — sets Received, approved_by, credits products.current_stock.
+
+Mirrors the office Inspection & Acceptance Report: supplier, P.O. No.,
+P.O. Date (staff-typed), IAR No. (yearly IAR-YYYY-001, required unique),
+IAR Date, item lines, Complete/Partial (is_partial), inspection + supply
+officers. No Delivery Number (removed).
 
 Finalized schema (DO NOT modify — no DDL in this module):
-- deliveries(delivery_id, approved_by, pr_id, user_id, delivery_number, iar_number,
-             po_reference_number, supplier_name, inspected_by, supply_officer,
-             is_partial, delivery_date, remarks, status ENUM('Pending','Received','Incomplete'))
-- delivery_items(delivery_items_id, delivery_id, pr_id, user_id, product_id, item_name,
-                 ordered_quantity, received_quantity, category, details, unit, size, price, total_price)
-- items(item_id, delivery_id, pr_id, user_id, product_id, item_number, item_name, item_quantity,
+- iar(iar_id, approved_by, pr_id, user_id, iar_number UNIQUE NOT NULL,
+      po_reference_number, po_date, supplier_name, inspected_by, supply_officer,
+      is_partial, iar_date, remarks, status ENUM('Pending','Received','Incomplete'))
+- iar_items(iar_item_id, iar_id, pr_id, user_id, product_id, item_name,
+            ordered_quantity, received_quantity, category, details, unit, size, price, total_price)
+- items(item_id, iar_id, pr_id, user_id, product_id, item_number, item_name, item_quantity,
         item_category, item_details, item_unit, item_size, item_price, item_total_price)
 - products(product_id, ..., current_stock, ...)
-- stock_movements(movement_id, product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
+- stock_movements(movement_id, product_id, reference_type='IAR', reference_id, quantity_change, balance_after, user_id)
 
-Deliveries link DIRECTLY to purchase_requests via pr_id. po_reference_number and
-supplier_name are free-text tracking columns on deliveries (no purchase_orders /
+IARs link DIRECTLY to purchase_requests via pr_id (dual-approved only:
+status='Approved' AND po_status='Approved'). po_reference_number /
+supplier_name are free-text tracking columns (no purchase_orders /
 po_items / supplier tables). Uses parameterized SQL throughout.
+
+Legacy delivery_* function names are kept as thin aliases so existing
+callers keep working; new code should use the iar_* names.
 """
 
 from db import get_db_connection
 from datetime import datetime
 
 
-def generate_delivery_number():
-    """Generates the next daily delivery number like DEL-2026-09-08-001
-    (display hint; DB enforces uniqueness). Sequence resets each day."""
-    conn = None
-    cursor = None
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        prefix = datetime.now().strftime("DEL-%Y-%m-%d")
-        cursor.execute("SELECT COUNT(*) FROM deliveries WHERE delivery_number LIKE %s;", (prefix + "-%",))
-        count = cursor.fetchone()[0] + 1
-        return f"{prefix}-{count:03d}"
-    except Exception as err:
-        print(f"[generate_delivery_number] DB error: {err}")
-        return f"{datetime.now().strftime('DEL-%Y-%m-%d')}-001"
-    finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
-
-
 def generate_iar_number():
-    """Generates the next daily IAR number like IAR-2026-09-08-001
-    (display hint; DB enforces uniqueness). Sequence resets each day."""
+    """Generates the next yearly IAR number like IAR-2026-001.
+
+    Yearly sequence (MAX suffix within the current year + 1, never resets
+    within the year); DB enforces uniqueness. Matches the office booklet.
+    """
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        prefix = datetime.now().strftime("IAR-%Y-%m-%d")
-        cursor.execute("SELECT COUNT(*) FROM deliveries WHERE iar_number LIKE %s;", (prefix + "-%",))
-        count = cursor.fetchone()[0] + 1
-        return f"{prefix}-{count:03d}"
+        year = datetime.now().strftime("%Y")
+        prefix = f"IAR-{year}-"
+        cursor.execute(
+            "SELECT MAX(CAST(SUBSTRING_INDEX(iar_number, '-', -1) AS UNSIGNED)) "
+            "FROM iar WHERE iar_number LIKE %s;", (prefix + "%",))
+        row = cursor.fetchone()
+        try:
+            nxt = int(row[0] if not isinstance(row, dict) else list(row.values())[0] or 0) + 1
+        except Exception:
+            nxt = 1
+        if nxt < 1:
+            nxt = 1
+        return f"{prefix}{nxt:03d}"
     except Exception as err:
         print(f"[generate_iar_number] DB error: {err}")
-        return f"{datetime.now().strftime('IAR-%Y-%m-%d')}-001"
+        return f"IAR-{datetime.now().strftime('%Y')}-001"
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
@@ -93,15 +94,15 @@ def _resolve_actual_price(submitted_item, pr_item):
 
 
 # ============================================================
-# 1. Get PRs eligible for Delivery — ONLY Approved, searchable
+# 1. Get PRs eligible for IAR — ONLY dual-approved, searchable
 # ============================================================
 def get_deliverable_prs(search_query="", user_id=None):
     """
-    Returns Approved PRs with NO delivery record yet (COUNT(deliveries) == 0),
-    searchable by pr_number / requestor name. Any PR that already has a row
-    in deliveries — Pending, Received, or Incomplete — is excluded; remaining
-    quantities are finished via the 'Complete' action on the existing row,
-    never via a second fresh delivery.
+    Returns dual-approved PRs (status='Approved' AND po_status='Approved')
+    with NO iar record yet, searchable by pr_number / requestor name. Any
+    PR that already has an iar row — Pending, Received, or Incomplete — is
+    excluded; remaining quantities are finished via the 'Complete' action
+    on the existing row, never via a second fresh IAR.
     """
     conn = None
     cursor = None
@@ -110,12 +111,13 @@ def get_deliverable_prs(search_query="", user_id=None):
         cursor = conn.cursor(dictionary=True)
         sql = """
             SELECT pr.pr_id, pr.pr_number, pr.date_requested AS date_issued,
-                   pr.status, pr.total_price AS total_amount,
+                   pr.status, pr.po_status, pr.total_price AS total_amount,
                    u.Firstname, u.Lastname, u.username
             FROM purchase_requests pr
             JOIN users u ON pr.user_id = u.id
-            LEFT JOIN deliveries d ON d.pr_id = pr.pr_id
+            LEFT JOIN iar d ON d.pr_id = pr.pr_id
             WHERE pr.status = 'Approved'
+              AND pr.po_status = 'Approved'
               AND d.pr_id IS NULL
         """
         params = []
@@ -164,7 +166,7 @@ def get_pr_remaining(pr_id):
     """
     Computes remaining per product for a PR.
     Returns list of dicts merging pr_items with remaining_quantity.
-    Remaining = ordered_quantity - COALESCE(SUM delivery_items.received_quantity for that product)
+    Remaining = ordered_quantity - COALESCE(SUM iar_items.received_quantity for that product)
     """
     conn = None
     cursor = None
@@ -177,10 +179,10 @@ def get_pr_remaining(pr_id):
         if not pr_items:
             return []
 
-        # Sum received per product across ALL deliveries for this PR
+        # Sum received per product across ALL IARs for this PR
         cursor.execute("""
             SELECT product_id, COALESCE(SUM(received_quantity),0) AS total_received
-            FROM delivery_items
+            FROM iar_items
             WHERE pr_id = %s
             GROUP BY product_id
         """, (pr_id,))
@@ -226,27 +228,51 @@ def get_po_remaining(po_id):
 # 2. CREATE: Step 1 — Receiving & IAR Submission (PR-direct)
 #    AUTO partial, empty received default, guard received > ordered
 # ============================================================
-def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, supply_officer,
-                    delivery_date, remarks, received_items,
-                    po_reference_number=None, supplier_name=None, is_partial=None, **kwargs):
+def _normalize_po_date(po_date):
+    """Validates staff-typed P.O. Date (YYYY-MM-DD); returns date string or None.
+
+    Returns (ok, value_or_error). Future dates are rejected (P.O. is historical).
     """
-    Creates deliveries + delivery_items with status Pending (NO stock change).
+    if po_date is None or (isinstance(po_date, str) and not po_date.strip()):
+        return True, None
+    s = str(po_date).strip()[:10]
+    try:
+        parsed = datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        return False, "P.O. Date must be a valid date (YYYY-MM-DD)."
+    if s > datetime.now().strftime("%Y-%m-%d"):
+        return False, "P.O. Date cannot be in the future."
+    return True, s
+
+
+def create_delivery(pr_id, user_id, iar_number, inspected_by, supply_officer,
+                    iar_date, remarks, received_items,
+                    po_reference_number=None, po_date=None, supplier_name=None,
+                    is_partial=None, **kwargs):
+    """
+    Creates iar + iar_items with status Pending (NO stock change).
     - Links DIRECTLY to purchase_requests via pr_id (no PO required).
-    - po_reference_number / supplier_name are free-text tracking columns.
+    - Requires dual approval: status='Approved' AND po_status='Approved'.
+    - po_reference_number / supplier_name are free-text tracking columns;
+      po_date is the staff-typed P.O. Date (YYYY-MM-DD, never future).
+    - iar_number is required unique (yearly IAR-YYYY-001). No Delivery Number.
     - is_partial AUTO-computed: 1 if any received != ordered, else 0.
     - received_items: [{product_id, received_quantity, unit_price?}] — received
       must be <= ordered; unit_price is the actual invoice cost (falls back to
       the PR estimate when blank) and is stored as the line's true cost.
-    - Returns (True, delivery_id) or (False, error_msg)
+    - Returns (True, iar_id) or (False, error_msg)
 
-    Backwards compat: also accepts po_id= kwarg (treated as pr_id) and
-    supplier_id kwarg (ignored).
+    Backwards compat: also accepts po_id= kwarg (treated as pr_id),
+    delivery_number kwarg (ignored — removed), delivery_date kwarg (used as
+    iar_date fallback), and supplier_id kwarg (ignored).
     """
     # Backwards compat: allow po_id kwarg meaning pr_id
     if pr_id is None and kwargs.get('po_id') is not None:
         pr_id = kwargs.get('po_id')
     if kwargs.get('po_reference') and not po_reference_number:
         po_reference_number = kwargs.get('po_reference')
+    if (iar_date is None or (isinstance(iar_date, str) and not iar_date.strip())) and kwargs.get('delivery_date'):
+        iar_date = kwargs.get('delivery_date')
     # is_partial param kept for backwards compat but ignored — auto computed
     conn = None
     cursor = None
@@ -263,26 +289,27 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
         pr = cursor.fetchone()
         if not pr:
             return False, "Purchase Request not found."
-        if pr['status'] != 'Approved':
-            return False, f"PR status '{pr['status']}' not eligible. Only Approved PRs can be delivered."
+        if pr.get('status') != 'Approved' or pr.get('po_status') != 'Approved':
+            return False, (f"PR not eligible (Director: {pr.get('status')}, "
+                           f"Procurement: {pr.get('po_status')}). "
+                           "Only dual-approved PRs can be received.")
 
-        if not delivery_number or not iar_number or not inspected_by or not supply_officer:
-            return False, "Delivery Number, IAR Number, Inspected By and Supply Officer are required."
+        if not iar_number or not inspected_by or not supply_officer:
+            return False, "IAR Number, Inspected By and Supply Officer are required."
         if not supplier_name or not str(supplier_name).strip():
             return False, "Supplier Name is required (text input)."
         supplier_name = str(supplier_name).strip()
         po_reference_number = str(po_reference_number or "").strip() or None
+        ok, po_date_val = _normalize_po_date(po_date)
+        if not ok:
+            return False, po_date_val
         if not received_items or len(received_items) == 0:
             return False, "At least one item with received quantity is required."
 
-        # Uniqueness
-        cursor.execute("SELECT delivery_id FROM deliveries WHERE delivery_number = %s", (delivery_number,))
+        # Uniqueness (yearly IAR number)
+        cursor.execute("SELECT iar_id FROM iar WHERE iar_number = %s", (iar_number,))
         if cursor.fetchone():
-            return False, f"Delivery Number '{delivery_number}' already exists."
-        if iar_number:
-            cursor.execute("SELECT delivery_id FROM deliveries WHERE iar_number = %s", (iar_number,))
-            if cursor.fetchone():
-                return False, f"IAR Number '{iar_number}' already exists."
+            return False, f"IAR Number '{iar_number}' already exists."
 
         cursor.execute("SELECT * FROM pr_items WHERE pr_id = %s", (pr_id,))
         pr_items = cursor.fetchall()
@@ -319,8 +346,8 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
         # Auto is_partial: any received != ordered => partial
         is_partial_flag = _compute_is_partial(pr_items_map, received_items)
 
-        # Also consider already-delivered sum for remaining validation (prevent over-delivery across multiple deliveries)
-        cursor.execute("SELECT product_id, COALESCE(SUM(received_quantity),0) AS tot FROM delivery_items WHERE pr_id=%s GROUP BY product_id", (pr_id,))
+        # Also consider already-received sum for remaining validation (prevent over-receiving across multiple IARs)
+        cursor.execute("SELECT product_id, COALESCE(SUM(received_quantity),0) AS tot FROM iar_items WHERE pr_id=%s GROUP BY product_id", (pr_id,))
         already = {int(r['product_id']): int(r['tot']) for r in cursor.fetchall()}
         for it in received_items:
             pid = int(it['product_id'])
@@ -330,30 +357,31 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
             if prev + recv > ordered:
                 return False, f"Total received would exceed ordered for '{pr_items_map[pid]['item_name']}': already {prev} + new {recv} > ordered {ordered}. Remaining is {ordered - prev}."
 
-        if not delivery_date:
-            delivery_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not iar_date:
+            iar_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         else:
             try:
-                if len(delivery_date) == 10:
-                    delivery_date = delivery_date + " 00:00:00"
+                iar_date = str(iar_date).strip()
+                if len(iar_date) == 10:
+                    iar_date = iar_date + " 00:00:00"
             except Exception:
-                delivery_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                iar_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         sql_header = """
-            INSERT INTO deliveries
-            (pr_id, user_id, delivery_number, iar_number, po_reference_number, supplier_name,
-             inspected_by, supply_officer, remarks, is_partial, delivery_date, status)
+            INSERT INTO iar
+            (pr_id, user_id, iar_number, po_reference_number, po_date, supplier_name,
+             inspected_by, supply_officer, remarks, is_partial, iar_date, status)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Pending')
         """
-        cursor.execute(sql_header, (pr_id, user_id, delivery_number, iar_number,
-                                    po_reference_number, supplier_name,
+        cursor.execute(sql_header, (pr_id, user_id, iar_number,
+                                    po_reference_number, po_date_val, supplier_name,
                                     inspected_by, supply_officer, remarks or "",
-                                    is_partial_flag, delivery_date))
-        delivery_id = cursor.lastrowid
+                                    is_partial_flag, iar_date))
+        iar_id = cursor.lastrowid
 
         sql_item = """
-            INSERT INTO delivery_items
-            (delivery_id, pr_id, user_id, product_id, item_name, ordered_quantity,
+            INSERT INTO iar_items
+            (iar_id, pr_id, user_id, product_id, item_name, ordered_quantity,
              received_quantity, category, details, unit, size, price, total_price)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """
@@ -365,14 +393,14 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
             price = _resolve_actual_price(it, pr_item)
             item_name = pr_item['item_name']
             total_price = round(recv_qty * price, 2)
-            cursor.execute(sql_item, (delivery_id, pr_id, user_id, pid, item_name,
+            cursor.execute(sql_item, (iar_id, pr_id, user_id, pid, item_name,
                                       ordered_qty, recv_qty,
                                       pr_item.get('category'), pr_item.get('details'),
                                       pr_item.get('unit'), pr_item.get('size'),
                                       price, total_price))
 
         conn.commit()
-        return True, delivery_id
+        return True, iar_id
 
     except Exception as err:
         if conn:
@@ -390,33 +418,44 @@ def create_delivery(pr_id, user_id, delivery_number, iar_number, inspected_by, s
 
 
 # ============================================================
-# 2b. COMPLETE — create follow-up delivery for remaining qty (same PR)
+# 2b. COMPLETE — create follow-up IAR for remaining qty (same PR)
 # ============================================================
-def create_completion_delivery(original_delivery_id, user_id, delivery_number, iar_number,
-                               inspected_by, supply_officer, delivery_date, remarks, received_items,
-                               po_reference_number=None, supplier_name=None, **kwargs):
+def create_completion_delivery(original_delivery_id, user_id, iar_number,
+                               inspected_by, supply_officer, iar_date, remarks, received_items,
+                               po_reference_number=None, po_date=None, supplier_name=None, **kwargs):
     """
-    Creates a NEW delivery for remaining quantity of same PR as original_delivery_id.
-    Shows remaining = ordered - sum(all deliveries) so user never sees initial qty when completing.
+    Creates a NEW IAR for remaining quantity of same PR as original iar_id.
+    Shows remaining = ordered - sum(all IARs) so user never sees initial qty when completing.
     Validates received <= remaining.
     Each line may carry its own actual `unit_price` (a new partial batch can
     arrive at an adjusted price); blank falls back to the PR estimate.
-    po_reference_number / supplier_name default to the original delivery's values if omitted.
-    Returns (True, new_delivery_id) or (False, msg)
+    po_reference_number / supplier_name / po_date default to the original
+    IAR's values if omitted.
+    Returns (True, new_iar_id) or (False, msg)
+
+    Backwards compat: original_delivery_id may be passed as original_iar_id;
+    delivery_number kwarg ignored (removed); delivery_date kwarg used as
+    iar_date fallback.
     """
+    if kwargs.get('delivery_date') and (iar_date is None or (isinstance(iar_date, str) and not iar_date.strip())):
+        iar_date = kwargs.get('delivery_date')
+    if kwargs.get('original_iar_id') is not None and original_delivery_id is None:
+        original_delivery_id = kwargs.get('original_iar_id')
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
-        cursor.execute("SELECT * FROM deliveries WHERE delivery_id=%s", (original_delivery_id,))
+        cursor.execute("SELECT * FROM iar WHERE iar_id=%s", (original_delivery_id,))
         orig = cursor.fetchone()
         if not orig:
-            return False, "Original delivery not found."
+            return False, "Original IAR not found."
         pr_id = int(orig['pr_id'])
         if po_reference_number is None:
             po_reference_number = orig.get('po_reference_number')
+        if po_date is None:
+            po_date = orig.get('po_date')
         if not supplier_name:
             supplier_name = orig.get('supplier_name') or kwargs.get('supplier') or ""
         supplier_name = str(supplier_name).strip()
@@ -424,6 +463,9 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
             return False, "Supplier Name is required (text input)."
         if po_reference_number is not None:
             po_reference_number = str(po_reference_number).strip() or None
+        ok, po_date_val = _normalize_po_date(po_date)
+        if not ok:
+            return False, po_date_val
 
         # Check remaining >0
         remaining_list = get_pr_remaining(pr_id)
@@ -431,15 +473,12 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
             return False, "PR has no remaining items."
         total_remaining = sum(r['remaining_quantity'] for r in remaining_list)
         if total_remaining <= 0:
-            return False, "All items already fully delivered — nothing remaining to complete."
+            return False, "All items already fully received — nothing remaining to complete."
 
-        if not delivery_number or not iar_number or not inspected_by or not supply_officer:
-            return False, "Delivery Number, IAR Number, Inspected By and Supply Officer are required."
+        if not iar_number or not inspected_by or not supply_officer:
+            return False, "IAR Number, Inspected By and Supply Officer are required."
 
-        cursor.execute("SELECT delivery_id FROM deliveries WHERE delivery_number=%s", (delivery_number,))
-        if cursor.fetchone():
-            return False, f"Delivery Number '{delivery_number}' already exists."
-        cursor.execute("SELECT delivery_id FROM deliveries WHERE iar_number=%s", (iar_number,))
+        cursor.execute("SELECT iar_id FROM iar WHERE iar_number=%s", (iar_number,))
         if cursor.fetchone():
             return False, f"IAR Number '{iar_number}' already exists."
 
@@ -475,27 +514,28 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
         total_new_recv = sum(int(it.get('received_quantity', 0)) for it in received_items)
         is_partial_flag = 0 if total_new_recv >= total_remaining else 1
 
-        if not delivery_date:
-            delivery_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not iar_date:
+            iar_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         else:
-            if len(delivery_date) == 10:
-                delivery_date += " 00:00:00"
+            iar_date = str(iar_date).strip()
+            if len(iar_date) == 10:
+                iar_date += " 00:00:00"
 
         sql_header = """
-            INSERT INTO deliveries
-            (pr_id, user_id, delivery_number, iar_number, po_reference_number, supplier_name,
-             inspected_by, supply_officer, remarks, is_partial, delivery_date, status)
+            INSERT INTO iar
+            (pr_id, user_id, iar_number, po_reference_number, po_date, supplier_name,
+             inspected_by, supply_officer, remarks, is_partial, iar_date, status)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'Pending')
         """
-        cursor.execute(sql_header, (pr_id, user_id, delivery_number, iar_number,
-                                    po_reference_number, supplier_name,
+        cursor.execute(sql_header, (pr_id, user_id, iar_number,
+                                    po_reference_number, po_date_val, supplier_name,
                                     inspected_by, supply_officer, remarks or "",
-                                    is_partial_flag, delivery_date))
+                                    is_partial_flag, iar_date))
         new_id = cursor.lastrowid
 
         sql_item = """
-            INSERT INTO delivery_items
-            (delivery_id, pr_id, user_id, product_id, item_name, ordered_quantity,
+            INSERT INTO iar_items
+            (iar_id, pr_id, user_id, product_id, item_name, ordered_quantity,
              received_quantity, category, details, unit, size, price, total_price)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """
@@ -531,7 +571,7 @@ def create_completion_delivery(original_delivery_id, user_id, delivery_number, i
 
 
 # ============================================================
-# 3. READ — all deliveries (PR-direct, no PO/Supplier joins)
+# 3. READ — all IARs (PR-direct, no PO/Supplier joins)
 # ============================================================
 def get_all_deliveries(search_query="", status_filter="All", date_filter="All", custom_date="", user_id=None):
     conn = None
@@ -540,14 +580,16 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT d.delivery_id, d.pr_id, d.delivery_number, d.iar_number,
-                   d.po_reference_number, d.supplier_name,
+            SELECT d.iar_id, d.iar_id AS delivery_id, d.pr_id, d.iar_number,
+                   d.iar_number AS delivery_number, d.po_reference_number, d.po_date,
+                   d.supplier_name,
                    d.inspected_by, d.supply_officer,
-                   d.is_partial, d.delivery_date, d.status, d.approved_by, d.remarks,
+                   d.is_partial, d.iar_date, d.iar_date AS delivery_date,
+                   d.status, d.approved_by, d.remarks,
                    pr.pr_number,
                    u.Firstname, u.Lastname, u.username,
                    approver.Firstname AS approver_first, approver.Lastname AS approver_last
-            FROM deliveries d
+            FROM iar d
             JOIN purchase_requests pr ON d.pr_id = pr.pr_id
             JOIN users u ON d.user_id = u.id
             LEFT JOIN users approver ON d.approved_by = approver.id
@@ -563,21 +605,21 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
         if search_query:
             pat = f"%{search_query}%"
             sql += """ AND (
-                d.delivery_number LIKE %s OR d.iar_number LIKE %s OR
+                d.iar_number LIKE %s OR d.iar_number LIKE %s OR
                 d.po_reference_number LIKE %s OR d.supplier_name LIKE %s OR
                 pr.pr_number LIKE %s OR u.Firstname LIKE %s OR u.Lastname LIKE %s
             )"""
             params.extend([pat]*7)
         if date_filter == "Today":
-            sql += " AND DATE(d.delivery_date) = CURDATE()"
+            sql += " AND DATE(d.iar_date) = CURDATE()"
         elif date_filter == "Last Month":
-            sql += " AND d.delivery_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
+            sql += " AND d.iar_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
         elif date_filter == "Last Year":
-            sql += " AND d.delivery_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)"
+            sql += " AND d.iar_date >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)"
         elif date_filter == "Custom" and custom_date:
-            sql += " AND DATE(d.delivery_date) = %s"
+            sql += " AND DATE(d.iar_date) = %s"
             params.append(custom_date)
-        sql += " ORDER BY d.delivery_id DESC"
+        sql += " ORDER BY d.iar_id DESC"
         cursor.execute(sql, tuple(params))
         rows = cursor.fetchall()
         for r in rows:
@@ -585,8 +627,8 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
             except: r['is_partial'] = 0
 
         # --- Enrich with PR remaining + latest flag for Complete button logic ---
-        # Compute remaining per PR (ordered - sum received across ALL deliveries for that PR)
-        # and mark is_latest_for_pr (only newest delivery per PR keeps Complete button)
+        # Compute remaining per PR (ordered - sum received across ALL IARs for that PR)
+        # and mark is_latest_for_pr (only newest IAR per PR keeps Complete button)
         if rows:
             try:
                 # Gather distinct pr_ids
@@ -596,8 +638,8 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
                     # Ordered totals per PR
                     cursor.execute(f"SELECT pr_id, COALESCE(SUM(quantity),0) AS ordered FROM pr_items WHERE pr_id IN ({fmt}) GROUP BY pr_id", tuple(pr_ids))
                     ordered_map = {int(r['pr_id']): int(r['ordered']) for r in cursor.fetchall()}
-                    # Received totals per PR (all deliveries, any status)
-                    cursor.execute(f"SELECT pr_id, COALESCE(SUM(received_quantity),0) AS received FROM delivery_items WHERE pr_id IN ({fmt}) GROUP BY pr_id", tuple(pr_ids))
+                    # Received totals per PR (all IARs, any status)
+                    cursor.execute(f"SELECT pr_id, COALESCE(SUM(received_quantity),0) AS received FROM iar_items WHERE pr_id IN ({fmt}) GROUP BY pr_id", tuple(pr_ids))
                     received_map = {int(r['pr_id']): int(r['received']) for r in cursor.fetchall()}
                     remaining_map = {}
                     for pid in pr_ids:
@@ -664,14 +706,16 @@ def get_delivery_details(delivery_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         sql_header = """
-            SELECT d.*, pr.pr_number, pr.fund_source, pr.date_requested AS pr_date_requested,
+            SELECT d.*, d.iar_id AS delivery_id, d.iar_number AS delivery_number,
+                   d.iar_date AS delivery_date,
+                   pr.pr_number, pr.fund_source, pr.date_requested AS pr_date_requested,
                    u.Firstname, u.Lastname, u.username,
                    approver.Firstname AS approver_first, approver.Lastname AS approver_last
-            FROM deliveries d
+            FROM iar d
             JOIN purchase_requests pr ON d.pr_id = pr.pr_id
             JOIN users u ON d.user_id = u.id
             LEFT JOIN users approver ON d.approved_by = approver.id
-            WHERE d.delivery_id = %s
+            WHERE d.iar_id = %s
         """
         cursor.execute(sql_header, (delivery_id,))
         header = cursor.fetchone()
@@ -679,9 +723,9 @@ def get_delivery_details(delivery_id):
             return None, []
         sql_items = """
             SELECT di.*, p.product_name, p.unit AS p_unit, p.category AS p_category, p.details AS p_details, p.size AS p_size
-            FROM delivery_items di
+            FROM iar_items di
             LEFT JOIN products p ON di.product_id = p.product_id
-            WHERE di.delivery_id = %s
+            WHERE di.iar_id = %s
         """
         cursor.execute(sql_items, (delivery_id,))
         items = cursor.fetchall()
@@ -713,29 +757,29 @@ def approve_delivery(delivery_id, admin_user_id):
         cursor = conn.cursor(dictionary=True)
         # Lock row to prevent race double-click (no schema changes here)
         try:
-            cursor.execute("SELECT * FROM deliveries WHERE delivery_id = %s FOR UPDATE", (delivery_id,))
+            cursor.execute("SELECT * FROM iar WHERE iar_id = %s FOR UPDATE", (delivery_id,))
         except Exception:
-            cursor.execute("SELECT * FROM deliveries WHERE delivery_id = %s", (delivery_id,))
+            cursor.execute("SELECT * FROM iar WHERE iar_id = %s", (delivery_id,))
         delivery = cursor.fetchone()
         if not delivery:
-            return False, "Delivery not found."
+            return False, "IAR not found."
         # --- STRICT GUARD: prevent double stock injection ---
         if delivery['status'] != 'Pending':
-            return False, f"Only Pending deliveries can be approved. Current: {delivery['status']} — possible double-click blocked."
+            return False, f"Only Pending IARs can be approved. Current: {delivery['status']} — possible double-click blocked."
         if delivery.get('approved_by') is not None:
-            return False, "Delivery already approved — stock already injected (approved_by is set)."
+            return False, "IAR already approved — stock already injected (approved_by is set)."
         # Check stock_movements for existing injection (idempotency)
         try:
-            cursor.execute("SELECT 1 FROM stock_movements WHERE reference_type='Delivery' AND reference_id=%s LIMIT 1", (delivery_id,))
+            cursor.execute("SELECT 1 FROM stock_movements WHERE reference_type='IAR' AND reference_id=%s LIMIT 1", (delivery_id,))
             if cursor.fetchone():
-                return False, "Stock already injected for this delivery — double approval blocked (stock_movements exists)."
+                return False, "Stock already injected for this IAR — double approval blocked (stock_movements exists)."
         except Exception:
             pass
-        cursor.execute("SELECT * FROM delivery_items WHERE delivery_id = %s", (delivery_id,))
+        cursor.execute("SELECT * FROM iar_items WHERE iar_id = %s", (delivery_id,))
         items = cursor.fetchall()
         if not items:
-            return False, "No items for this delivery."
-        cursor.execute("UPDATE deliveries SET status='Received', approved_by=%s WHERE delivery_id=%s", (admin_user_id, delivery_id))
+            return False, "No items for this IAR."
+        cursor.execute("UPDATE iar SET status='Received', approved_by=%s WHERE iar_id=%s", (admin_user_id, delivery_id))
         for it in items:
             pid = int(it['product_id'])
             qty = int(it['received_quantity'] or 0)
@@ -785,23 +829,24 @@ def approve_delivery(delivery_id, admin_user_id):
                 unit = pr_extra['unit'] if pr_extra and pr_extra.get('unit') else (it.get('unit') or 'pcs')
                 size = pr_extra['size'] if pr_extra and pr_extra.get('size') else it.get('size')
                 cursor.execute("""
-                    INSERT INTO items (delivery_id, pr_id, user_id, product_id, item_name, item_quantity, item_category, item_details, item_unit, item_size, item_price, item_total_price)
+                    INSERT INTO items (iar_id, pr_id, user_id, product_id, item_name, item_quantity, item_category, item_details, item_unit, item_size, item_price, item_total_price)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (delivery_id, delivery['pr_id'], delivery['user_id'], pid, it['item_name'], qty, cat, det, unit, size, float(it['price'] or 0), float(qty * float(it['price'] or 0))))
             except Exception as e:
                 print(f"[items ledger] {e}")
-            # Audit log stock_movements Delivery positive
+            # Audit log stock_movements IAR positive
             try:
                 cursor.execute("SELECT COALESCE(current_stock,0) AS bal FROM products WHERE product_id=%s", (pid,))
                 bal = int(cursor.fetchone()['bal'] or 0)
                 cursor.execute("""
                     INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
-                    VALUES (%s,'Delivery',%s,%s,%s,%s)
+                    VALUES (%s,'IAR',%s,%s,%s,%s)
                 """, (pid, delivery_id, qty, bal, admin_user_id))
             except Exception as e:
-                print(f"[stock_movements Delivery] {e}")
+                print(f"[stock_movements IAR] {e}")
         conn.commit()
-        return True, f"Delivery {delivery['delivery_number']} approved. Stock ingested from PR-{delivery['pr_id']}."
+        return True, f"IAR {delivery['iar_number']} approved. Stock ingested from PR-{delivery['pr_id']}."
+
     except Exception as err:
         if conn:
             try: conn.rollback()
@@ -815,3 +860,11 @@ def approve_delivery(delivery_id, admin_user_id):
         if conn:
             try: conn.close()
             except: pass
+
+
+# --- Canonical IAR names (new code should use these) ---
+create_iar = create_delivery
+create_completion_iar = create_completion_delivery
+get_all_iars = get_all_deliveries
+get_iar_details = get_delivery_details
+approve_iar = approve_delivery

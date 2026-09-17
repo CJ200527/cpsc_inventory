@@ -86,7 +86,7 @@ def get_suppliers_list():
 def get_products_for_pr_picker(available_only=False):
     """Master Catalog list for the PR item-name datalist, with history flag.
 
-    is_established is TRUE when the product appears in ANY delivery_items
+    is_established is TRUE when the product appears in ANY iar_items
     row or in pr_items tied to an Approved/Completed PR (locked history);
     FALSE when it only exists in Pending PRs (editable draft product).
     available_only=True restricts to warehouse-real stock
@@ -105,10 +105,10 @@ def get_products_for_pr_picker(available_only=False):
                    p.size, p.details, p.price, p.is_active,
                    COALESCE(p.current_stock, 0) AS stock,
                    COALESCE(p.reorder_level, 10) AS reorder,
-                   CASE WHEN EXISTS (
-                        SELECT 1 FROM delivery_items di
-                        WHERE di.product_id = p.product_id
-                    ) OR EXISTS (
+                    CASE WHEN EXISTS (
+                         SELECT 1 FROM iar_items di
+                         WHERE di.product_id = p.product_id
+                     ) OR EXISTS (
                         SELECT 1 FROM pr_items pri
                         JOIN purchase_requests pr ON pri.pr_id = pr.pr_id
                         WHERE pri.product_id = p.product_id
@@ -192,7 +192,7 @@ def delete_product(product_id):
     Safety checks (no DDL — SELECT guards only, nothing is altered on abort):
     1. Pending-PR lock: linked to pr_items of a Pending PR → abort with a
        flash-ready denial (ghosts a live request otherwise).
-    2. History lock: referenced by any pr_items, delivery_items, the items
+    2. History lock: referenced by any pr_items, iar_items, the items
        inventory ledger, withdraw_items, or return_items → abort for the
        branded warning modal.
     Returns (ok, code, info):
@@ -229,7 +229,7 @@ def delete_product(product_id):
                 "Purchase Request.")
         history_checks = [
             ("pr_items", "Purchase Request"),
-            ("delivery_items", "Delivery"),
+            ("iar_items", "IAR"),
             ("items", "Inventory ledger"),
             ("withdraw_items", "Withdrawal"),
             ("return_items", "Return"),

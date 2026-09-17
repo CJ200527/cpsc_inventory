@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CPSC Inventory - Staff Delivery & IAR</title>
+    <title>CPSC Inventory - Staff IAR Receiving</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/staff_delivery.css') }}">
@@ -37,7 +37,7 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('staff_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn active"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn active"><span class="icon">🚚</span><span>Receive IAR</span></a>
                 <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
@@ -54,7 +54,7 @@
         <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
-                <h1>Delivery & IAR — Receiving</h1>
+                <h1>IAR — Receiving</h1>
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
@@ -88,8 +88,8 @@
                         <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
                         <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
                     </select><span class="focus-border"><i></i></span></div>
-                    <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive Delivery / IAR</button>
-                    <a id="merge-print-btn" href="#" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ Received deliveries to merge">🖨 Print Merged (0)</a>
+                    <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive IAR</button>
+                    <a id="merge-print-btn" href="#" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ Received IARs to merge">🖨 Print Merged (0)</a>
                 </div>
             </div>
 
@@ -99,12 +99,12 @@
                     <thead>
                         <tr>
                             <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all Received"></th>
-                            <th>Delivery Number</th>
                             <th>IAR Number</th>
                             <th>PR Number</th>
                             <th>PO Ref Number</th>
+                            <th>P.O. Date</th>
                             <th>Supplier</th>
-                            <th>Delivery Date</th>
+                            <th>IAR Date</th>
                             <th>Status</th>
                             <th>Partial?</th>
                             <th>Actions</th>
@@ -114,28 +114,28 @@
                         {% if deliveries %}
                             {% for d in deliveries %}
                             <tr>
-                                <td style="text-align:center;">{% if d.status == 'Received' %}<input type="checkbox" class="merge-check" value="{{ d.delivery_id }}" title="Include in merged print">{% endif %}</td>
-                                <td><strong title="{{ d.delivery_number }}">{{ d.delivery_number | short_pr }}</strong></td>
-                                <td title="{{ d.iar_number or '' }}">{{ d.iar_number | short_pr or '-' }}</td>
+                                <td style="text-align:center;">{% if d.status == 'Received' %}<input type="checkbox" class="merge-check" value="{{ d.iar_id }}" title="Include in merged print">{% endif %}</td>
+                                <td><strong title="{{ d.iar_number }}">{{ d.iar_number | short_pr }}</strong></td>
                                 <td><strong title="{{ d.pr_number }}">{{ d.pr_number | short_pr }}</strong></td>
                                 <td>{{ d.po_reference_number or '-' }}</td>
+                                <td>{{ d.po_date or '-' }}</td>
                                 <td>{{ d.supplier_name or 'N/A' }}</td>
-                                <td>{{ d.delivery_date | ph_datetime }}</td>
+                                <td>{{ d.iar_date | ph_datetime }}</td>
                                 <td><span class="badge badge-{{ d.status|lower }}">{{ d.status }}</span></td>
                                 <td>{% if d.is_partial %}<span class="badge badge-partial">Partial</span>{% else %}<span class="badge badge-received">Complete</span>{% endif %}</td>
                                 <td>
                                     <div style="display:flex;gap:6px;align-items:center;">
-                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
-                                        <a href="/delivery/print/{{ d.delivery_id }}" class="btn-action btn-print" title="Print IAR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
+                                        <button type="button" class="btn-action btn-view" title="View" onclick="openViewModal({{ d.iar_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                        <a href="/delivery/print/{{ d.iar_id }}" class="btn-action btn-print" title="Print IAR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if d.show_complete == 1 %}
-                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.delivery_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+                                        <button type="button" class="btn-action btn-complete" title="Add Remaining ({{ d.pr_remaining }} still remaining for this PR)" onclick="openCompleteModal({{ d.iar_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
                                         {% endif %}
                                     </div>
                                 </td>
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr><td colspan="9" style="text-align:center; color:#888; padding:25px;">No deliveries. Click "+ Receive Delivery" to start from an Approved PR.</td></tr>
+                            <tr><td colspan="10" style="text-align:center; color:#888; padding:25px;">No IARs. Click "+ Receive IAR" to start from a dual-approved PR.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -149,9 +149,9 @@
             <form method="POST" action="{{ url_for('create_delivery_action') }}" id="receive-form" onsubmit="return validateReceiveForm()">
                 <!-- 1. PINNED HEADER (Title + Section 1: never scrolls) -->
                 <div class="delivery-modal-header">
-                    <h3>Receive Delivery & Submit IAR</h3>
+                    <h3>Receive & Submit IAR</h3>
                 <div class="form-section-card section-1" style="margin-top:12px;margin-bottom:0;">
-                    <h4>Section 1: Delivery Header</h4>
+                    <h4>Section 1: IAR Header</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <!-- COL 1: PR picker + auto numbers -->
                     <div style="display:flex;flex-direction:column;gap:14px;">
@@ -168,25 +168,25 @@
                         </div>
                     </div>
                         <select id="pr-select" style="display:none;" aria-hidden="true" tabindex="-1">
-                            <option value="" disabled selected>— Choose Approved PR —</option>
-                            {% for pr in deliverable_prs|default(deliverable_pos) %}
-                            <option value="{{ pr.pr_id }}" data-pr="{{ pr.pr_number }}" data-req="{{ pr.Firstname|default('') }} {{ pr.Lastname|default('') }}" data-status="{{ pr.status }}" data-total="{{ pr.total_amount or 0 }}">{{ pr.pr_number }} — {{ pr.Firstname|default('') }} {{ pr.Lastname|default('') }} — {{ pr.status }}</option>
-                            {% else %}
-                            <option disabled>No eligible Approved PRs</option>
-                            {% endfor %}
+                        <option value="" disabled selected>— Choose Dual-Approved PR —</option>
+                             {% for pr in deliverable_prs|default(deliverable_pos) %}
+                             <option value="{{ pr.pr_id }}" data-pr="{{ pr.pr_number }}" data-req="{{ pr.Firstname|default('') }} {{ pr.Lastname|default('') }}" data-status="{{ pr.status }}" data-total="{{ pr.total_amount or 0 }}">{{ pr.pr_number }} — {{ pr.Firstname|default('') }} {{ pr.Lastname|default('') }} — {{ pr.status }}</option>
+                             {% else %}
+                             <option disabled>No eligible dual-approved PRs</option>
+                             {% endfor %}
                         </select>
                         <div id="receive-no-results" class="hidden" style="font-size:11px;color:#c62828;margin-top:6px;margin-left:162px;">No matching PRs — try another search.</div>
-                    <div class="fx21-field fx21-inline">
-                        <label for="delivery-number-auto">Delivery Number:</label>
-                        <div class="fx21-box">
-                        <input type="text" name="delivery_number" id="delivery-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
-                        <span class="focus-border"><i></i></span>
-                        </div>
-                    </div>
                     <div class="fx21-field fx21-inline">
                         <label for="iar-number-auto">IAR Number:</label>
                         <div class="fx21-box">
                         <input type="text" name="iar_number" id="iar-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="receive-po-date">P.O. Date:</label>
+                        <div class="fx21-box">
+                        <input type="date" name="po_date" id="receive-po-date" class="effect-21 has-content" max="{{ current_date }}" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -196,7 +196,7 @@
                     <div class="fx21-field fx21-inline">
                         <label for="receive-po-ref">PO Reference No.:</label>
                         <div class="fx21-box">
-                        <input type="text" name="po_reference_number" id="receive-po-ref" class="effect-21" placeholder="e.g. PO-2026-001" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <input type="text" name="po_reference_number" id="receive-po-ref" class="effect-21" placeholder="e.g. 2026-0192" autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -225,9 +225,9 @@
                         </div>
                     </div>
                     <div class="fx21-field fx21-inline">
-                        <label for="receive-delivery-date">Delivery Date:</label>
+                        <label for="receive-iar-date">IAR Date:</label>
                         <div class="fx21-box">
-                        <input type="date" name="delivery_date" id="receive-delivery-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <input type="date" name="iar_date" id="receive-iar-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -246,9 +246,9 @@
                 <!-- 2. SCROLLABLE BODY (Section 2 items table only) -->
                 <div class="delivery-modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2: Delivery Items</h4>
+                    <h4>Section 2: IAR Items</h4>
                 <div id="delivery-items-wrap">
-                    <p id="delivery-items-empty" style="font-size:12px;color:#666;text-align:center;padding:14px;">Select an approved purchase request above to load line items.</p>
+                    <p id="delivery-items-empty" style="font-size:12px;color:#666;text-align:center;padding:14px;">Select a dual-approved purchase request above to load line items.</p>
                     <table class="item-table">
                         <thead><tr><th>Item / Specs</th><th style="width:110px;text-align:center;">Category</th><th style="width:70px;text-align:center;">Unit</th><th style="width:115px;text-align:center;">Unit Price</th><th style="width:60px;text-align:center;">Ordered</th><th style="width:95px;text-align:center;">Received *</th><th style="width:110px;text-align:center;">Total</th></tr></thead>
                         <tbody id="delivery-items-tbody"></tbody>
@@ -260,7 +260,7 @@
                     <div class="footer-total-display">Total Amount: <span id="delivery-total-price">₱ 0.00</span></div>
                     <div style="display:flex;gap:10px;">
                     <button type="button" class="btn-modal-cancel" onclick="closeReceiveModal()">Cancel</button>
-                    <button type="submit" class="btn-modal-save">Submit Delivery (Pending)</button>
+                    <button type="submit" class="btn-modal-save">Submit IAR (Pending)</button>
                     </div>
                 </div>
             </form>
@@ -273,20 +273,13 @@
             <form method="POST" id="complete-form" onsubmit="return validateCompleteForm()">
                 <!-- 1. PINNED HEADER (Title + PR banner + Section 1: never scrolls) -->
                 <div class="delivery-modal-header">
-                    <h3>Complete Remaining Delivery</h3>
+                    <h3>Complete Remaining IAR</h3>
                 <div id="complete-pr-meta" style="margin-top:12px;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:10px 12px;font-size:12px;color:#333;">Loading PR remaining...</div>
                 <div class="form-section-card section-1" style="margin-top:12px;margin-bottom:0;">
-                    <h4>Section 1: Delivery Header</h4>
+                    <h4>Section 1: IAR Header</h4>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
                     <!-- LEFT: auto + inherited numbers (all locked) -->
                     <div style="display:flex;flex-direction:column;gap:14px;">
-                    <div class="fx21-field fx21-inline">
-                        <label for="complete-delivery-number-auto">Delivery Number:</label>
-                        <div class="fx21-box">
-                        <input type="text" name="delivery_number" id="complete-delivery-number-auto" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
-                        <span class="focus-border"><i></i></span>
-                        </div>
-                    </div>
                     <div class="fx21-field fx21-inline">
                         <label for="complete-iar-number-auto">IAR Number:</label>
                         <div class="fx21-box">
@@ -298,6 +291,13 @@
                         <label for="complete-po-ref">PO Reference No.:</label>
                         <div class="fx21-box">
                         <input type="text" name="po_reference_number" id="complete-po-ref" class="effect-21" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                        <span class="focus-border"><i></i></span>
+                        </div>
+                    </div>
+                    <div class="fx21-field fx21-inline">
+                        <label for="complete-po-date">P.O. Date:</label>
+                        <div class="fx21-box">
+                        <input type="date" name="po_date" id="complete-po-date" class="effect-21 has-content" max="{{ current_date }}" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -329,9 +329,9 @@
                     <!-- RIGHT: date + remarks -->
                     <div style="display:flex;flex-direction:column;gap:14px;">
                     <div class="fx21-field fx21-inline">
-                        <label for="complete-delivery-date">Delivery Date:</label>
+                        <label for="complete-iar-date">IAR Date:</label>
                         <div class="fx21-box">
-                        <input type="date" name="delivery_date" id="complete-delivery-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <input type="date" name="iar_date" id="complete-iar-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -350,7 +350,7 @@
                 <!-- 2. SCROLLABLE BODY (Section 2 items table only) -->
                 <div class="delivery-modal-body">
                 <div class="form-section-card section-2">
-                    <h4>Section 2: Delivery Items</h4>
+                    <h4>Section 2: IAR Items</h4>
                 <table class="item-table">
                     <thead><tr><th>Item / Specs</th><th style="width:110px;text-align:center;">Category</th><th style="width:70px;text-align:center;">Unit</th><th style="width:115px;text-align:center;">Unit Price</th><th style="width:150px;text-align:center;">Remaining</th><th style="width:95px;text-align:center;">Complete Qty *</th><th style="width:110px;text-align:center;">Total</th></tr></thead>
                     <tbody id="complete-items-tbody"></tbody>
@@ -372,7 +372,7 @@
     <div id="view-modal" class="modal-overlay hidden delivery-modal">
         <div class="modal-box">
             <div class="modal-header">
-                <h3 id="view-delivery-title">Delivery Details</h3>
+                <h3 id="view-delivery-title">IAR Details</h3>
             </div>
             <div id="view-modal-content" style="font-size:12px;color:#333;">Loading...</div>
             <div class="modal-buttons" style="display:flex;justify-content:space-between;align-items:center;">

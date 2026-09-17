@@ -484,6 +484,7 @@
                     html += `<div><strong>Total Price:</strong> <span class="price-badge">₱ ${fmtPeso(data.header.total_price)}</span></div>`;
                     html += `<div><strong>Requested By:</strong> ${data.header.Firstname} ${data.header.Lastname} (${data.header.username})</div>`;
                     html += `<div><strong>Status:</strong> <span class="badge badge-${(data.header.status || '').toLowerCase()}">${data.header.status}</span></div>`;
+                    html += `<div><strong>Procurement:</strong> <span class="badge badge-${((data.header.po_status || 'Pending') + '').toLowerCase()}">${data.header.po_status || 'Pending'}</span></div>`;
                     html += `</div>`;
                     /* Detail: full line-items table */
                     html += `<table class="item-table"><thead><tr><th>Item Name</th><th>Category</th><th>Unit</th><th>Specification</th><th>Size</th><th>Price (₱)</th><th>Qty</th><th>Total (₱)</th></tr></thead><tbody>`;
@@ -496,7 +497,60 @@
         }
         function closeViewModal() { document.getElementById('view-modal').classList.add('hidden'); }
 
-        /* Merged-print selection: Approved-only checkboxes + counter button. */
+        /* PR decision confirm modal (director + procurement, one reusable shell).
+           Approve explains the two-stage chain; Confirm posts the hidden form. */
+        var PR_CONFIRM = {
+            approve: { title: 'Approve PR?', sub: 'Director decision',
+                msg: 'Approving this only approves the PR so that you can merge-print it. It will require another approval once the PR is cleared in Procurement before it can proceed to IAR.',
+                btn: 'Confirm', color: '', icon: 'i-check', url: function (id) { return '/admin/pr/approve/' + id; } },
+            reject: { title: 'Are you sure you want to reject this PR?', sub: 'Director decision',
+                msg: 'Rejecting locks this PR as rejected history. It can never be approved, printed for transmittal, or received afterwards.',
+                btn: 'Confirm', color: '', icon: 'i-disapprove', url: function (id) { return '/admin/pr/reject/' + id; } },
+            po_approve: { title: 'Clear PR in Procurement?', sub: 'Procurement-office decision',
+                msg: 'This records that the procurement office approved the PR. It becomes eligible for IAR creation (Receive IAR).',
+                btn: 'Confirm', color: '', icon: 'i-check', url: function (id) { return '/admin/pr/po_approve/' + id; } },
+            po_reject: { title: 'Are you sure you want to reject this PR in Procurement?', sub: 'Procurement-office decision',
+                msg: 'The PR keeps its director approval as history but is locked out of merge-print and can never enter IAR creation.',
+                btn: 'Confirm', color: '', icon: 'i-disapprove', url: function (id) { return '/admin/pr/po_reject/' + id; } }
+        };
+        var pendingPrAction = null, pendingPrId = null;
+        function openPrConfirmModal(action, prId, prNumber) {
+            var cfg = PR_CONFIRM[action];
+            if (!cfg) return;
+            pendingPrAction = action; pendingPrId = prId;
+            document.getElementById('pr-confirm-title').innerText = cfg.title;
+            document.getElementById('pr-confirm-sub').innerText = cfg.sub;
+            document.getElementById('pr-confirm-number').innerText = prNumber || ('PR-' + prId);
+            document.getElementById('pr-confirm-message').innerText = cfg.msg;
+            var icon = document.getElementById('pr-confirm-icon');
+            if (icon) {
+                icon.innerHTML = '<svg class="act-icon" aria-hidden="true"><use href="#' + cfg.icon + '"/></svg>';
+                var isApprove = action.indexOf('reject') === -1;
+                icon.style.background = isApprove ? '#e8f5e9' : '#fdecea';
+                icon.style.borderColor = isApprove ? '#c8e6c9' : '#f5c6cb';
+                icon.style.color = isApprove ? '#2e7d32' : '#c62828';
+            }
+            var btn = document.getElementById('pr-confirm-btn');
+            if (btn) {
+                btn.innerHTML = '<svg class="act-icon" aria-hidden="true"><use href="#' + cfg.icon + '"/></svg> ' + cfg.btn;
+                btn.style.background = cfg.color;
+                btn.disabled = false; btn.style.opacity = ''; btn.style.pointerEvents = '';
+            }
+            document.getElementById('pr-confirm-modal').classList.remove('hidden');
+        }
+        function closePrConfirmModal() {
+            document.getElementById('pr-confirm-modal').classList.add('hidden');
+            pendingPrAction = null; pendingPrId = null;
+        }
+        function confirmPrDecision() {
+            if (!pendingPrAction || !pendingPrId) return;
+            var cfg = PR_CONFIRM[pendingPrAction];
+            var form = document.getElementById('pr-confirm-form');
+            form.action = cfg.url(pendingPrId);
+            form.submit();
+        }
+
+        /* Merged-print selection: mergeable-only checkboxes + counter button. */
         function refreshMergeBtn() {
             var btn = document.getElementById('merge-print-btn');
             if (!btn) return;

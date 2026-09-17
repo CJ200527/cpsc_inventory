@@ -2,13 +2,16 @@
 Web-Based CPSC Production & Inventory Management System - Prototype 2
 ================================================================
 Migrated from MS Access to Flask + MySQL. Handles Procurement (PR),
-Delivery/IAR (PR-direct, no PO), and Inventory with Role-Based Access Control.
+IAR (PR-direct, no PO), and Inventory with Role-Based Access Control.
 
 Capstone Defense - Key Concepts:
 - Session Auth: Flask session stores user_id/username/role after login_user()
 - RBAC: Admin (full CRUD) vs Staff (Add/Edit only, Delete blocked)
-- PR-to-Delivery: deliveries link directly to approved PRs via pr_id;
-  po_reference_number / supplier_name are free-text tracking columns.
+- Two-stage PR approval: status (director) + po_status (procurement office);
+  only dual-approved PRs enter IAR creation, so history stays truthful.
+- PR-to-IAR: iar rows link directly to dual-approved PRs via pr_id;
+  po_reference_number / po_date / supplier_name are free-text tracking columns.
+- IAR numbers are yearly (IAR-YYYY-001); no Delivery Number exists.
 - Return module links back to withdraw via withdraw_id.
 
 Run: python App.py  (requires XAMPP MySQL, mysql-connector-python)
@@ -58,19 +61,20 @@ from crud_pr import (
     get_all_purchase_requests,
     get_pr_details,
     update_pr_status,
+    set_po_status,
     get_approved_prs_for_delivery,
     generate_pr_number,
     find_duplicate_pr_item,
 )
 
-# --- PO MODULE RETIRED (PR-to-Delivery workflow) ---
-# purchase_orders / po_items tables have been removed. Deliveries link directly
+# --- PO MODULE RETIRED (PR-to-IAR workflow) ---
+# purchase_orders / po_items tables have been removed. IARs link directly
 # to purchase_requests via pr_id. The /po routes below are kept as redirects.
 
 # --- IMPORTS FOR IAR MODULE (legacy) ---
 from crud_iar import create_iar_record, get_iar_by_po
 
-# --- IMPORTS FOR DELIVERY/IAR MODULE (PR-direct 2-step) ---
+# --- IMPORTS FOR IAR MODULE (PR-direct 2-step; canonical iar_* aliases) ---
 from crud_delivery import (
     create_delivery,
     create_completion_delivery,
@@ -80,8 +84,12 @@ from crud_delivery import (
     get_deliverable_prs,
     search_deliverable_prs,
     get_pr_remaining,
-    generate_delivery_number,
     generate_iar_number,
+    create_iar,
+    create_completion_iar,
+    get_all_iars,
+    get_iar_details,
+    approve_iar,
 )
 
 # --- IMPORTS FOR INVENTORY MODULE (Live ledger) ---
@@ -583,9 +591,9 @@ def admin_dashboard():
                         rt.return_number AS r, rt.status AS s
                  FROM `return` rt JOIN users u ON rt.user_id = u.id)
                 UNION ALL
-                (SELECT dl.delivery_date AS d, u.username AS u, 'Received Delivery' AS a,
-                        dl.delivery_number AS r, dl.status AS s
-                 FROM deliveries dl JOIN users u ON dl.user_id = u.id)
+                (SELECT dl.iar_date AS d, u.username AS u, 'Received IAR' AS a,
+                         dl.iar_number AS r, dl.status AS s
+                  FROM iar dl JOIN users u ON dl.user_id = u.id)
                 ORDER BY d DESC
                 LIMIT 8
             """)
@@ -691,7 +699,7 @@ def staff_dashboard():
 
         pending_prs = sum(1 for r in my_prs if str(r.get("status", "")) == "Pending")
         pending_withdrawals = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Pending")
-        approved_prs_ready = sum(1 for r in my_prs if str(r.get("status", "")) == "Approved")
+        approved_prs_ready = sum(1 for r in my_prs if str(r.get("status", "")) == "Approved" and str(r.get("po_status", "")) == "Approved")
         withdrawals_ready = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Approved")
 
         # kpi carries BOTH key styles: template uses my_pending_* / low_stock_count,
@@ -714,8 +722,8 @@ def staff_dashboard():
         if approved_prs_ready:
             actionable_alerts.append({
                 "icon": "✅",
-                "title": "Approved PRs ready for Delivery",
-                "detail": f"{approved_prs_ready} approved request(s) can now proceed to delivery.",
+                "title": "Approved PRs ready for IAR",
+                "detail": f"{approved_prs_ready} dual-approved request(s) can now proceed to receiving.",
                 "severity": "success",
                 "link": _link("pr_management", "/pr"),
             })
@@ -1342,6 +1350,9 @@ def pr_print_merged_view():
         if str(header.get("status", "")) != "Approved":
             skipped.append(str(header.get("pr_number") or f"PR-{pid:03d}"))
             continue
+        if str(header.get("po_status") or "Pending") == "Rejected":
+            skipped.append(f"{header.get('pr_number') or f'PR-{pid:03d}'} (Procurement-rejected)")
+            continue
         fund = (header.get("fund_source") or "").strip()
         for it in items:
             try:
@@ -1373,18 +1384,18 @@ def pr_print_merged_view():
 # --- PRINT ROUTE: Single Delivery IAR sheet (Inspection & Acceptance Report) ---
 @app.route("/delivery/print/<int:delivery_id>")
 def delivery_print_view(delivery_id):
-    """Server-rendered IAR sheet for one delivery (Admin + Staff, any status).
+    """Server-rendered IAR sheet for one IAR (Admin + Staff, any status).
 
-    Mirrors pr_print_view. IAR No. shows the Delivery Number for now and
-    P.O. Date shows '-' (interview verification pending). Signatories use
-    the delivery's inspected_by / supply_officer with office fallbacks.
+    Mirrors pr_print_view. IAR No. is the yearly IAR-YYYY-001 number and
+    P.O. Date is the staff-typed date. Signatories use the IAR's
+    inspected_by / supply_officer with office fallbacks.
     """
     if "user_id" not in session:
-        flash("Please log in to print Deliveries.", "error")
+        flash("Please log in to print IARs.", "error")
         return redirect(url_for("login"))
     header, items = get_delivery_details(delivery_id)
     if not header:
-        flash("Delivery not found.", "error")
+        flash("IAR not found.", "error")
         return redirect(url_for("delivery_dashboard"))
     bundle = _normalize_delivery_for_print(header, items)
     if not bundle:
@@ -1396,14 +1407,14 @@ def delivery_print_view(delivery_id):
 # --- PRINT ROUTE: Merged Received-deliveries IAR sheets (stacked blocks) ---
 @app.route("/delivery/print_merged")
 def delivery_print_merged_view():
-    """Stacked IAR blocks for multiple Received deliveries (?ids=1,2,3).
+    """Stacked IAR blocks for multiple Received IARs (?ids=1,2,3).
 
-    Mirrors pr_print_merged_view: only existing + Received deliveries merge;
+    Mirrors pr_print_merged_view: only existing + Received IARs merge;
     others are skipped with a flash. Each block keeps its own supplier /
     numbers. Admin + Staff. No DDL — presentation-layer merge only.
     """
     if "user_id" not in session:
-        flash("Please log in to print Deliveries.", "error")
+        flash("Please log in to print IARs.", "error")
         return redirect(url_for("login"))
     raw_ids = (request.args.get("ids", "") or "").strip()
     seen, delivery_ids = set(), []
@@ -1415,33 +1426,33 @@ def delivery_print_merged_view():
                 seen.add(did)
                 delivery_ids.append(did)
     if not delivery_ids:
-        flash("Select at least one Delivery to merge.", "error")
+        flash("Select at least one IAR to merge.", "error")
         return redirect(url_for("delivery_dashboard"))
     bundles, merged_numbers, skipped = [], [], []
     for did in delivery_ids:
         header, items = get_delivery_details(did)
         if not header:
-            skipped.append(f"DEL-{did:03d} (not found)")
+            skipped.append(f"IAR-{did:03d} (not found)")
             continue
         if str(header.get("status", "")) != "Received":
             try:
-                skipped.append(short_pr(header.get("delivery_number") or f"DEL-{did:03d}"))
+                skipped.append(short_pr(header.get("iar_number") or f"IAR-{did:03d}"))
             except Exception:
-                skipped.append(str(header.get("delivery_number") or f"DEL-{did:03d}"))
+                skipped.append(str(header.get("iar_number") or f"IAR-{did:03d}"))
             continue
         bundle = _normalize_delivery_for_print(header, items)
         if not bundle:
-            skipped.append(f"DEL-{did:03d} (not found)")
+            skipped.append(f"IAR-{did:03d} (not found)")
             continue
         bundles.append(bundle)
         try:
-            merged_numbers.append(short_pr(bundle["header"].get("delivery_number") or f"DEL-{did:03d}"))
+            merged_numbers.append(short_pr(bundle["header"].get("iar_number") or f"IAR-{did:03d}"))
         except Exception:
-            merged_numbers.append(str(bundle["header"].get("delivery_number") or f"DEL-{did:03d}"))
+            merged_numbers.append(str(bundle["header"].get("iar_number") or f"IAR-{did:03d}"))
     if skipped:
-        flash(f"Only Received deliveries can be merged. Skipped: {', '.join(skipped)}.", "error")
+        flash(f"Only Received IARs can be merged. Skipped: {', '.join(skipped)}.", "error")
     if not bundles:
-        flash("No Received deliveries to merge.", "error")
+        flash("No Received IARs to merge.", "error")
         return redirect(url_for("delivery_dashboard"))
     return render_template("delivery_iar_print.html", deliveries=bundles,
                            merged=True, merged_numbers=merged_numbers)
@@ -1536,17 +1547,6 @@ def products_list_api():
         })
     return {"products": out}
 
-# --- API ROUTE: Next available delivery number (for live display in Receive modal) ---
-@app.route("/delivery/get_next_number")
-def get_next_delivery_number_api():
-    if "user_id" not in session:
-        return {"error": "Unauthorized"}, 401
-    try:
-        return {"delivery_number": generate_delivery_number()}
-    except Exception as err:
-        print(f"[get_next_delivery_number_api] DB error: {err}")
-        return {"error": str(err)}, 500
-
 # --- API ROUTE: Next available IAR number (for live display in Receive modal) ---
 @app.route("/delivery/get_next_iar")
 def get_next_iar_number_api():
@@ -1584,6 +1584,36 @@ def reject_pr_action(pr_id):
     else:
         flash("Failed to update Purchase Request.", "error")
 
+    return redirect(url_for("pr_management"))
+
+# --- ACTION ROUTES: Procurement-office decision (second approval stage, Admin only) ---
+@app.route("/admin/pr/po_approve/<int:pr_id>", methods=["POST"])
+def po_approve_pr_action(pr_id):
+    """Admin records that the procurement/PO office approved a director-approved PR.
+
+    Only status='Approved' PRs qualify (crud enforces). Dual-approved PRs
+    become eligible for IAR creation; the printed transmittal stays valid.
+    """
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("pr_management"))
+    if set_po_status(pr_id, "Approved"):
+        flash(f"Purchase Request PR-{'%03d' % pr_id} cleared by Procurement — now eligible for IAR.", "success")
+    else:
+        flash("Procurement approval failed (PR must be director-approved first).", "error")
+    return redirect(url_for("pr_management"))
+
+@app.route("/admin/pr/po_reject/<int:pr_id>", methods=["POST"])
+def po_reject_pr_action(pr_id):
+    """Admin records a procurement/PO office rejection. History stays truthful:
+    the PR keeps its director approval but can never enter IAR creation."""
+    if session.get("role") != "Admin":
+        flash("Admin permission required.", "error")
+        return redirect(url_for("pr_management"))
+    if set_po_status(pr_id, "Rejected"):
+        flash(f"Purchase Request PR-{'%03d' % pr_id} rejected by Procurement — kept as history.", "info")
+    else:
+        flash("Procurement rejection failed (PR must be director-approved first).", "error")
     return redirect(url_for("pr_management"))
 
 # --- ROUTE: Purchase Order Management — RETIRED (PR-to-Delivery) ---
@@ -1653,9 +1683,9 @@ def update_po_status_action(po_id):
 
 @app.route("/delivery")
 def delivery_dashboard():
-    """Unified delivery dashboard — renders admin vs staff template based on role."""
+    """Unified IAR dashboard — renders admin vs staff template based on role."""
     if "user_id" not in session:
-        flash("Please log in to access Delivery.", "error")
+        flash("Please log in to access IAR.", "error")
         return redirect(url_for("login"))
 
     search = request.args.get("search", "").strip()
@@ -1664,7 +1694,7 @@ def delivery_dashboard():
     custom_date = request.args.get("custom_date", "")
 
     user_role = session.get("role")
-    # Staff and Admin both see ALL deliveries to keep records in sync
+    # Staff and Admin both see ALL IARs to keep records in sync
     user_id_scope = None
 
     try:
@@ -1675,7 +1705,7 @@ def delivery_dashboard():
             custom_date=custom_date,
             user_id=user_id_scope
         )
-        # Deliverable PRs: Approved PRs ready for direct delivery — visible to all roles
+        # Deliverable PRs: dual-approved PRs ready for direct receiving — visible to all roles
         deliverable_pos = get_deliverable_prs(
             search_query="",
             user_id=None
@@ -1687,7 +1717,7 @@ def delivery_dashboard():
             pass
     except Exception as err:
         print(f"[delivery_dashboard] DB error: {err}")
-        flash("Database error loading Deliveries.", "error")
+        flash("Database error loading IARs.", "error")
         deliveries = []
         deliverable_pos = []
         deliverable_prs = []
@@ -1712,29 +1742,33 @@ def delivery_dashboard():
 def create_delivery_action():
     """Step 1: Receiving & IAR — PR-direct, Pending, AUTO partial, guard received > ordered."""
     if "user_id" not in session:
-        flash("Please log in to submit a delivery.", "error")
+        flash("Please log in to submit an IAR.", "error")
         return redirect(url_for("login"))
 
     user_id = session.get("user_id")
 
     pr_id = request.form.get("pr_id", "").strip() or request.form.get("po_id", "").strip()
-    delivery_number = request.form.get("delivery_number", "").strip()
     iar_number = request.form.get("iar_number", "").strip()
     po_reference_number = request.form.get("po_reference_number", "").strip()
+    po_date = request.form.get("po_date", "").strip()
     supplier_name = request.form.get("supplier_name", "").strip()
     inspected_by = request.form.get("inspected_by", "").strip()
     supply_officer = request.form.get("supply_officer", "").strip()
-    delivery_date = request.form.get("delivery_date", "").strip()
+    iar_date = request.form.get("iar_date", "").strip() or request.form.get("delivery_date", "").strip()
     remarks = request.form.get("remarks", "").strip()
     # is_partial AUTO-computed inside create_delivery — checkbox removed per new spec
 
-    if not all([pr_id, delivery_number, iar_number, supplier_name, inspected_by, supply_officer, delivery_date]):
-        flash("Purchase Request, Delivery Number, IAR Number, Supplier Name, Inspected By, Supply Officer, and Delivery Date are required.", "error")
+    if not all([pr_id, iar_number, supplier_name, inspected_by, supply_officer, iar_date]):
+        flash("Purchase Request, IAR Number, Supplier Name, Inspected By, Supply Officer, and IAR Date are required.", "error")
         return redirect(url_for("delivery_dashboard"))
 
-    # Delivery Date guard: past/present only — future dates are rejected.
-    if len(delivery_date) >= 10 and delivery_date[:10] > datetime.now().strftime("%Y-%m-%d"):
-        flash("Delivery Date cannot be in the future.", "error")
+    # IAR Date guard: past/present only — future dates are rejected.
+    if len(iar_date) >= 10 and iar_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("IAR Date cannot be in the future.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    # P.O. Date guard: staff-typed historical date — future dates rejected.
+    if po_date and len(po_date) >= 10 and po_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("P.O. Date cannot be in the future.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     try:
@@ -1781,21 +1815,21 @@ def create_delivery_action():
     success, result = create_delivery(
         pr_id=pr_id_int,
         user_id=user_id,
-        delivery_number=delivery_number,
         iar_number=iar_number,
         po_reference_number=po_reference_number or None,
+        po_date=po_date or None,
         supplier_name=supplier_name,
         inspected_by=inspected_by,
         supply_officer=supply_officer,
-        delivery_date=delivery_date,
+        iar_date=iar_date,
         remarks=remarks,
         received_items=received_items
     )
 
     if success:
-        flash(f"Delivery {delivery_number} submitted! Pending approval. Partial auto-detected if any received != ordered.", "success")
+        flash(f"IAR {iar_number} submitted! Pending approval. Partial auto-detected if any received != ordered.", "success")
     else:
-        flash(f"Failed to submit delivery: {result}", "error")
+        flash(f"Failed to submit IAR: {result}", "error")
 
     return redirect(url_for("delivery_dashboard"))
 
@@ -1808,14 +1842,17 @@ def get_delivery_details_api(delivery_id):
 
     header, items = get_delivery_details(delivery_id)
     if not header:
-        return {"error": "Delivery not found"}, 404
+        return {"error": "IAR not found"}, 404
 
     # Normalize dates and decimals for JSON
     try:
-        raw = header.get("delivery_date")
-        header["delivery_date"] = raw.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw, "strftime") else str(raw or "")
+        raw = header.get("iar_date", header.get("delivery_date"))
+        norm = raw.strftime("%Y-%m-%d %H:%M:%S") if hasattr(raw, "strftime") else str(raw or "")
+        header["iar_date"] = norm
+        header["delivery_date"] = norm
     except Exception:
-        header["delivery_date"] = str(header.get("delivery_date", ""))
+        header["iar_date"] = str(header.get("iar_date", header.get("delivery_date", "")))
+        header["delivery_date"] = header["iar_date"]
     try:
         header["is_partial"] = int(header.get("is_partial", 0))
     except Exception:
@@ -1844,24 +1881,24 @@ def approve_delivery_action(delivery_id):
       (not ordered qty). Prevents ghost stock desync.
     """
     if session.get("role") != "Admin":
-        flash("Admin permission required to approve deliveries.", "error")
+        flash("Admin permission required to approve IARs.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     # Idempotency guard at route level (extra safety before DB call)
-    # If delivery already Received, flash and do not call crud again
+    # If IAR already Received, flash and do not call crud again
     try:
         from db import get_db_connection as _conn_check
         _c = _conn_check()
         _cur = _c.cursor(dictionary=True)
-        _cur.execute("SELECT status, approved_by FROM deliveries WHERE delivery_id=%s", (delivery_id,))
+        _cur.execute("SELECT status, approved_by FROM iar WHERE iar_id=%s", (delivery_id,))
         _row = _cur.fetchone()
         _cur.close()
         _c.close()
         if _row and _row['status'] != 'Pending':
-            flash(f"Approve blocked: Delivery already '{_row['status']}' — possible double-click. Stock was already injected once.", "error")
+            flash(f"Approve blocked: IAR already '{_row['status']}' — possible double-click. Stock was already injected once.", "error")
             return redirect(url_for("delivery_dashboard"))
         if _row and _row.get('approved_by') is not None:
-            flash("Approve blocked: Delivery already has approver — stock already injected.", "error")
+            flash("Approve blocked: IAR already has approver — stock already injected.", "error")
             return redirect(url_for("delivery_dashboard"))
     except Exception:
         pass  # fallback to crud guard
@@ -1932,22 +1969,25 @@ def complete_delivery_action(delivery_id):
         return redirect(url_for("login"))
 
     user_id = session.get("user_id")
-    delivery_number = request.form.get("delivery_number", "").strip()
     iar_number = request.form.get("iar_number", "").strip()
     po_reference_number = request.form.get("po_reference_number", "").strip()
+    po_date = request.form.get("po_date", "").strip()
     supplier_name = request.form.get("supplier_name", "").strip()
     inspected_by = request.form.get("inspected_by", "").strip()
     supply_officer = request.form.get("supply_officer", "").strip()
-    delivery_date = request.form.get("delivery_date", "").strip()
+    iar_date = request.form.get("iar_date", "").strip() or request.form.get("delivery_date", "").strip()
     remarks = request.form.get("remarks", "").strip()
 
-    if not all([delivery_number, iar_number, inspected_by, supply_officer, delivery_date]):
-        flash("Delivery Number, IAR Number, Inspected By, Supply Officer, Delivery Date required for completion.", "error")
+    if not all([iar_number, inspected_by, supply_officer, iar_date]):
+        flash("IAR Number, Inspected By, Supply Officer, IAR Date required for completion.", "error")
         return redirect(url_for("delivery_dashboard"))
 
-    # Delivery Date guard: past/present only — future dates are rejected.
-    if len(delivery_date) >= 10 and delivery_date[:10] > datetime.now().strftime("%Y-%m-%d"):
-        flash("Delivery Date cannot be in the future.", "error")
+    # IAR Date guard: past/present only — future dates are rejected.
+    if len(iar_date) >= 10 and iar_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("IAR Date cannot be in the future.", "error")
+        return redirect(url_for("delivery_dashboard"))
+    if po_date and len(po_date) >= 10 and po_date[:10] > datetime.now().strftime("%Y-%m-%d"):
+        flash("P.O. Date cannot be in the future.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     product_ids = request.form.getlist("product_id[]")
@@ -1981,18 +2021,18 @@ def complete_delivery_action(delivery_id):
     success, result = create_completion_delivery(
         original_delivery_id=delivery_id,
         user_id=user_id,
-        delivery_number=delivery_number,
         iar_number=iar_number,
         po_reference_number=po_reference_number or None,
+        po_date=po_date or None,
         supplier_name=supplier_name or None,
         inspected_by=inspected_by,
         supply_officer=supply_officer,
-        delivery_date=delivery_date,
+        iar_date=iar_date,
         remarks=remarks,
         received_items=received_items
     )
     if success:
-        flash(f"Completion delivery {delivery_number} created! Pending approval for remaining {sum(r['received_quantity'] for r in received_items)} units.", "success")
+        flash(f"Completion IAR {iar_number} created! Pending approval for remaining {sum(r['received_quantity'] for r in received_items)} units.", "success")
     else:
         flash(f"Complete failed: {result}", "error")
     return redirect(url_for("delivery_dashboard"))

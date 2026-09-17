@@ -17,8 +17,8 @@ DB_NAME = "production_inventory_db"
 CLEAR_TABLES = [
     "pr_items",
     "purchase_requests",
-    "delivery_items",
-    "deliveries",
+    "iar_items",
+    "iar",
     "items",
     "withdraw_items",
     "withdraw",

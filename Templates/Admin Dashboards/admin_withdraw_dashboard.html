@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -34,7 +34,7 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive IAR</span></a>
                 <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn active"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
@@ -114,9 +114,7 @@
                                         <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                         {% if w.status == 'Pending' %}
                                         <button type="button" class="btn-action btn-approve" title="Approve & Issue Stock" onclick="openApproveModal({{ w.withdraw_id }}, '{{ w.ris_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
-                                        <form method="POST" action="{{ url_for('reject_withdrawal_action', withdraw_id=w.withdraw_id) }}" style="display:inline;" onsubmit="return confirm('Reject {{ w.ris_number }}?')">
-                                            <button type="submit" class="btn-action btn-reject" title="Disapprove"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
-                                        </form>
+                                        <button type="button" class="btn-action btn-reject" title="Disapprove" onclick="openRejectModal({{ w.withdraw_id }}, '{{ w.ris_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
                                         {% else %}
                                             <small style="color:#888;">{% if w.issuer_first %}by {{ w.issuer_first }} {{ w.issuer_last }}{% endif %}</small>
                                         {% endif %}
@@ -237,7 +235,7 @@
         <div class="modal-box" style="width:520px;">
             <div class="modal-header">
                 <div style="display:flex; gap:10px; align-items:center;">
-                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#fff;"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></div>
+                    <div style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#2e7d32;"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></div>
                     <div><h3 style="font-size:17px; margin:0;">Confirm Approve & Issue</h3><p style="font-size:11px; color:#666; margin:0;">Deducts stock & logs movement</p></div>
                 </div>
             </div>
@@ -247,11 +245,32 @@
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn-modal-cancel" onclick="closeApproveModal()">Cancel</button>
-                <button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="confirmApprove()"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Yes, Issue Stock</button>
+                <button type="button" class="btn-modal-save btn-confirm-go" onclick="confirmApprove()"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Confirm</button>
             </div>
         </div>
     </div>
     <form id="approve-hidden-form" method="POST" style="display:none;"></form>
+
+    <!-- REJECT CONFIRM MODAL -->
+    <div id="reject-modal" class="modal-overlay hidden">
+        <div class="modal-box" style="width:520px;">
+            <div class="modal-header">
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <div style="width:38px; height:38px; background:#fdecea; border:1px solid #f5c6cb; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#c62828;"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></div>
+                    <div><h3 style="font-size:17px; margin:0;">Are you sure you want to reject this withdrawal?</h3><p style="font-size:11px; color:#666; margin:0;">Admin decision — no stock moves</p></div>
+                </div>
+            </div>
+            <div style="background:#f8fcff; border:1px solid #e2f0fb; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12px;">
+                <div><strong>RIS #:</strong> <span id="reject-ris-number" style="font-weight:700; color:#0d233a;"></span></div>
+                <div style="margin-top:6px; background:#fdecea; border:1px solid #f5c6cb; border-radius:8px; padding:8px; font-size:11px; color:#721c24;">Rejecting locks this withdrawal as rejected history. No stock is deducted and it can never be issued afterwards.</div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal-cancel" onclick="closeRejectModal()">Cancel</button>
+                <button type="button" class="btn-modal-save btn-confirm-go" onclick="confirmReject()">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <form id="reject-hidden-form" method="POST" style="display:none;"></form>
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
@@ -260,3 +279,4 @@
 
 </body>
 </html>
+

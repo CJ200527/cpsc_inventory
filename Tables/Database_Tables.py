@@ -1,5 +1,7 @@
-"""Database_Tables.py — Streamlined Schema Builder (PR to Delivery Flow)
-Creates all tables in dependency order: Users → Products → purchase_requests/pr_items → deliveries/delivery_items → inventory/withdraw/return.
+"""Database_Tables.py — Streamlined Schema Builder (PR to IAR Flow)
+Creates all tables in dependency order: Users → Products → purchase_requests/pr_items → iar/iar_items → inventory/withdraw/return.
+Two-stage PR approval: purchase_requests.status (director) + po_status (procurement office).
+IAR numbering is yearly (IAR-YYYY-001); PO Date is staff-typed per IAR.
 Run: python Tables/Database_Tables.py (requires XAMPP MySQL running).
 """
 
@@ -63,6 +65,7 @@ def create_all_tables():
         fund_source VARCHAR(50) DEFAULT 'Fund 05',
         date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
+        po_status ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending',
         total_price DECIMAL(12, 2) DEFAULT 0.00,
         FOREIGN KEY (user_id) REFERENCES users(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -88,21 +91,25 @@ def create_all_tables():
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
-    # 4. DELIVERY TABLES (Direct PR to Delivery, with external PO reference & supplier name)
+    # 4. IAR TABLES (Direct PR to IAR — Inspection & Acceptance Report.
+    # Mirrors the office paper: supplier, P.O. No., P.O. Date (staff-typed),
+    # IAR No. (yearly IAR-YYYY-001, required unique), IAR Date, requisitioning
+    # dept (withdraw.department), fund source (PR fund), item lines, inspection
+    # checkboxes (is_partial), inspection/supply officers. No Delivery Number.)
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS deliveries (
-        delivery_id INT AUTO_INCREMENT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS iar (
+        iar_id INT AUTO_INCREMENT PRIMARY KEY,
         approved_by INT,
         pr_id INT NOT NULL,
         user_id INT NOT NULL,
-        delivery_number VARCHAR(50) NOT NULL UNIQUE,
-        iar_number VARCHAR(50),
-        po_reference_number VARCHAR(50), 
+        iar_number VARCHAR(50) NOT NULL UNIQUE,
+        po_reference_number VARCHAR(50),
+        po_date DATE DEFAULT NULL,
         supplier_name VARCHAR(100) NOT NULL,
         inspected_by VARCHAR(100),
         supply_officer VARCHAR(100),
         is_partial TINYINT(1) DEFAULT 0,
-        delivery_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        iar_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         remarks TEXT,
         status ENUM('Pending', 'Received', 'Incomplete') DEFAULT 'Pending',
         FOREIGN KEY (approved_by) REFERENCES users(id),
@@ -112,9 +119,9 @@ def create_all_tables():
     """)
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS delivery_items (
-        delivery_items_id INT AUTO_INCREMENT PRIMARY KEY,
-        delivery_id INT NOT NULL,
+    CREATE TABLE IF NOT EXISTS iar_items (
+        iar_item_id INT AUTO_INCREMENT PRIMARY KEY,
+        iar_id INT NOT NULL,
         pr_id INT NOT NULL,
         user_id INT NOT NULL,
         product_id INT NOT NULL,
@@ -127,7 +134,7 @@ def create_all_tables():
         size VARCHAR(20),
         price DECIMAL(10, 2) NOT NULL,
         total_price DECIMAL(12, 2) NOT NULL,
-        FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id) ON DELETE CASCADE,
+        FOREIGN KEY (iar_id) REFERENCES iar(iar_id) ON DELETE CASCADE,
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (product_id) REFERENCES products(product_id)
@@ -138,7 +145,7 @@ def create_all_tables():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS items (
         item_id INT AUTO_INCREMENT PRIMARY KEY,
-        delivery_id INT,
+        iar_id INT,
         pr_id INT,
         user_id INT,
         product_id INT NOT NULL,
@@ -152,7 +159,7 @@ def create_all_tables():
         item_price DECIMAL(10, 2) DEFAULT 0.00,
         item_total_price DECIMAL(12, 2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (delivery_id) REFERENCES deliveries(delivery_id),
+        FOREIGN KEY (iar_id) REFERENCES iar(iar_id),
         FOREIGN KEY (pr_id) REFERENCES purchase_requests(pr_id),
         FOREIGN KEY (user_id) REFERENCES users(id),
         FOREIGN KEY (product_id) REFERENCES products(product_id)
@@ -245,10 +252,20 @@ def create_all_tables():
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     """)
 
+    # Backfill for existing databases: po_status on older purchase_requests.
+    try:
+        cursor.execute("SHOW COLUMNS FROM purchase_requests LIKE 'po_status'")
+        if not cursor.fetchone():
+            cursor.execute("ALTER TABLE purchase_requests ADD COLUMN po_status "
+                           "ENUM('Pending', 'Approved', 'Rejected') DEFAULT 'Pending'")
+            print("backfilled purchase_requests.po_status")
+    except Exception as err:
+        print(f"[po_status backfill] {err}")
+
     conn.commit()
     cursor.close()
     conn.close()
-    print("Streamlined PR-to-Delivery database & tables created successfully!")
+    print("Streamlined PR-to-IAR database & tables created successfully!")
 
 
 if __name__ == "__main__":

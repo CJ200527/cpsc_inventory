@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inspection & Acceptance Report - Print</title>
     <style>
-        /* Delivery IAR print sheet — mirrors the office paper (photo):
+        /* IAR print sheet — mirrors the office paper (photo):
            title, Supplier/P.O./IAR meta block, Requisitioning/Fund rows,
            No/Qty/Unit/Item/Unit Cost/Total Cost grid + TOTAL row,
            inspected + Complete/Partial checkboxes, dual signatures.
-           IAR No. shows the Delivery Number for now; P.O. Date shows '-'
-           (both pending next interview). Screen toolbar hidden on paper. */
+           IAR No. is the yearly IAR-YYYY-001 number; P.O. Date is staff-typed.
+           Screen toolbar hidden on paper. */
         @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
         * { box-sizing: border-box; }
         body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
@@ -69,10 +69,10 @@
             <div class="col">
                 <div><span class="lbl">Supplier:</span> {{ header.supplier_name or 'N/A' }}</div>
                 <div><span class="lbl">P.O. No.:</span> {{ header.po_reference_number or '-' }}</div>
-                <div><span class="lbl">P.O. Date:</span> -</div>
+                <div><span class="lbl">P.O. Date:</span> {{ header.po_date or '-' }}</div>
             </div>
             <div class="col">
-                <div><span class="lbl">IAR No.:</span> {{ header.delivery_number or '' }}</div>
+                <div><span class="lbl">IAR No.:</span> {{ header.iar_number or '' }}</div>
                 <div><span class="lbl">IAR Date:</span> {{ header.date_str or '' }}</div>
             </div>
         </div>

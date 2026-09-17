@@ -247,9 +247,7 @@
         }
         function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); document.getElementById('view-approve-area').classList.add('hidden'); }
         function rejectFromView(id){
-            if(confirm('Reject this withdrawal?')){
-                const f=document.createElement('form'); f.method='POST'; f.action='/withdraw/reject/'+id; document.body.appendChild(f); f.submit();
-            }
+            openRejectModal(id, '');
         }
         let pendingApproveId=null;
         function openApproveModal(id, ris){
@@ -262,6 +260,21 @@
             if(!pendingApproveId) return;
             const f=document.getElementById('approve-hidden-form');
             f.action='/withdraw/approve/'+pendingApproveId;
+            f.submit();
+        }
+        let pendingRejectId=null;
+        function openRejectModal(id, ris){
+            pendingRejectId=id;
+            document.getElementById('reject-ris-number').innerText=ris||('WD-'+id);
+            var btn=document.querySelector('#reject-modal .btn-modal-save');
+            if(btn){ btn.disabled=false; btn.style.opacity=''; btn.style.pointerEvents=''; }
+            document.getElementById('reject-modal').classList.remove('hidden');
+        }
+        function closeRejectModal(){ document.getElementById('reject-modal').classList.add('hidden'); pendingRejectId=null; }
+        function confirmReject(){
+            if(!pendingRejectId) return;
+            const f=document.getElementById('reject-hidden-form');
+            f.action='/withdraw/reject/'+pendingRejectId;
             f.submit();
         }
     

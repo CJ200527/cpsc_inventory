@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -43,7 +43,7 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('staff_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn active"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive IAR</span></a>
                 <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
@@ -108,7 +108,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all Approved"></th>
+                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all mergeable"></th>
                             <th>PR Number</th>
                             <th>Date Requested</th>
                             <th>Total Amount</th>
@@ -120,11 +120,11 @@
                         {% if requests %}
                             {% for r in requests %}
                             <tr>
-                                <td style="text-align:center;">{% if r.status == 'Approved' %}<input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged print">{% endif %}</td>
+                                <td style="text-align:center;">{% if r.status == 'Approved' and (r.po_status or 'Pending') != 'Rejected' %}<input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged print">{% endif %}</td>
                                 <td><strong>{{ r.pr_number | short_pr }}</strong></td>
                                 <td>{{ r.date_requested | ph_datetime }}</td>
                                 <td><span class="price-badge">₱ {{ "{:,.2f}".format(r.total_price or 0) }}</span></td>
-                                <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
+                                <td><span class="badge badge-{{ r.status|lower }}" title="Director decision">{{ r.status }}</span>{% if r.status == 'Approved' %}<br><span class="badge badge-{{ (r.po_status or 'Pending')|lower }}" title="Procurement-office decision" style="margin-top:4px;">PO: {{ r.po_status or 'Pending' }}</span>{% endif %}</td>
                                 <td>
                                     <button type="button" class="btn-action btn-view" title="View Submitted Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                     <a href="/pr/print/{{ r.pr_id }}" class="btn-action btn-print" title="Print PR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>

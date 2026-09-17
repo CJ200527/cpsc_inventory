@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -43,7 +43,7 @@
                         <div class="nav-menu">
                 <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
                 <a href="{{ url_for('pr_management') }}" class="nav-btn active"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive Delivery</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive IAR</span></a>
                 <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
                 <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
                 <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
@@ -111,7 +111,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all Approved"></th>
+                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all mergeable"></th>
                             <th>PR Number</th>
                             <th>Requested By</th>
                             <th>Date Requested</th>
@@ -124,24 +124,23 @@
                         {% if requests %}
                             {% for r in requests %}
                             <tr>
-                                <td style="text-align:center;">{% if r.status == 'Approved' %}<input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged print">{% endif %}</td>
+                                <td style="text-align:center;">{% if r.status == 'Approved' and (r.po_status or 'Pending') != 'Rejected' %}<input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged print">{% endif %}</td>
                                 <td><strong>{{ r.pr_number | short_pr }}</strong></td>
                                 <td>{{ r.Lastname }} ({{ r.Role|lower }})</td>
                                 <td>{{ r.date_requested | ph_datetime }}</td>
                                 <td><span class="price-badge">₱ {{ "{:,.2f}".format(r.total_price or 0) }}</span></td>
-                                <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
+                                <td><span class="badge badge-{{ r.status|lower }}" title="Director decision">{{ r.status }}</span>{% if r.status == 'Approved' %}<br><span class="badge badge-{{ (r.po_status or 'Pending')|lower }}" title="Procurement-office decision" style="margin-top:4px;">PO: {{ r.po_status or 'Pending' }}</span>{% endif %}</td>
                                 <td>
                                     <div class="action-cell">
                                          <button type="button" class="btn-action btn-view" title="View Items" onclick="openViewModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                          <a href="/pr/print/{{ r.pr_id }}" class="btn-action btn-print" title="Print PR"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if r.status == 'Pending' %}
                                             <button type="button" class="btn-action btn-edit" title="Edit PR (Pending only)" onclick="openEditPrModal({{ r.pr_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
-                                            <form method="POST" action="/admin/pr/approve/{{ r.pr_id }}" style="display:inline;">
-                                                 <button type="submit" class="btn-action btn-approve" title="Approve PR"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
-                                            </form>
-                                            <form method="POST" action="/admin/pr/reject/{{ r.pr_id }}" style="display:inline;">
-                                                 <button type="submit" class="btn-action btn-reject" title="Reject PR"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
-                                            </form>
+                                            <button type="button" class="btn-action btn-approve" title="Approve PR" onclick="openPrConfirmModal('approve', {{ r.pr_id }}, '{{ r.pr_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
+                                            <button type="button" class="btn-action btn-reject" title="Reject PR" onclick="openPrConfirmModal('reject', {{ r.pr_id }}, '{{ r.pr_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
+                                        {% elif r.status == 'Approved' and (r.po_status or 'Pending') == 'Pending' %}
+                                            <button type="button" class="btn-action btn-approve" title="Procurement approved — eligible for IAR" onclick="openPrConfirmModal('po_approve', {{ r.pr_id }}, '{{ r.pr_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
+                                            <button type="button" class="btn-action btn-reject" title="Procurement rejected — stays history" onclick="openPrConfirmModal('po_reject', {{ r.pr_id }}, '{{ r.pr_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
                                         {% endif %}
                                     </div>
                                 </td>
@@ -358,6 +357,30 @@
             </div>
         </div>
     </div>
+
+    <!-- PR DECISION CONFIRM MODAL (director + procurement approve/reject, one reusable shell) -->
+    <div id="pr-confirm-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-box" style="width:520px; max-width:95%;">
+            <div class="modal-header">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div id="pr-confirm-icon" style="width:38px; height:38px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; color:#2e7d32;"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></div>
+                    <div>
+                        <h3 id="pr-confirm-title" style="font-size:17px; margin:0;">Confirm Approval</h3>
+                        <p id="pr-confirm-sub" style="font-size:11px; color:#666; margin:0;">Director decision</p>
+                    </div>
+                </div>
+            </div>
+            <div style="background:#f8fcff; border:1px solid #e2f0fb; border-radius:10px; padding:14px; margin-bottom:12px; font-size:12px; color:#333;">
+                <div><strong>PR #:</strong> <span id="pr-confirm-number" style="font-weight:700; color:#0d233a;">—</span></div>
+                <div id="pr-confirm-message" style="margin-top:8px;"></div>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="btn-modal-cancel" onclick="closePrConfirmModal()">Cancel</button>
+                <button type="button" class="btn-modal-save btn-confirm-go" id="pr-confirm-btn" onclick="confirmPrDecision()">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <form id="pr-confirm-form" method="POST" style="display:none;"></form>
 
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>

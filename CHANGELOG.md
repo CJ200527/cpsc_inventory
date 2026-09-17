@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Full IAR Cutover + Two-Stage Approval + Decision Modals (2026-09-17/18)
+
+> `deliveries`/`delivery_items` replaced by `iar`/`iar_items` (yearly numbers, staff-typed P.O. Date, no Delivery Number); PRs gain a second procurement approval so history stays truthful; PO-Rejected locked out of merge-print; branded Confirm/Cancel decision modals everywhere with a Create-PR-exact green Confirm hover default; header icons made visible.
+
+#### Added
+- **IAR schema (live)** — `iar` (`iar_id`, `iar_number UNIQUE NOT NULL`, `po_reference_number`, `po_date DATE`, `supplier_name`, `inspected_by`, `supply_officer`, `is_partial`, `iar_date`, `remarks`, `Pending/Received/Incomplete`) + `iar_items` + `items.iar_id`; legacy tables dropped (empty after wipe); `Database_Tables.py` rewritten + `po_status` backfill; cleanup scripts updated.
+- **Two-stage PR approval** — `purchase_requests.po_status` (`Pending/Approved/Rejected`, default `Pending`); `set_po_status()` (director-Approved first, reversible); `/admin/pr/po_approve` + `/po_reject` (Admin only); PO badges on both PR tables + View modal; staff dashboard + IAR dropdown + picker queries require dual approval.
+- **Yearly IAR numbers** — `generate_iar_number()` → `IAR-YYYY-001` (MAX-per-year + 1); `generate_delivery_number()` deleted with its route.
+- **PO-Rejected merge lock** — checkboxes hidden + server-side crafted-URL skip (named flash); single-PR print kept as evidence.
+- **Decision modals** — reusable 4-action PR confirm (two-stage explainer) + Withdraw/Return red reject modals replacing native `confirm()`; IAR approve-confirm verified compliant (Partial/Complete branch, irreversibility warning, triple injection guards).
+- **`btn-confirm-go` default** — class-based Create-PR-exact green hover (`#81c784→#4caf50`, white, `scale(1.05)`) on all 6 Confirms; 22px solid-green/red header icons replacing invisible white-on-pale glyphs.
+- **Receive IAR UI** — Delivery Number removed, IAR Number required, staff-typed P.O. Date (triple-guarded past-only), P.O. Date column + prefill, all 16 sidebars renamed (Inventory labels kept), `/delivery/*` URLs kept as-is.
+
+#### Pending (tomorrow, in order)
+1. **IAR signature alignment** — supply-officer block sits lower; flex-baseline fix, retest single + merged.
+2. **Action-button crowding (PR + IAR)** — nowrap action-cells + approver tooltips (more urgent: PO badge + 5 buttons/row).
+3. **Settings full polish** → **`AGENTS.md`**.
+
+---
+
 ## [Unreleased] — PR Print Fixes Done + Delivery IAR Printing (2026-09-16/17)
 
 > All three PR carry-overs closed (green hover match, same-tab everywhere, `Print` rename) and the Delivery IAR print shipped one-shot: single + merged Received-only stacked sheets mirroring the office paper, same checkbox/merge UX as PR, plus a Jinja dict-method crash fix.

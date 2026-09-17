@@ -555,6 +555,33 @@ body .modal-box {
     box-shadow: 0 2px 5px rgba(46, 125, 50, 0.35);
 }
 
+/* --- Decision-popup header icons: larger glyphs (table buttons stay 16px). --- */
+.modal-header .act-icon {
+    width: 22px;
+    height: 22px;
+}
+
+/* --- Decision-popup Confirm buttons: exact Create-PR hover recipe (default
+   standard). Same lighter-green gradient, white text, grow + shadow, so every
+   popup Confirm feels identical to the PR Creation Submit button. Scoped to
+   .modal-overlay to outrank the .pr-modal/.delivery-modal hover rules. */
+.modal-overlay .btn-confirm-go {
+    transition: all 0.2s ease-in-out;
+}
+.modal-overlay .btn-confirm-go:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    border-color: #4caf50;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+.modal-overlay .btn-confirm-go:active {
+    background: #66bb6a;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
 /* --- Universal form-control focus highlight (every page, every form) ---
    Applies to ANY input, select, or textarea in a modal, search bar,
    filter, or auth page. Smooth color glow only — no scaling. */

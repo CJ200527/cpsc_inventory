@@ -32,25 +32,30 @@
             if(tot) tot.innerText=fmtPeso(grand);
         }
         function todayLocal(){ const n=new Date(); const p=x=>String(x).padStart(2,'0'); return `${n.getFullYear()}-${p(n.getMonth()+1)}-${p(n.getDate())}`; }
-        /* Delivery Date guard: past/present only — future dates blocked (backend double-checks). */
+        /* IAR Date guard: past/present only — future dates blocked (backend double-checks). */
         function validateDeliveryDate(input){
             if(!input) return true;
             if(!input.max) input.max=todayLocal();
-            if(input.value && input.value > todayLocal()){ alert('Delivery Date cannot be in the future.'); input.focus(); return false; }
+            if(input.value && input.value > todayLocal()){ alert('IAR Date cannot be in the future.'); input.focus(); return false; }
             return true;
+        }
+        /* P.O. Date guard: staff-typed historical date — future dates blocked. */
+        function validatePODate(input){
+            if(!input || !input.value) return true;
+            if(!input.max) input.max=todayLocal();
+            if(input.value > todayLocal()){ alert('P.O. Date cannot be in the future.'); input.focus(); return false; }
+            return true;
+        }
+        function iarDateInput(formSel){
+            return document.querySelector(formSel+' input[name="iar_date"]') || document.querySelector(formSel+' input[name="delivery_date"]');
         }
 
         function openReceiveModal(){
             document.getElementById('receive-modal').classList.remove('hidden');
-            const d=document.querySelector('#receive-modal input[name="delivery_date"]'); if(d && !d.value) d.valueAsDate=new Date(); if(d && !d.max) d.max=todayLocal();
-            // Auto-generated delivery number (readonly) + reset PR total.
-            const numEl=document.getElementById('delivery-number-auto');
-            if(numEl){ numEl.value=''; numEl.classList.remove('has-content'); numEl.placeholder='Loading...'; }
-            fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
-                if(numEl){ if(dt.delivery_number){ numEl.value=dt.delivery_number; numEl.classList.add('has-content'); } else numEl.placeholder='Auto-generated'; }
-            }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
+            const d=iarDateInput('#receive-modal'); if(d && !d.value) d.valueAsDate=new Date(); if(d && !d.max) d.max=todayLocal();
+            const pd=document.querySelector('#receive-form input[name="po_date"]'); if(pd && !pd.max) pd.max=todayLocal();
             const tot=document.getElementById('delivery-total-price'); if(tot) tot.innerText='₱ 0.00';
-            // Auto-generated IAR number (readonly), same pattern as delivery number.
+            // Auto-generated IAR number (readonly, yearly IAR-YYYY-001).
             const iarEl=document.querySelector('#receive-form input[name="iar_number"]');
             if(iarEl){ iarEl.value=''; iarEl.classList.remove('has-content'); iarEl.placeholder='Loading...'; }
             fetch('/delivery/get_next_iar').then(r=>r.json()).then(dt=>{
@@ -161,9 +166,10 @@
         function validateReceiveForm(){
             // A PR must be picked from the smart dropdown first.
             const prHidden=document.getElementById('pr-id-hidden');
-            if(!prHidden || !prHidden.value){ alert('Please select an Approved PR.'); return false; }
+            if(!prHidden || !prHidden.value){ alert('Please select a dual-approved PR.'); return false; }
             // Blank or 0 = zero arriving units for that row (partial shipment); both are valid.
-            if(!validateDeliveryDate(document.querySelector('#receive-form input[name="delivery_date"]'))) return false;
+            if(!validateDeliveryDate(iarDateInput('#receive-form'))) return false;
+            if(!validatePODate(document.querySelector('#receive-form input[name="po_date"]'))) return false;
             const inputs=document.querySelectorAll('#delivery-items-tbody input[name="received_quantity[]"]');
             let hasPositive=false, err='';
             inputs.forEach(inp=>{
@@ -188,14 +194,9 @@
             currentCompleteDeliveryId=deliveryId;
             document.getElementById('complete-modal').classList.remove('hidden');
             const form=document.getElementById('complete-form'); form.action='/delivery/complete/'+deliveryId;
-            const dateInput=form.querySelector('input[name="delivery_date"]'); if(dateInput){ dateInput.valueAsDate=new Date(); dateInput.classList.add('has-content'); } if(dateInput && !dateInput.max) dateInput.max=todayLocal();
-            // Auto-generated completion number (readonly) via the shared delivery sequence.
-            const numEl=document.getElementById('complete-delivery-number-auto');
-            if(numEl){ numEl.value=''; numEl.classList.remove('has-content'); numEl.placeholder='Loading...'; }
-            fetch('/delivery/get_next_number').then(r=>r.json()).then(dt=>{
-                if(numEl){ if(dt.delivery_number){ numEl.value=dt.delivery_number; numEl.classList.add('has-content'); } else numEl.placeholder='Auto-generated'; }
-            }).catch(()=>{ if(numEl) numEl.placeholder='Auto-generated'; });
-            // Auto-generated IAR number (readonly), same endpoint as the Creation modal.
+            const dateInput=form.querySelector('input[name="iar_date"]') || form.querySelector('input[name="delivery_date"]'); if(dateInput){ dateInput.valueAsDate=new Date(); dateInput.classList.add('has-content'); } if(dateInput && !dateInput.max) dateInput.max=todayLocal();
+            const poDateInput=form.querySelector('input[name="po_date"]'); if(poDateInput && !poDateInput.max) poDateInput.max=todayLocal();
+            // Auto-generated IAR number (readonly, yearly sequence).
             const iarEl=document.getElementById('complete-iar-number-auto');
             if(iarEl){ iarEl.value=''; iarEl.classList.remove('has-content'); iarEl.placeholder='Loading...'; }
             fetch('/delivery/get_next_iar').then(r=>r.json()).then(dt=>{
@@ -208,6 +209,7 @@
                 if(d.error){ document.getElementById('complete-pr-meta').innerHTML=escHtml(d.error); return; }
                 const prId=d.header.pr_id;
                 const poRefInput=document.getElementById('complete-po-ref'); if(poRefInput){ poRefInput.value=d.header.po_reference_number||''; poRefInput.classList.toggle('has-content',(poRefInput.value||'').trim()!==''); }
+                const poDateInput=document.getElementById('complete-po-date'); if(poDateInput){ poDateInput.value=(d.header.po_date||'').slice(0,10); poDateInput.classList.toggle('has-content',(poDateInput.value||'').trim()!==''); }
                 const supInput=document.getElementById('complete-supplier'); if(supInput && !supInput.value) supInput.value=d.header.supplier_name||''; if(supInput) supInput.classList.toggle('has-content',(supInput.value||'').trim()!=='');
                 fetch('/delivery/remaining/'+prId).then(r=>r.json()).then(rem=>{
                     const header=rem.header;
@@ -235,7 +237,8 @@
         function closeCompleteModal(){ document.getElementById('complete-modal').classList.add('hidden'); currentCompleteDeliveryId=null; }
         function validateCompleteForm(){
             // Blank or 0 = zero arriving units for that row (partial shipment); both are valid.
-            if(!validateDeliveryDate(document.querySelector('#complete-form input[name="delivery_date"]'))) return false;
+            if(!validateDeliveryDate(iarDateInput('#complete-form'))) return false;
+            if(!validatePODate(document.querySelector('#complete-form input[name="po_date"]'))) return false;
             const inputs=document.querySelectorAll('#complete-items-tbody input[name="received_quantity[]"]');
             let hasPositive=false, err='';
             inputs.forEach(inp=>{
@@ -278,11 +281,12 @@
             if (printBtn) printBtn.href = '/delivery/print/' + deliveryId;
             fetch('/delivery/details/'+deliveryId).then(r=>r.json()).then(data=>{
                 if(data.error){ content.innerHTML='<span style="color:#c62828;">'+data.error+'</span>'; return; }
-                document.getElementById('view-delivery-title').innerText=`${shortDelNum(data.header.delivery_number)} Details`;
+                document.getElementById('view-delivery-title').innerText=`${shortDelNum(data.header.iar_number||data.header.delivery_number)} Details`;
                 let html=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 14px;background:#f8fcff;border:1px solid #e2f0fb;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#333;">`;
                 html+=`<div><strong>Supplier:</strong> ${data.header.supplier_name||'N/A'}</div><div><strong>Supply Officer:</strong> ${data.header.supply_officer||'-'}</div><div><strong>Partial:</strong> ${data.header.is_partial? 'Yes':'No'}</div>`;
-                html+=`<div><strong>PO Ref No.:</strong> ${data.header.po_reference_number||'-'}</div><div><strong>Inspected By:</strong> ${data.header.inspected_by||'-'}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
-                html+=`<div><strong>IAR No.:</strong> <span title="${data.header.iar_number||''}">${shortDelNum(data.header.iar_number||'-')}</span></div><div><strong>Date:</strong> ${fmtViewDate(data.header.delivery_date)}</div><div><strong>Remarks:</strong> ${data.header.remarks||'-'}</div>`;
+                html+=`<div><strong>PO Ref No.:</strong> ${data.header.po_reference_number||'-'}</div><div><strong>P.O. Date:</strong> ${data.header.po_date||'-'}</div><div><strong>Status:</strong> <span class="badge badge-${(data.header.status||'').toLowerCase()}">${data.header.status}</span></div>`;
+                html+=`<div><strong>IAR No.:</strong> <span title="${data.header.iar_number||''}">${shortDelNum(data.header.iar_number||'-')}</span></div><div><strong>Inspected By:</strong> ${data.header.inspected_by||'-'}</div><div><strong>IAR Date:</strong> ${fmtViewDate(data.header.iar_date||data.header.delivery_date)}</div>`;
+                html+=`<div><strong>Remarks:</strong> ${data.header.remarks||'-'}</div>`;
                 html+=`</div>`;
                 html+=`<table class="item-table"><thead><tr><th>Item</th><th>Ordered</th><th>Received</th><th>Price</th><th>Total</th></tr></thead><tbody>`;
                 data.items.forEach(i=>{
@@ -298,7 +302,7 @@
                 if(data.header.status==='Pending'){
                     html+=`<div style="margin-top:10px;padding:8px 10px;background:#fff3cd;border:1px solid #ffe082;border-radius:6px;font-size:11px;color:#856404;">Pending — stock not credited. Approve via professional confirmation to ingest.</div>`;
                     if(approveArea){
-                    approveArea.innerHTML=`<button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="closeViewModal(); openApproveConfirmModal(${data.header.delivery_id}, '${data.header.delivery_number}', '${data.header.pr_number}', ${data.header.is_partial})"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Credit Stock</button>`;
+                    approveArea.innerHTML=`<button type="button" class="btn-modal-save" style="background:#2e7d32;" onclick="closeViewModal(); openApproveConfirmModal(${data.header.iar_id||data.header.delivery_id}, '${data.header.iar_number||''}', '${data.header.pr_number}', ${data.header.is_partial})"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Approve & Credit Stock</button>`;
                     approveArea.classList.remove('hidden');
                 }
                 }
@@ -308,17 +312,17 @@
         function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); }
 
         let pendingApproveDeliveryId = null;
-        function openApproveConfirmModal(deliveryId, deliveryNumber, prNumber, isPartial){
+        function openApproveConfirmModal(deliveryId, iarNumber, prNumber, isPartial){
             pendingApproveDeliveryId = deliveryId;
             // Fresh intent: restore the Confirm button in case a previous
             // attempt left it disabled (cancelled/refreshed mid-processing).
             const cbtn = document.querySelector('#approve-confirm-modal .btn-modal-save');
-            if(cbtn){ cbtn.disabled = false; cbtn.style.opacity = ''; cbtn.style.pointerEvents = ''; if(!/Approve/.test(cbtn.innerHTML)) cbtn.innerHTML = '<svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Yes, Approve & Credit Stock'; }
-            document.getElementById('approve-delivery-number').innerText = deliveryNumber;
+            if(cbtn){ cbtn.disabled = false; cbtn.style.opacity = ''; cbtn.style.pointerEvents = ''; cbtn.classList.add('btn-confirm-go'); if(!/Confirm/.test(cbtn.innerHTML)) cbtn.innerHTML = '<svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg> Confirm'; }
+            document.getElementById('approve-delivery-number').innerText = iarNumber;
             document.getElementById('approve-pr-number').innerText = prNumber;
             const statusEl = document.getElementById('approve-partial-text');
             const isPartialFlag = parseInt(isPartial) === 1;
-            statusEl.innerText = isPartialFlag ? 'Partial delivery — remaining qty can be completed afterwards' : 'Complete delivery — all ordered quantities received';
+            statusEl.innerText = isPartialFlag ? 'Partial IAR — remaining qty can be completed afterwards' : 'Complete IAR — all ordered quantities received';
             statusEl.style.background = isPartialFlag ? '#e2e3ff' : '#d4edda';
             statusEl.style.color = isPartialFlag ? '#383d8a' : '#155724';
             statusEl.style.borderColor = isPartialFlag ? '#c5cae9' : '#c3e6cb';

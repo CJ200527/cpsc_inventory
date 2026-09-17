@@ -264,9 +264,13 @@
             });
         }
         function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); document.getElementById('view-approve-area').classList.add('hidden'); }
-        function rejectFromView(id){ if(confirm('Reject this return?')){ const f=document.createElement('form'); f.method='POST'; f.action='/returns/reject/'+id; document.body.appendChild(f); f.submit(); } }
+        function rejectFromView(id){ openRejectModal(id, ''); }
         let pendingApproveId=null;
         function openApproveModal(id, num){ pendingApproveId=id; document.getElementById('approve-return-number').innerText=num; document.getElementById('approve-modal').classList.remove('hidden'); }
         function closeApproveModal(){ document.getElementById('approve-modal').classList.add('hidden'); pendingApproveId=null; }
         function confirmApprove(){ if(!pendingApproveId) return; const f=document.getElementById('approve-hidden-form'); f.action='/returns/approve/'+pendingApproveId; f.submit(); }
+        let pendingRejectId=null;
+        function openRejectModal(id, num){ pendingRejectId=id; document.getElementById('reject-return-number').innerText=num||('RET-'+id); var btn=document.querySelector('#reject-modal .btn-modal-save'); if(btn){ btn.disabled=false; btn.style.opacity=''; btn.style.pointerEvents=''; } document.getElementById('reject-modal').classList.remove('hidden'); }
+        function closeRejectModal(){ document.getElementById('reject-modal').classList.add('hidden'); pendingRejectId=null; }
+        function confirmReject(){ if(!pendingRejectId) return; const f=document.getElementById('reject-hidden-form'); f.action='/returns/reject/'+pendingRejectId; f.submit(); }
     

@@ -49,11 +49,11 @@ def generate_pr_number():
 
 # --- Product history guard: established catalog rows are immutable ---
 def is_product_established(cursor, product_id):
-    """TRUE when the product is in ANY delivery_items row or in pr_items of
+    """TRUE when the product is in ANY iar_items row or in pr_items of
     an Approved/Completed PR (locked history). Fail-safe returns TRUE so an
     uncertain check protects history instead of overwriting it."""
     try:
-        cursor.execute("SELECT 1 FROM delivery_items WHERE product_id = %s LIMIT 1",
+        cursor.execute("SELECT 1 FROM iar_items WHERE product_id = %s LIMIT 1",
                        (product_id,))
         if cursor.fetchone():
             return True
@@ -297,7 +297,7 @@ def get_all_purchase_requests(search_query="", status_filter="All", date_filter=
         cursor = conn.cursor(dictionary=True)
 
         sql = """
-        SELECT pr.pr_id, pr.pr_number, pr.date_requested, pr.status, pr.total_price,
+        SELECT pr.pr_id, pr.pr_number, pr.date_requested, pr.status, pr.po_status, pr.total_price,
                u.id AS user_id, u.Firstname, u.Lastname, u.username, u.Role
         FROM purchase_requests pr
         JOIN users u ON pr.user_id = u.id
@@ -347,18 +347,18 @@ def get_all_purchase_requests(search_query="", status_filter="All", date_filter=
 
 
 def get_approved_prs_for_delivery(search_query="", user_id=None):
-    """Approved PRs eligible for direct delivery (PR-to-Delivery workflow, no PO)."""
+    """Dual-approved PRs eligible for direct receiving (PR-to-IAR workflow, no PO)."""
     conn = None
     cursor = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         sql = """
-            SELECT pr.pr_id, pr.pr_number, pr.date_requested, pr.status, pr.total_price,
+            SELECT pr.pr_id, pr.pr_number, pr.date_requested, pr.status, pr.po_status, pr.total_price,
                    u.Firstname, u.Lastname, u.username
             FROM purchase_requests pr
             JOIN users u ON pr.user_id = u.id
-            WHERE pr.status = 'Approved'
+            WHERE pr.status = 'Approved' AND pr.po_status = 'Approved'
         """
         params = []
         if user_id:
@@ -587,7 +587,7 @@ def _delete_orphan_draft(cursor, product_id):
         return False
     checks = [
         "SELECT 1 FROM pr_items WHERE product_id = %s LIMIT 1",
-        "SELECT 1 FROM delivery_items WHERE product_id = %s LIMIT 1",
+        "SELECT 1 FROM iar_items WHERE product_id = %s LIMIT 1",
         "SELECT 1 FROM withdraw_items WHERE product_id = %s LIMIT 1",
         "SELECT 1 FROM return_items WHERE product_id = %s LIMIT 1",
         "SELECT 1 FROM items WHERE product_id = %s LIMIT 1",
@@ -739,6 +739,42 @@ def update_pr_status(pr_id, new_status):
             try: conn.rollback()
             except: pass
         print(f"[update_pr_status] DB error: {err}")
+        return False
+    finally:
+        if cursor: cursor.close()
+        if conn: conn.close()
+
+
+# --- 7. UPDATE: Procurement-office decision (second approval stage) ---
+def set_po_status(pr_id, new_status):
+    """Records the procurement/PO office outcome on a director-approved PR.
+
+    Only meaningful when status='Approved' (callers enforce); the IAR
+    dropdown requires status='Approved' AND po_status='Approved', so a
+    PO-rejected PR stays truthful history and never becomes receivable.
+    Reversible between Approved/Rejected by Admin (each change is explicit).
+    """
+    if new_status not in ("Pending", "Approved", "Rejected"):
+        return False
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT status, po_status FROM purchase_requests WHERE pr_id = %s;", (pr_id,))
+        row = cursor.fetchone()
+        if not row:
+            return False
+        if str(row.get("status", "")) != "Approved":
+            return False
+        cursor.execute("UPDATE purchase_requests SET po_status = %s WHERE pr_id = %s;", (new_status, pr_id))
+        conn.commit()
+        return True
+    except Exception as err:
+        if conn:
+            try: conn.rollback()
+            except: pass
+        print(f"[set_po_status] DB error: {err}")
         return False
     finally:
         if cursor: cursor.close()
