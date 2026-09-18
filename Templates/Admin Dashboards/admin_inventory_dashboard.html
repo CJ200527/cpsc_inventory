@@ -101,6 +101,7 @@
                         <option value="Out of Stock" {% if stock_filter == 'Out of Stock' %}selected{% endif %}>Out of Stock</option>
                         <option value="Needs Attention" {% if stock_filter == 'Needs Attention' %}selected{% endif %}>Low & Out of Stock</option>
                     </select><span class="focus-border"><i></i></span></div>
+                    <a href="{{ url_for('inventory_print_view', search=search, category=category_filter, stock_status=stock_filter) }}" class="btn-action btn-print" title="Print current list"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                 </div>
             </div>
 

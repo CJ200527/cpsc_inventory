@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory List of Items - Print</title>
+    <style>
+        /* Inventory print sheet — system-designed (no office paper exists):
+           centered header block, full-grid items table
+           (#/Item Name/Specs/Unit/Category/Current Stock/Status).
+           Prints the live ledger as filtered on screen.
+           Screen toolbar hidden on paper. */
+        @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
+        .screen-bar { max-width: 210mm; margin: 0 auto 12px auto; display: flex; gap: 8px; justify-content: flex-end; }
+        .screen-bar a, .screen-bar button { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; text-decoration: none; color: #000; }
+        .screen-bar .do-print { background: #0d47a1; border-color: #0d47a1; color: #fff; font-weight: 700; }
+        .sheet { max-width: 210mm; margin: 0 auto; background: #fff; padding: 8mm 7mm; }
+        .doc-head { text-align: center; line-height: 1.35; margin-bottom: 6px; }
+        .doc-head .college { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+        .doc-head .addr { font-size: 11px; }
+        .doc-head .form-title { font-size: 13px; font-weight: 700; margin-top: 8px; }
+        .doc-head .asof { font-size: 10.5px; margin-top: 2px; }
+        .filter-note { font-size: 10.5px; margin: 6px 0; }
+        table.inv-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.inv-table th, table.inv-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+        table.inv-table thead { display: table-header-group; }
+        table.inv-table thead th { font-size: 10.5px; text-align: left; background: #fff; }
+        table.inv-table tr { page-break-inside: avoid; }
+        table.inv-table td.num, table.inv-table th.num { text-align: center; }
+        table.inv-table td.ctr, table.inv-table th.ctr { text-align: center; }
+        table.inv-table td.item { text-align: left; }
+        col.c-no { width: 8mm; }
+        col.c-item { width: auto; }
+        col.c-specs { width: 52mm; }
+        col.c-unit { width: 14mm; }
+        col.c-cat { width: 24mm; }
+        col.c-stock { width: 18mm; }
+        col.c-status { width: 24mm; }
+        .empty-note { text-align: center; color: #333; padding: 12px; font-size: 11px; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .screen-bar { display: none !important; }
+            .sheet { max-width: none; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-bar">
+        <button type="button" onclick="if (history.length > 1) { history.back(); } else { location.href='/inventory'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="sheet">
+        <div class="doc-head">
+            <div class="college">CAMIGUIN POLYTECHNIC STATE COLLEGE</div>
+            <div class="addr">Balbagon, Mambajao, Camiguin</div>
+            <div class="form-title">Inventory List of Items</div>
+            <div class="asof">As of {{ as_of }} &nbsp;•&nbsp; {{ items | length }} item{{ 's' if items | length != 1 else '' }}</div>
+        </div>
+        {% if active_filters %}
+        <div class="filter-note"><strong>Filters:</strong> {{ active_filters }}</div>
+        {% endif %}
+        {% if items %}
+        <table class="inv-table">
+            <colgroup>
+                <col class="c-no"><col class="c-item"><col class="c-specs"><col class="c-unit"><col class="c-cat"><col class="c-stock"><col class="c-status">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="num">#</th>
+                    <th>Item Name</th>
+                    <th>Specs</th>
+                    <th class="ctr">Unit</th>
+                    <th>Category</th>
+                    <th class="ctr">Current Stock</th>
+                    <th class="ctr">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="num">{{ loop.index }}</td>
+                    <td class="item">{{ it.product_name }}</td>
+                    <td class="item">{{ it.details or '-' }}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                    <td class="ctr">{{ it.unit or '' }}</td>
+                    <td>{{ it.category or '-' }}</td>
+                    <td class="ctr">{{ it.current_stock }}</td>
+                    <td class="ctr">{{ it.stock_status }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-note">No items match the current filters.</div>
+        {% endif %}
+    </div>
+</body>
+</html>

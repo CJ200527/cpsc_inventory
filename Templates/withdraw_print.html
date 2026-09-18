@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Issuance / Withdrawal Slip - Print</title>
+    <style>
+        /* Withdrawal slip print sheet — mirrors the office paper (photo):
+           seal-text header, Department/Date/PO/Withdrawal meta row,
+           Item #/Qty/Unit/Description/Unit Cost/Total Amount grid (20 ruled
+           rows), TOTAL RECEIVED row, inspected + Complete/Partial checks,
+           Received By + officer blocks, document-code strip.
+           Unit costs print the request-time average snapshot, so outflow +
+           remainder always reconcile with the ledger. Any status prints.
+           Screen toolbar hidden on paper. */
+        @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
+        .screen-bar { max-width: 210mm; margin: 0 auto 12px auto; display: flex; gap: 8px; justify-content: flex-end; }
+        .screen-bar a, .screen-bar button { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; text-decoration: none; color: #000; }
+        .screen-bar .do-print { background: #0d47a1; border-color: #0d47a1; color: #fff; font-weight: 700; }
+        .sheet { max-width: 210mm; margin: 0 auto; background: #fff; padding: 6mm 6mm; border: 1px solid #000; }
+        .doc-head { text-align: left; line-height: 1.3; margin-bottom: 3px; }
+        .doc-head .rep { font-size: 10px; }
+        .doc-head .college { font-size: 12px; font-weight: 700; }
+        .doc-head .addr { font-size: 10px; }
+        .doc-head .office { font-size: 11px; font-weight: 700; }
+        .slip-title { text-align: center; font-size: 13px; font-weight: 700; margin: 3px 0 5px 0; }
+        .meta-grid { display: flex; justify-content: space-between; gap: 6mm; font-size: 11px; line-height: 1.6; margin-bottom: 2px; }
+        .meta-grid .col { flex: 1; }
+        .meta-grid .lbl { font-weight: 700; }
+        .fill-line { display: inline-block; min-width: 40mm; border-bottom: 1px solid #000; }
+        table.slip-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.slip-table th, table.slip-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+        table.slip-table thead { display: table-header-group; }
+        table.slip-table thead th { font-size: 10.5px; text-align: left; background: #fff; }
+        table.slip-table tr { page-break-inside: avoid; }
+        table.slip-table td.num, table.slip-table th.num { text-align: center; }
+        table.slip-table td.ctr, table.slip-table th.ctr { text-align: center; }
+        table.slip-table td.right, table.slip-table th.right { text-align: right; white-space: nowrap; }
+        table.slip-table td.blank { height: 6mm; }
+        col.c-no { width: 12mm; }
+        col.c-qty { width: 12mm; }
+        col.c-unit { width: 16mm; }
+        col.c-item { width: auto; }
+        col.c-unitcost { width: 26mm; }
+        col.c-total { width: 28mm; }
+        tfoot td { font-weight: 700; }
+        .foot-grid { display: flex; gap: 6mm; margin-top: 3mm; font-size: 11px; align-items: flex-start; }
+        .foot-grid .col { flex: 1; display: flex; flex-direction: column; }
+        .chk { display: inline-block; width: 4mm; height: 4mm; border: 1px solid #000; text-align: center; line-height: 3.5mm; font-weight: 700; margin-right: 2mm; }
+        .sig { margin-top: 8mm; text-align: center; }
+        .sig .name { font-weight: 700; text-transform: uppercase; }
+        .sig-line { border-bottom: 1px solid #000; min-height: 16px; margin-top: 2mm; }
+        .doc-strip { margin-top: 5mm; border: 1px solid #000; font-size: 9px; line-height: 1.4; padding: 2mm; }
+        .doc-strip table { width: 100%; border-collapse: collapse; }
+        .doc-strip td { border: 1px solid #000; padding: 1px 3px; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .screen-bar { display: none !important; }
+            .sheet { max-width: none; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-bar">
+        <button type="button" onclick="if (history.length > 1) { history.back(); } else { location.href='/withdraw'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="sheet">
+        <div class="doc-head">
+            <div class="rep">Republic of the Philippines</div>
+            <div class="college">CAMIGUIN POLYTECHNIC STATE COLLEGE</div>
+            <div class="addr">Balbagon, Mambajao, Camiguin</div>
+            <div class="office">SUPPLY OFFICE</div>
+        </div>
+        <div class="slip-title">Stock Issuance / Withdrawal Slip</div>
+        <div class="meta-grid">
+            <div class="col">
+                <div><span class="lbl">Department:</span> {{ header.department or '' }}</div>
+                <div><span class="lbl">PO Date:</span> <span class="fill-line">&nbsp;</span></div>
+            </div>
+            <div class="col">
+                <div><span class="lbl">Date:</span> {{ header.date_str or '' }}</div>
+                <div><span class="lbl">PO No.:</span> <span class="fill-line">&nbsp;</span></div>
+            </div>
+            <div class="col">
+                <div><span class="lbl">Withdrawal No. W</span> {{ header.ris_short or '' }}</div>
+            </div>
+        </div>
+        <table class="slip-table">
+            <colgroup>
+                <col class="c-no"><col class="c-qty"><col class="c-unit"><col class="c-item"><col class="c-unitcost"><col class="c-total">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="num">Item #</th>
+                    <th class="num">Qty</th>
+                    <th class="ctr">Unit</th>
+                    <th>Description</th>
+                    <th class="right">Unit Cost</th>
+                    <th class="right">Total Amount</th>
+                </tr>
+                <tr>
+                    <th colspan="6" style="text-align:left;font-weight:400;">Supply and delivery of the following:</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="num">{{ loop.index }}.</td>
+                    <td class="num">{{ it.quantity }}</td>
+                    <td class="ctr">{{ it.unit or '' }}</td>
+                    <td>{{ it.item_name }}{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                    <td class="right">{{ "{:,.2f}".format(it.price) }}</td>
+                    <td class="right">{{ "{:,.2f}".format(it.total_price) }}</td>
+                </tr>
+                {% endfor %}
+                {% for n in range(pad_rows) %}
+                <tr>
+                    <td class="num blank">&nbsp;</td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" style="text-align:right;">TOTAL RECEIVED</td>
+                    <td colspan="2" class="right">{{ "{:,.2f}".format(grand_total) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+        <div class="foot-grid">
+            <div class="col">
+                <div><span class="chk">X</span> Inspected, verified and found OK<br>as to quantity and specifications.</div>
+                <div class="sig" style="text-align:left;">
+                    <div>Received By: <strong>{{ header.received_by or '' }}</strong></div>
+                    <div class="sig-line">&nbsp;</div>
+                    <div style="margin-top:1mm;">Received / Date</div>
+                </div>
+            </div>
+            <div class="col">
+                <div><span class="chk">&nbsp;</span> Complete</div>
+                <div style="margin-top:2mm;"><span class="chk">&nbsp;</span> Partial</div>
+                <div class="sig">
+                    <div class="sig-line">&nbsp;</div>
+                    <div style="margin-top:1mm;">AO / Supply Officer</div>
+                </div>
+            </div>
+        </div>
+        <div class="doc-strip">
+            <table>
+                <tr>
+                    <td><strong>Document Title:</strong> Stock Issuance / Withdrawal Slip</td>
+                    <td><strong>Document Code:</strong> CPSC-SUP-F015</td>
+                    <td><strong>Rev. No.:</strong> 01</td>
+                    <td><strong>Effective Date:</strong> May 5, 2023</td>
+                </tr>
+            </table>
+            <div style="margin-top:1mm;">"CPSC commits to provide quality higher professional, technical instruction, research, extension and production services, advanced studies and progressive leadership in Agriculture, Teacher Education, Engineering and Computer Studies, Industrial Technology, Arts and Sciences, Tourism, Business and Public Administration."</div>
+        </div>
+    </div>
+</body>
+</html>

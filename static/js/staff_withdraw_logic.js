@@ -205,6 +205,8 @@
             const gtot0=document.getElementById('view-modal-grand-total');
             if(gtot0) gtot0.innerHTML='Grand Total: <span>₱ 0.00</span>';
             document.getElementById('view-modal').classList.remove('hidden');
+            var printBtn = document.getElementById('view-print-btn');
+            if (printBtn) printBtn.href = '/withdraw/print/' + id;
             fetch('/withdraw/details/'+id).then(r=>r.json()).then(data=>{
                 if(data.error){ c.innerHTML=data.error; return; }
                 document.getElementById('view-ris-number').innerText=shortWdNum(data.header.ris_number) + ' Details';

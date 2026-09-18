@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Inventory + Withdraw Printing, Valuation Settled (2026-09-18/19)
+
+> Filter-aware Inventory List sheet + photo-mirror 20-row Withdrawal Slip, both render-verified; unit-price truthfulness settled on moving weighted average (no architecture change); user paper-testing still pending.
+
+#### Added
+- **Inventory print** — `GET /inventory/print` (Admin + Staff) passing live `search`/`category`/`stock_status` into `get_inventory_items()`; `inventory_print.html` with centered school header + `Inventory List of Items` + as-of line + filter note; `#/Item Name/Specs/Unit/Category/Current Stock/Status` grid; printer icon after 2nd filter in both toolbelts (server-rendered href, same-tab + Close); slate hover in both inventory stylesheets.
+- **Withdraw print** — `GET /withdraw/print/<id>` (Admin + Staff, any status incl. Pending); `withdraw_print.html` mirrors the office slip: seal-text header, Department/Date/blank PO Date/PO No./`Withdrawal No. W`, 6-column grid + `TOTAL RECEIVED`, 20 ruled rows (items + pads), static `[X]` inspected, blank Complete/Partial, `Received By: <record>` + blanks, blank officer block, `CPSC-SUP-F015 / Rev. 01` strip; cell icon + View-modal Print on both dashboards; slate hover in both withdraw stylesheets.
+- **Valuation policy (settled)** — moving weighted average confirmed in code (blended at IAR approval, snapshotted at withdrawal; per-batch actuals preserved in `items` ledger); no FIFO work; snapshot timing = request-time.
+
+#### Pending (tomorrow, in order)
+1. **User test both new sheets on paper** (withdraw 20-row slip vs photo; inventory filtered subset) — NOT yet eyeballed.
+2. **Return slip** → **IAR signature alignment** → **action-button crowding** (deferred: display-scale) → **Settings polish** → **`AGENTS.md`**.
+
+---
+
 ## [Unreleased] — Full IAR Cutover + Two-Stage Approval + Decision Modals (2026-09-17/18)
 
 > `deliveries`/`delivery_items` replaced by `iar`/`iar_items` (yearly numbers, staff-typed P.O. Date, no Delivery Number); PRs gain a second procurement approval so history stays truthful; PO-Rejected locked out of merge-print; branded Confirm/Cancel decision modals everywhere with a Create-PR-exact green Confirm hover default; header icons made visible.

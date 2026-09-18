@@ -109,6 +109,7 @@
                                 <td><span class="badge badge-{{ w.status|lower }}">{{ w.status }}</span></td>
                                 <td>
                                     <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                    <a href="/withdraw/print/{{ w.withdraw_id }}" class="btn-action btn-print" title="Print Slip"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -207,7 +208,7 @@
         <div class="modal-box">
             <div class="modal-header"><h3 id="view-ris-number">RIS Details</h3></div>
             <div id="view-modal-content" style="font-size:12px;">Loading...</div>
-            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+            <div class="modal-buttons" style="display:flex;gap:10px;justify-content:flex-end;"><a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
         </div>
     </div>
 

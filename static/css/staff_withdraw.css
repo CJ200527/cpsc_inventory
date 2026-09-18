@@ -102,6 +102,7 @@
         .btn-approve:hover{background:#d4edda;border-color:#28a745;color:#155724;transform:translateY(-1px);box-shadow:0 4px 10px rgba(40,167,69,.25);}
         .btn-complete:hover{background:#fff8e1;border-color:#ffc107;color:#6d4c00;transform:translateY(-1px);box-shadow:0 4px 10px rgba(255,193,7,.25);}
         .btn-reject:hover,.btn-delete:hover{background:#f8d7da;border-color:#dc3545;color:#721c24;transform:translateY(-1px);box-shadow:0 4px 10px rgba(220,53,69,.25);}
+        .btn-print:hover{background:#eceff1;border-color:#78909c;color:#37474f;transform:translateY(-1px);box-shadow:0 4px 10px rgba(96,125,139,.25);}
         .btn-remove-row{width:28px;height:28px;border-radius:6px;border:1px solid #d0dbe5;background:transparent;color:#54677a;cursor:pointer;font-size:12px;transition:all .2s ease;}
         .btn-remove-row:hover{background:#f8d7da;border-color:#dc3545;color:#721c24;}
         .alert-bar{padding:10px 16px;border-radius:8px;font-size:12px;font-weight:500;margin-bottom:2px;}

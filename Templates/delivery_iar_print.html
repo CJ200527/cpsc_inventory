@@ -38,8 +38,9 @@
         col.c-item { width: auto; }
         col.c-unitcost { width: 28mm; }
         col.c-total { width: 30mm; }
-        .foot-grid { display: flex; gap: 6mm; margin-top: 3mm; font-size: 11px; }
-        .foot-grid .col { flex: 1; }
+        .foot-grid { display: flex; gap: 6mm; margin-top: 3mm; font-size: 11px; align-items: flex-start; }
+        .foot-grid .col { flex: 1; display: flex; flex-direction: column; }
+        .check-zone { min-height: 11mm; }
         .chk { display: inline-block; width: 4mm; height: 4mm; border: 1px solid #000; text-align: center; line-height: 3.5mm; font-weight: 700; margin-right: 2mm; }
         .sig { margin-top: 8mm; text-align: center; }
         .sig .name { font-weight: 700; text-transform: uppercase; }
@@ -113,15 +114,17 @@
         </table>
         <div class="foot-grid">
             <div class="col">
-                <div><span class="chk">X</span> Inspected, verified and found OK<br>as to quantity and specifications.</div>
+                <div class="check-zone"><span class="chk">X</span> Inspected, verified and found OK<br>as to quantity and specifications.</div>
                 <div class="sig">
                     <div class="name">{{ header.inspected_by or 'NATHANIEL B. STA. ELENA' }}</div>
                     <div>Inspection Officer</div>
                 </div>
             </div>
             <div class="col">
-                <div>{% if header.is_partial %}<span class="chk">&nbsp;</span> Complete{% else %}<span class="chk">X</span> Complete{% endif %}</div>
-                <div style="margin-top:2mm;">{% if header.is_partial %}<span class="chk">X</span> Partial{% else %}<span class="chk">&nbsp;</span> Partial{% endif %}</div>
+                <div class="check-zone">
+                    <div>{% if header.is_partial %}<span class="chk">&nbsp;</span> Complete{% else %}<span class="chk">X</span> Complete{% endif %}</div>
+                    <div style="margin-top:2mm;">{% if header.is_partial %}<span class="chk">X</span> Partial{% else %}<span class="chk">&nbsp;</span> Partial{% endif %}</div>
+                </div>
                 <div class="sig">
                     <div class="name">{{ header.supply_officer or 'MARIA EILEEN H. BAGTASOS' }}</div>
                     <div>AO III/ Supply Officer I, Designate</div>

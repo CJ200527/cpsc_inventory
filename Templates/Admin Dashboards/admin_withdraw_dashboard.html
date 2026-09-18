@@ -112,6 +112,7 @@
                                 <td>
                                     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                                         <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                        <a href="/withdraw/print/{{ w.withdraw_id }}" class="btn-action btn-print" title="Print Slip"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if w.status == 'Pending' %}
                                         <button type="button" class="btn-action btn-approve" title="Approve & Issue Stock" onclick="openApproveModal({{ w.withdraw_id }}, '{{ w.ris_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
                                         <button type="button" class="btn-action btn-reject" title="Disapprove" onclick="openRejectModal({{ w.withdraw_id }}, '{{ w.ris_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
@@ -224,6 +225,7 @@
             <div class="modal-buttons">
                 <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;">
                     <div id="view-approve-area" class="hidden" style="display:flex;gap:8px;"></div>
+                    <a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a>
                     <button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button>
                 </div>
             </div>

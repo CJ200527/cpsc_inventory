@@ -2102,6 +2102,46 @@ def staff_inventory_dashboard():
         stock_filter=stock_filter
     )
 
+# --- PRINT ROUTE: Inventory List of Items (filter-aware live ledger) ---
+@app.route("/inventory/print")
+def inventory_print_view():
+    """Server-rendered inventory sheet (Admin + Staff).
+
+    Respects the dashboard's live filters (search/category/stock_status) —
+    what you see is what prints. Uses get_inventory_items(); no new query.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Inventory.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Staff", "Admin"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    search = (request.args.get("search", "") or "").strip()
+    category_filter = (request.args.get("category", "") or "").strip() or "All"
+    stock_filter = (request.args.get("stock_status", "") or "").strip() or "All"
+    try:
+        items = get_inventory_items(
+            search_query=search,
+            category_filter=category_filter,
+            stock_status=stock_filter,
+        ) or []
+    except Exception as err:
+        print(f"[inventory_print_view] DB error: {err}")
+        items = []
+    bits = []
+    if search:
+        bits.append(f"Search: {search}")
+    if category_filter != "All":
+        bits.append(f"Category: {category_filter}")
+    if stock_filter != "All":
+        bits.append(f"Status: {stock_filter}")
+    return render_template(
+        "inventory_print.html",
+        items=items,
+        as_of=datetime.now().strftime("%B %d, %Y | %I:%M %p").lstrip("0"),
+        active_filters=" • ".join(bits),
+    )
+
 # Backward compatibility: old generic endpoint that staff templates previously used
 @app.route("/inventory_legacy")
 def inventory_dashboard():
@@ -2240,6 +2280,64 @@ def get_withdrawal_details_api(withdraw_id):
         try: it["quantity"]=int(it.get("quantity") or 0)
         except: it["quantity"]=0
     return {"header":header,"items":items}
+
+# --- PRINT ROUTE: Stock Issuance / Withdrawal Slip (any status, incl. Pending) ---
+@app.route("/withdraw/print/<int:withdraw_id>")
+def withdraw_print_view(withdraw_id):
+    """Server-rendered withdrawal slip for one record (Admin + Staff).
+
+    Mirrors the office paper: seal-text header, meta row, 6-column grid
+    padded to 20 ruled rows, TOTAL RECEIVED, footer + document-code strip.
+    Unit costs print the request-time average snapshot, so outflow +
+    remainder always reconcile with the ledger. No status gate — Pending
+    prints as the pass-to-office slip.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Withdrawals.", "error")
+        return redirect(url_for("login"))
+    header, items = get_withdrawal_details(withdraw_id)
+    if not header:
+        flash("Withdrawal not found.", "error")
+        return redirect(url_for("staff_withdraw_dashboard"
+                                if session.get("role") == "Staff"
+                                else "admin_withdraw_dashboard"))
+    try:
+        raw = header.get("date_requested")
+        header["date_str"] = raw.strftime("%m/%d/%Y") if hasattr(raw, "strftime") else str(raw or "")
+    except Exception:
+        header["date_str"] = str(header.get("date_requested", ""))
+    try:
+        header["ris_short"] = short_pr(header.get("ris_number") or f"WD-{withdraw_id:03d}")
+    except Exception:
+        header["ris_short"] = str(header.get("ris_number") or f"WD-{withdraw_id:03d}")
+    norm_items, grand = [], 0.0
+    for it in items or []:
+        try:
+            qty = int(it.get("quantity") or 0)
+        except Exception:
+            qty = 0
+        try:
+            price = float(it.get("unit_price") or 0)
+        except Exception:
+            price = 0.0
+        try:
+            total = float(it.get("total_price") or qty * price or 0)
+        except Exception:
+            total = 0.0
+        grand += total
+        norm_items.append({
+            "item_name": it.get("item_name") or "",
+            "details": it.get("withdraw_details") or it.get("details") or "",
+            "size": it.get("size") or "",
+            "unit": it.get("unit") or "",
+            "quantity": qty,
+            "price": price,
+            "total_price": total,
+        })
+    pad_rows = max(0, 20 - len(norm_items))
+    return render_template("withdraw_print.html", header=header,
+                           items=norm_items, pad_rows=pad_rows,
+                           grand_total=round(grand, 2))
 
 @app.route("/withdraw/approve/<int:withdraw_id>", methods=["POST"])
 def approve_withdrawal_action(withdraw_id):
