@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Return Slip, Uniform Headers, AGENTS.md (2026-09-22)
+
+> Return Slip print joins the family; every dashboard shares one sky-blue header card + spelled-out titles; `AGENTS.md` locks all rules and defaults; shared-workspace doctrine verified and recorded.
+
+#### Added
+- **Return print** — `GET /returns/print/<id>` (Admin + Staff, any status); `return_print.html` (IAR skeleton, own Return identity, 7 columns + Condition, 20 ruled rows, `TOTAL RETURNED`, record-driven serviceable note, no doc-code strip); cell icon + View-modal Print on both dashboards; slate hover in both return stylesheets; render-verified with synthetic data (exact 22 rows).
+- **`AGENTS.md`** — session-proof operating guide (environment, critical rules, architecture, UI defaults, verification protocol).
+- **Shared-workspace doctrine** — all staff share one workspace per module (all records, no "mine" filtering); admin same within admin views; personal scoping lives only in dashboard KPI counters. Verified: every list route passes `user_id=None`.
+
+#### Changed
+- **Uniform header cards (all 14 stylesheets)** — sky-blue `#aae0f7` rounded card (`14px 28px 0`, radius 12px, `#94d2ee` edge), sticky + mask shim, 20px de-italic titles, de-italic user names; frozen as the default for future dashboards.
+- **Spelled-out titles (both roles)** — Purchase Request · Inspection and Acceptance Report (IAR) · Inventory Ledger · Requisition and Issue Slip (RIS) / Withdraw · Return Slip.
+
+#### Pending (in order)
+1. **Paper-test all new sheets** → 2. **Nav grouping** (approved: Procurement / Operations / Stock / Admin) → 3. **Nav icon sprite** → 4. **Comparative Report spec** → 5. **Settings polish**.
+
+---
+
 ## [Unreleased] — Inventory + Withdraw Printing, Valuation Settled (2026-09-18/19)
 
 > Filter-aware Inventory List sheet + photo-mirror 20-row Withdrawal Slip, both render-verified; unit-price truthfulness settled on moving weighted average (no architecture change); user paper-testing still pending.

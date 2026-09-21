@@ -151,24 +151,40 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .main-wrapper::before {
+            content: "";
+            position: sticky;
+            top: 0;
+            height: 16px;
+            margin-bottom: -2px;
+            flex-shrink: 0;
+            background-color: #eaf3f8;
+            z-index: 30;
         }
 
         .top-header {
             background-color: #aae0f7;
-            padding: 12px 28px;
+            margin: 14px 28px 0;
+            border-radius: 12px;
+            border: 1px solid #94d2ee;
+            padding: 14px 24px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid #94d2ee;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
             flex-shrink: 0;
+            position: sticky;
+            top: 14px;
+            z-index: 20;
         }
 
         .header-title-box h1 {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 800;
-            font-style: italic;
             color: #0d233a;
             letter-spacing: -0.3px;
         }
@@ -187,7 +203,6 @@
         .user-profile-box .user-name {
             font-size: 14px;
             font-weight: 700;
-            font-style: italic;
             color: #0d233a;
         }
 
@@ -204,7 +219,7 @@
            ========================================== */
         .dashboard-container {
             padding: 22px 28px;
-            overflow-y: auto;
+            overflow: visible;
             flex: 1;
             display: flex;
             flex-direction: column;

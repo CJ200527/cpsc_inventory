@@ -210,6 +210,8 @@
             const c=document.getElementById('view-modal-content');
             c.innerHTML='Loading...';
             document.getElementById('view-modal').classList.remove('hidden');
+            var printBtn = document.getElementById('view-print-btn');
+            if (printBtn) printBtn.href = '/returns/print/' + id;
             fetch('/returns/details/'+id).then(r=>r.json()).then(data=>{
                 if(data.error){ c.innerHTML=data.error; return; }
                 document.getElementById('view-return-number').innerText=shortRetNum(data.header.return_number) + ' Details';

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Return Slip - Print</title>
+    <style>
+        /* Return slip print sheet — IAR-sheet skeleton with our own Return
+           identity (no office form exists): college header, Return No./Date/
+           Department/Ref Withdrawal meta + full-width Reason row,
+           Item #/Qty/Unit/Description/Condition/Unit Cost/Total Amount grid
+           (20 ruled rows), TOTAL RETURNED row, Returned By + officer blocks.
+           Costs print the stored snapshots, so outflow always reconciles.
+           Any status prints. Screen toolbar hidden on paper. */
+        @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
+        .screen-bar { max-width: 210mm; margin: 0 auto 12px auto; display: flex; gap: 8px; justify-content: flex-end; }
+        .screen-bar a, .screen-bar button { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; text-decoration: none; color: #000; }
+        .screen-bar .do-print { background: #0d47a1; border-color: #0d47a1; color: #fff; font-weight: 700; }
+        .sheet { max-width: 210mm; margin: 0 auto; background: #fff; padding: 6mm 6mm; border: 1px solid #000; }
+        .doc-head { text-align: center; line-height: 1.35; margin-bottom: 4px; }
+        .doc-head .rep { font-size: 10px; }
+        .doc-head .college { font-size: 13px; font-weight: 700; letter-spacing: .3px; }
+        .doc-head .addr { font-size: 10.5px; }
+        .doc-head .office { font-size: 11.5px; font-weight: 700; }
+        .slip-title { text-align: center; font-size: 14px; font-weight: 700; margin: 4px 0 6px 0; }
+        .meta-grid { display: flex; justify-content: space-between; gap: 6mm; font-size: 11px; line-height: 1.6; margin-bottom: 2px; }
+        .meta-grid .col { flex: 1; }
+        .meta-grid .lbl { font-weight: 700; }
+        .dept-row { border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 2px 0; font-size: 11px; line-height: 1.5; margin-bottom: 2px; }
+        table.ret-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.ret-table th, table.ret-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+        table.ret-table thead { display: table-header-group; }
+        table.ret-table thead th { font-size: 10.5px; text-align: left; background: #fff; }
+        table.ret-table tr { page-break-inside: avoid; }
+        table.ret-table td.num, table.ret-table th.num { text-align: center; }
+        table.ret-table td.ctr, table.ret-table th.ctr { text-align: center; }
+        table.ret-table td.right, table.ret-table th.right { text-align: right; white-space: nowrap; }
+        table.ret-table td.blank { height: 6mm; }
+        col.c-no { width: 10mm; }
+        col.c-qty { width: 12mm; }
+        col.c-unit { width: 14mm; }
+        col.c-item { width: auto; }
+        col.c-cond { width: 24mm; }
+        col.c-unitcost { width: 24mm; }
+        col.c-total { width: 26mm; }
+        tfoot td { font-weight: 700; }
+        .foot-grid { display: flex; gap: 6mm; margin-top: 3mm; font-size: 11px; align-items: flex-start; }
+        .foot-grid .col { flex: 1; display: flex; flex-direction: column; }
+        .check-zone { min-height: 11mm; }
+        .sig { margin-top: 8mm; text-align: center; }
+        .sig .name { font-weight: 700; text-transform: uppercase; }
+        .sig-line { border-bottom: 1px solid #000; min-height: 16px; margin-top: 2mm; }
+        .cond-note { margin-top: 3mm; font-size: 10.5px; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .screen-bar { display: none !important; }
+            .sheet { max-width: none; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-bar">
+        <button type="button" onclick="if (history.length > 1) { history.back(); } else { location.href='/returns'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="sheet">
+        <div class="doc-head">
+            <div class="rep">Republic of the Philippines</div>
+            <div class="college">CAMIGUIN POLYTECHNIC STATE COLLEGE</div>
+            <div class="addr">Balbagon, Mambajao, Camiguin</div>
+            <div class="office">PRODUCTION OFFICE</div>
+        </div>
+        <div class="slip-title">Return Slip</div>
+        <div class="meta-grid">
+            <div class="col">
+                <div><span class="lbl">Return No.:</span> {{ header.return_number or '' }}</div>
+                <div><span class="lbl">Department:</span> {{ header.department or '' }}</div>
+            </div>
+            <div class="col">
+                <div><span class="lbl">Date:</span> {{ header.date_str or '' }}</div>
+                <div><span class="lbl">Ref Withdrawal:</span> {{ header.ris_number or '—' }}</div>
+            </div>
+        </div>
+        <div class="dept-row">
+            <div><span class="lbl" style="font-weight:700;">Reason:</span> {{ header.reason or '' }}</div>
+        </div>
+        <table class="ret-table">
+            <colgroup>
+                <col class="c-no"><col class="c-qty"><col class="c-unit"><col class="c-item"><col class="c-cond"><col class="c-unitcost"><col class="c-total">
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="num">Item #</th>
+                    <th class="num">Qty</th>
+                    <th class="ctr">Unit</th>
+                    <th>Description</th>
+                    <th class="ctr">Condition</th>
+                    <th class="right">Unit Cost</th>
+                    <th class="right">Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="num">{{ loop.index }}.</td>
+                    <td class="num">{{ it.returned_quantity }}</td>
+                    <td class="ctr">{{ it.unit or '' }}</td>
+                    <td>{{ it.item_name }}{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                    <td class="ctr">{{ it.condition_status or '' }}</td>
+                    <td class="right">{{ "{:,.2f}".format(it.price) }}</td>
+                    <td class="right">{{ "{:,.2f}".format(it.total_price) }}</td>
+                </tr>
+                {% endfor %}
+                {% for n in range(pad_rows) %}
+                <tr>
+                    <td class="num blank">&nbsp;</td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                    <td class="blank"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" style="text-align:right;">TOTAL RETURNED</td>
+                    <td colspan="2" class="right">{{ "{:,.2f}".format(grand_total) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+        {% if has_serviceable %}
+        <div class="cond-note">Note: Serviceable items are restocked to inventory upon approval.</div>
+        {% endif %}
+        <div class="foot-grid">
+            <div class="col">
+                <div class="check-zone">
+                    <div>Returned By: <strong>{{ header.requester or '' }}</strong></div>
+                    <div class="sig-line">&nbsp;</div>
+                    <div style="margin-top:1mm;">Signature / Date</div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="check-zone">
+                    <div>Received By:</div>
+                    <div class="sig-line">&nbsp;</div>
+                    <div style="margin-top:1mm;">Signature / Date</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -2584,6 +2584,65 @@ def reject_return_action(return_id):
     flash(msg, "success" if ok else "error")
     return redirect(url_for("admin_return_dashboard"))
 
+# --- PRINT ROUTE: Return Slip (any status, incl. Pending) ---
+@app.route("/returns/print/<int:return_id>")
+def return_print_view(return_id):
+    """Server-rendered Return Slip for one record (Admin + Staff).
+
+    IAR-sheet skeleton with our own Return identity (no office form
+    exists): college header, Return No./Date/Department/Ref Withdrawal +
+    full-width Reason, 7-column grid padded to 20 ruled rows,
+    TOTAL RETURNED. Costs print the stored snapshots. No status gate.
+    """
+    if "user_id" not in session:
+        flash("Please log in to print Returns.", "error")
+        return redirect(url_for("login"))
+    header, items = get_return_details(return_id)
+    if not header:
+        flash("Return not found.", "error")
+        return redirect(url_for("staff_return_dashboard"
+                                if session.get("role") == "Staff"
+                                else "admin_return_dashboard"))
+    try:
+        raw = header.get("date_returned")
+        header["date_str"] = raw.strftime("%m/%d/%Y") if hasattr(raw, "strftime") else str(raw or "")
+    except Exception:
+        header["date_str"] = str(header.get("date_returned", ""))
+    header["requester"] = f"{header.get('Firstname') or ''} {header.get('Lastname') or ''}".strip()
+    norm_items, grand, has_serviceable = [], 0.0, False
+    for it in items or []:
+        try:
+            qty = int(it.get("returned_quantity") or it.get("quantity") or 0)
+        except Exception:
+            qty = 0
+        try:
+            price = float(it.get("unit_price") or 0)
+        except Exception:
+            price = 0.0
+        try:
+            total = float(it.get("total_price") or qty * price or 0)
+        except Exception:
+            total = 0.0
+        cond = it.get("condition_status") or ""
+        if cond == "Serviceable":
+            has_serviceable = True
+        grand += total
+        norm_items.append({
+            "item_name": it.get("item_name") or "",
+            "details": it.get("return_details") or it.get("details") or "",
+            "size": it.get("size") or "",
+            "unit": it.get("unit") or "",
+            "returned_quantity": qty,
+            "condition_status": cond,
+            "price": price,
+            "total_price": total,
+        })
+    pad_rows = max(0, 20 - len(norm_items))
+    return render_template("return_print.html", header=header,
+                           items=norm_items, pad_rows=pad_rows,
+                           grand_total=round(grand, 2),
+                           has_serviceable=has_serviceable)
+
 
 # --- SETTINGS ROUTES ---
 @app.route("/admin/settings", methods=["GET", "POST"])

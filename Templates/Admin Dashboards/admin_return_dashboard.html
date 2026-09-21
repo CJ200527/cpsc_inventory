@@ -50,7 +50,7 @@
         <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
-                <h1>Return Slip — Admin Verification</h1>
+                <h1>Return Slip</h1>
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
@@ -115,6 +115,7 @@
                                 <td>
                                     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                                         <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                        <a href="/returns/print/{{ r.return_id }}" class="btn-action btn-print" title="Print Slip"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
                                         {% if r.status == 'Pending' %}
                                         <button type="button" class="btn-action btn-approve" title="Approve & Process" onclick="openApproveModal({{ r.return_id }}, '{{ r.return_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-check"/></svg></button>
                                         <button type="button" class="btn-action btn-reject" title="Reject" onclick="openRejectModal({{ r.return_id }}, '{{ r.return_number }}')"><svg class="act-icon" aria-hidden="true"><use href="#i-disapprove"/></svg></button>
@@ -229,7 +230,7 @@
             <div class="modal-header"><h3 id="view-return-number">Return Details</h3></div>
             <div id="view-modal-content" style="font-size:12px;">Loading...</div>
             <div id="view-approve-area" class="hidden" style="margin-top:12px; text-align:right;"></div>
-            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+            <div class="modal-buttons" style="display:flex;gap:10px;justify-content:flex-end;"><a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
         </div>
     </div>
 
@@ -282,4 +283,5 @@
 
 </body>
 </html>
+
 

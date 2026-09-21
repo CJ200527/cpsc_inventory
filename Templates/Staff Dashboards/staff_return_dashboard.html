@@ -48,7 +48,7 @@
         <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
         <div class="top-header">
             <div class="header-title-box">
-                <h1>Return Slip — Request Return</h1>
+                <h1>Return Slip</h1>
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
@@ -111,7 +111,8 @@
                                 <td>{{ r.date_returned | ph_datetime }}</td>
                                 <td style="text-align:center; font-weight:700;">{{ r.total_qty or 0 }}</td>
                                 <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
-                                <td><button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button></td>
+                                <td><button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ r.return_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
+                                    <a href="/returns/print/{{ r.return_id }}" class="btn-action btn-print" title="Print Slip"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a></td>
                             </tr>
                             {% endfor %}
                         {% else %}
@@ -217,7 +218,7 @@
         <div class="modal-box">
             <div class="modal-header"><h3 id="view-return-number">Return Details</h3></div>
             <div id="view-modal-content" style="font-size:12px;">Loading...</div>
-            <div class="modal-buttons"><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
+            <div class="modal-buttons" style="display:flex;gap:10px;justify-content:flex-end;"><a id="view-print-btn" href="#" class="btn-modal-save" style="text-decoration:none;">🖨 Print</a><button type="button" class="btn-modal-cancel" onclick="closeViewModal()">Close</button></div>
         </div>
     </div>
 
@@ -228,4 +229,5 @@
 
 </body>
 </html>
+
 
