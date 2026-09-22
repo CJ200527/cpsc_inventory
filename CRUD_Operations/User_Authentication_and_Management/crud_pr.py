@@ -285,10 +285,13 @@ def create_purchase_request(user_id, items_list, fund_source="Fund 05", date_req
 
 
 # --- 2. READ: Fetch Purchase Requests with Search & Filters ---
-def get_all_purchase_requests(search_query="", status_filter="All", date_filter="All", custom_date="", user_id=None):
+def get_all_purchase_requests(search_query="", status_filter="All", date_filter="All", custom_date="", user_id=None,
+                              date_from="", date_to="", po_status_filter="All"):
     """
     Fetches PR records joined with users table.
     Filters by user_id if passed (for Staff viewing their own PRs).
+    date_from/date_to (YYYY-MM-DD) form an explicit range that wins over
+    the date_filter presets when both bounds are valid.
     """
     conn = None
     cursor = None
@@ -313,6 +316,10 @@ def get_all_purchase_requests(search_query="", status_filter="All", date_filter=
             sql += " AND pr.status = %s"
             params.append(status_filter)
 
+        if po_status_filter != "All":
+            sql += " AND COALESCE(pr.po_status, 'Pending') = %s"
+            params.append(po_status_filter)
+
         if search_query:
             pattern = f"%{search_query}%"
             sql += """ AND (
@@ -323,7 +330,10 @@ def get_all_purchase_requests(search_query="", status_filter="All", date_filter=
             )"""
             params.extend([pattern] * 4)
 
-        if date_filter == "Today":
+        if date_from and date_to:
+            sql += " AND DATE(pr.date_requested) BETWEEN %s AND %s"
+            params.extend([date_from, date_to])
+        elif date_filter == "Today":
             sql += " AND DATE(pr.date_requested) = CURDATE()"
         elif date_filter == "Last Month":
             sql += " AND pr.date_requested >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"

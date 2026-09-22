@@ -75,6 +75,16 @@
   `confirm()`).
 - **fx21 fields:** structure `.fx21-field > input.effect-21 + span.focus-border`
   + label; box styling is inline per input; parked labels need 26px row rhythm.
+  Focus draws the `#53c5f1` rounded border animation (focus-only, never glow).
+- **Overlay law (hard-won):** NO popup/panel may render inside a card subtree
+  (`.control-card`, `.toolbelt-container`, `.table-card`). The page-load
+  `cascade-unveil` animation fill leaves permanent `transform` + `clip-path`
+  on those containers, which re-anchors fixed descendants (coordinates
+  misfire) and traps z-index (panels slice behind later content). Body-level
+  overlays (decision modals) are always safe. Shared guard in `modals.css`
+  (`body .cascade-unveil` fill release) — never remove it. Proven pattern:
+  filter panel = relative wrap + absolute card + `.open` toggle + native
+  mini-form, with Cancel (discard) + Apply (green) + Clear link.
 - **Icons:** single inline-SVG sprite (`action-icons.js`, `currentColor`,
   arcs-free). Nav emoji → minimalist SVG sprite is queued, same system.
 - **Print family:** standalone sheet, `@page` portrait, screen toolbar hidden

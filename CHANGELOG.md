@@ -5,6 +5,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Filter Refinement: Buttons, Glow, Category, IAR, Users (2026-09-25)
+
+> Shared green Apply hover wins everywhere, focus glow deleted, guaranteed Product categories, new IAR Completion + Users approval/role filters.
+
+#### Fixed
+- **Panel Apply hover unified** — `.filter-panel .btn-confirm-go:hover` (0,3,0) beats all page blue overrides; Product was right by accident, now all 13 match.
+- **Focus glow deleted** — blue `box-shadow` ring removed; fx21 border-draw is the sole focus feedback (spans verified on Product).
+- **Product Category guaranteed** — Consumables/Tools/Equipment fallbacks + route validation accepts the canonical three.
+
+#### Added
+- **IAR Completion filter** — Partial/Complete second dropdown (both dashboards, counted).
+- **Users filters** — Approval Status (Approved/Pending on `Approved_By`) + User Role (Admin/Staff), validated, counted.
+
+#### Pending (step-by-step)
+1. **Verify remaining 12 panels** → 2. **Paper-test prints** → 3. **Comparative Report spec** → 4. **Settings polish**.
+
+---
+
+## [Unreleased] — Filter Panels Everywhere + Trap Defusal (2026-09-24)
+
+> Anchored filter cards (Start/End + status/category, fx21 focus, count badge, Cancel/Apply/Clear) on all 13 list pages; PO-status filter on PR; date ranges on IAR/Product/Users; the cascade-unveil overlay trap found and killed globally.
+
+#### Added
+- **Filter panel system** — relative wrap + absolute 300px card + `.open` toggle + native mini-form (groupmate-proven recipe, our theme/buttons); `filter-panel.js` (bind, outside-click, Escape, Cancel); count badge server-rendered; `i-filter` funnel sprite.
+- **Per-page filters** — PR (dates + dual statuses), IAR (dates + status), Withdraw/Return (status), Inventory (category + stock), Product/Users (dates).
+- **Date ranges** — `date_from`/`date_to` on PR/IAR/Product/Users backends (validated, never future, from ≤ to, wins over presets).
+
+#### Fixed
+- **Cascade-unveil overlay trap (root-caused)** — page-load animation fill left permanent `transform` + `clip-path` on card subtrees, re-anchoring fixed descendants and trapping z-index (five rounds of symptoms, one cause); shared `body .cascade-unveil` guard in `modals.css` releases it everywhere. Recorded as Overlay Law in `AGENTS.md`.
+- **Retired** — overlay popover, accordion strip, filter dialog + their scripts (superseded by the panel).
+
+#### Pending (in order)
+1. **Paper-test prints** → 2. **Comparative Report spec** → 3. **Settings polish**.
+
+---
+
+## [Unreleased] — Grouped Nav + SVG Icon Sprite (2026-09-23)
+
+> All 16 sidebars grouped by purpose with ruled section labels; emoji replaced by a hand-drawn SVG sprite with per-section theme hues; `/reports` stub live.
+
+#### Added
+- **Nav grouping** — Dashboard / Procurement / Operations / Stocks / Others (Reports · Users · Settings on admin, Reports alone on staff); `nav-group-label` shared rule in `modals.css` (black, non-bold, 10px, uppercase + full-width rule line); sidebar scroll retained.
+- **Nav icon sprite** — `static/js/nav-icons.js` (11 outline symbols, 24-grid, `currentColor`, arcs-free, same injector architecture as action-icons); `.nav-icon` 18px sizing in `action-icons.css`; all 16 sidebars swapped incl. Log Out exit arrow.
+- **Per-section hues** — navy Admin, sky Procurement, amber Operations, purple Stocks, slate Others, red Logout; sky-shift on hover/active (logout → white); shared rules, both roles.
+- **`/reports` stub** — flashes "coming soon", redirects per role; nav entry on all sidebars, replaced for real at report spec.
+
+#### Pending (in order)
+1. **Comparative Report spec** → 2. **Settings polish**.
+
+---
+
 ## [Unreleased] — Return Slip, Uniform Headers, AGENTS.md (2026-09-22)
 
 > Return Slip print joins the family; every dashboard shares one sky-blue header card + spelled-out titles; `AGENTS.md` locks all rules and defaults; shared-workspace doctrine verified and recorded.

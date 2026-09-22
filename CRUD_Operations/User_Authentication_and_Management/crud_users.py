@@ -87,7 +87,8 @@ def reset_password_verified(username, contact_number, new_password):
     return True
 
 # --- 3. READ: Advanced Search & Date Filter for User Management ---
-def get_all_users_filtered(search_query="", date_filter="All", custom_date=""):
+def get_all_users_filtered(search_query="", date_filter="All", custom_date="", date_from="", date_to="",
+                           approval_filter="All", role_filter="All"):
     """
     Fetches users matching a multi-field search and date range filters.
     Excludes password from results for security.
@@ -120,8 +121,11 @@ def get_all_users_filtered(search_query="", date_filter="All", custom_date=""):
         )"""
         params.extend([search_pattern] * 7)
 
-    # B. Date Filters
-    if date_filter == "Today":
+    # B. Date Filters (explicit range wins over presets)
+    if date_from and date_to:
+        sql += " AND DATE(created_at) BETWEEN %s AND %s"
+        params.extend([date_from, date_to])
+    elif date_filter == "Today":
         sql += " AND DATE(created_at) = CURDATE()"
     elif date_filter == "Last Month":
         sql += " AND created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"
@@ -130,6 +134,15 @@ def get_all_users_filtered(search_query="", date_filter="All", custom_date=""):
     elif date_filter == "Custom" and custom_date:
         sql += " AND DATE(created_at) = %s"
         params.append(custom_date)
+
+    # C. Approval + Role Filters
+    if approval_filter == "Approved":
+        sql += " AND Approved_By = 1"
+    elif approval_filter == "Pending":
+        sql += " AND (Approved_By = 0 OR Approved_By IS NULL)"
+    if role_filter in ("Admin", "Staff"):
+        sql += " AND Role = %s"
+        params.append(role_filter)
 
     sql += " ORDER BY id DESC;"
 

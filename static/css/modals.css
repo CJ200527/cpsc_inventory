@@ -532,6 +532,30 @@ body .modal-box {
 .btn-modal-save {
     transition: all 0.2s ease;
 }
+/* Shared button bases (fallback): pages without their own .btn-modal-*
+   rules (e.g. inventory sheets) render native buttons otherwise. Page
+   stylesheets load later and win ties, so defined pages never change. */
+.btn-modal-save {
+    padding: 8px 22px;
+    background: #53c5f1;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-modal-cancel {
+    padding: 8px 18px;
+    background: #e0e0e0;
+    color: #333333;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
 .btn-modal-save:hover {
     background: #2ea3d1;
     transform: translateY(-1px);
@@ -617,4 +641,113 @@ textarea:focus {
 .search-input-box:focus-within {
     border-color: #53c5f1;
     box-shadow: 0 0 0 3px rgba(83, 197, 241, 0.25);
+}
+
+/* --- Filter popover (shared default, all list dashboards) ---
+   One funnel button per control bar; the popover rehoused the page's own
+   selects unchanged (same form, same names) plus Apply/Cancel in the
+   decision-modal button language. Anchor wrapper owns positioning. */
+.filter-controls { flex-wrap: wrap; }
+/* Anchored filter panel (groupmate-proven recipe, our theme): relative
+   wrap + absolute card toggled by .open. No coordinates, no fixed layer. */
+.filter-wrap { position: relative; display: inline-flex; }
+.filter-btn { position: relative; }
+.filter-btn.open { border-color: #53c5f1; color: #0277bd; }
+.filter-count {
+    position: absolute; top: -7px; right: -7px;
+    background: #0277bd; color: #fff;
+    font-size: 11px; font-weight: 700;
+    min-width: 20px; height: 20px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
+}
+.filter-panel {
+    display: none; position: absolute; right: 0; top: calc(100% + 10px);
+    width: 300px; background: #fff; border: 1px solid #d0dbe5; border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(13, 35, 58, 0.18);
+    padding: 18px; z-index: 60;
+}
+.filter-panel.open { display: block; animation: filterPopIn 0.18s ease both; }
+@keyframes filterPopIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}
+/* Filter panel fields: plain stacked labels (compact card language). */
+.filter-field { margin-bottom: 12px; }
+.filter-field label { display: block; font-size: 12px; font-weight: 600; color: #555555; margin-bottom: 5px; }
+.filter-field input, .filter-field select {
+    width: 100%; height: 42px; border: 1px solid #d0dbe5; border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; background: #fff; color: #333;
+}
+.filter-field input:focus, .filter-field select:focus {
+    outline: none; box-shadow: none;
+}
+.filter-panel-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px;
+}
+.filter-panel-title {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    text-transform: uppercase; color: #8a9ba8;
+}
+.filter-clear-link {
+    background: none; border: none; padding: 0; cursor: pointer;
+    color: #0277bd; font-size: 11px; font-weight: 600;
+    text-transform: none; letter-spacing: 0; text-decoration: underline;
+}
+.filter-clear-link:hover { color: #01579b; }
+.filter-actions { display: flex; gap: 10px; margin-top: 4px; }
+.filter-actions .btn-modal-save, .filter-actions .btn-modal-cancel { flex: 1; justify-content: center; }
+/* Panel Apply: Create-PR-exact green hover. Scoped to .filter-panel
+   (0,3,0) so it beats every page-level .btn-modal-save:hover (0,2,0)
+   regardless of stylesheet load order — one rule fixes all 13 pages. */
+.filter-panel .btn-confirm-go:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    border-color: #4caf50;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+.filter-panel .btn-confirm-go:active {
+    background: #66bb6a;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+/* --- Cascade-unveil trap defusal (shared default, all dashboards) ---
+   ui_helpers.js stamps .cascade-unveil on control cards/toolbelts/tables,
+   and the per-sheet progressiveReveal keyframes use fill:forwards — leaving
+   a permanent transform + clip-path on those containers. That silently
+   re-anchors every fixed-position descendant (coordinates misfire) and
+   traps every z-index inside a new stacking context (panels slice behind
+   later content). backwards keeps the identical intro but releases the
+   trap the moment the reveal ends. Higher specificity wins over all
+   page-sheet shorthands regardless of load order. */
+body .cascade-unveil { opacity: 1; transform: none; clip-path: none; animation-fill-mode: backwards; }
+
+/* --- Sidebar nav grouping (shared default, all dashboards) ---
+   Static small-caps section labels; buttons themselves untouched.
+   Sidebar already scrolls, so grouped navs degrade gracefully. */
+.nav-group-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #000000;
+    padding: 10px 10px 2px 10px;
+    margin: 0;
+    pointer-events: none;
+    user-select: none;
+}
+.nav-group-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #d5dde3;
+}
+.nav-menu > .nav-group-label:first-child {
+    padding-top: 2px;
 }

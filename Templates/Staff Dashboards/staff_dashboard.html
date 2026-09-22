@@ -82,19 +82,25 @@
 
             <!-- Staff-Specific Menu Options -->
                         <div class="nav-menu">
-                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn active"><span class="icon">💻</span><span>Dashboard</span></a>
-                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive IAR</span></a>
-                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
-                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
-                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="{{ url_for('staff_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
+                <div class="nav-group-label">Dashboard</div>
+                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn nav-sec-admin active"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-dashboard"/></svg></span><span>Dashboard</span></a>
+                <div class="nav-group-label">Procurement</div>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-pr"/></svg></span><span>Submit PR</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-iar"/></svg></span><span>Receive IAR</span></a>
+                <div class="nav-group-label">Operations</div>
+                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-withdraw"/></svg></span><span>Withdraw</span></a>
+                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-return"/></svg></span><span>Return</span></a>
+                <div class="nav-group-label">Stocks</div>
+                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('staff_products') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-product"/></svg></span><span>Product</span></a>
+                <div class="nav-group-label">Others</div>
+                <a href="{{ url_for('reports_hub') }}" class="nav-btn nav-sec-others"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-reports"/></svg></span><span>Reports</span></a>
             </div>
         </div>
 
         <div>
             <a href="/logout" class="nav-btn logout-btn">
-                <span class="icon">🚩</span>
+                <span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-logout"/></svg></span>
                 <span>Log Out</span>
             </a>
             <div class="sidebar-footer">@ CPSC Production Office 2026</div>
@@ -296,6 +302,7 @@
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
 
 
 </body>

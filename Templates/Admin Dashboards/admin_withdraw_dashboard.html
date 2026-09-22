@@ -32,18 +32,24 @@
                 <div><div class="school-title">Camiguin Polytechnic State College</div><div class="school-subtitle">Balbagon, Mambajao, Camiguin</div></div>
             </div>
                         <div class="nav-menu">
-                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
-                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn"><span class="icon">🚚</span><span>Receive IAR</span></a>
-                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
-                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn active"><span class="icon">📤</span><span>Withdraw</span></a>
-                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="{{ url_for('admin_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
-                <a href="{{ url_for('admin_users') }}" class="nav-btn"><span class="icon">👥</span><span>Users</span></a>
-                <a href="{{ url_for('admin_settings') }}" class="nav-btn"><span class="icon">⚙</span><span>Settings</span></a>
+                <div class="nav-group-label">Dashboard</div>
+                <a href="{{ url_for('admin_dashboard') }}" class="nav-btn nav-sec-admin"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-dashboard"/></svg></span><span>Dashboard</span></a>
+                <div class="nav-group-label">Procurement</div>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-pr"/></svg></span><span>Submit PR</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-iar"/></svg></span><span>Receive IAR</span></a>
+                <div class="nav-group-label">Operations</div>
+                <a href="{{ url_for('admin_withdraw_dashboard') }}" class="nav-btn nav-sec-operations active"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-withdraw"/></svg></span><span>Withdraw</span></a>
+                <a href="{{ url_for('admin_return_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-return"/></svg></span><span>Return</span></a>
+                <div class="nav-group-label">Stocks</div>
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('admin_products') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-product"/></svg></span><span>Product</span></a>
+                <div class="nav-group-label">Others</div>
+                <a href="{{ url_for('reports_hub') }}" class="nav-btn nav-sec-others"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-reports"/></svg></span><span>Reports</span></a>
+                <a href="{{ url_for('admin_users') }}" class="nav-btn nav-sec-others"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-users"/></svg></span><span>Users</span></a>
+                <a href="{{ url_for('admin_settings') }}" class="nav-btn nav-sec-others"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-settings"/></svg></span><span>Settings</span></a>
             </div>
         </div>
-        <div><a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
+        <div><a href="/logout" class="nav-btn logout-btn"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-logout"/></svg></span><span>Log Out</span></a><div class="sidebar-footer">@ CPSC Production Office 2026</div></div>
     </div>
 
     <div class="main-wrapper">
@@ -73,12 +79,28 @@
                     <a href="{{ url_for('admin_withdraw_dashboard') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
                 </form>
                 <div class="filter-controls">
-                    <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
-                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All</option>
-                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
-                        <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
-                    </select><span class="focus-border"><i></i></span></div>
+                    <div class="filter-wrap">
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <div class="filter-panel">
+                            <form method="GET" action="{{ url_for('admin_withdraw_dashboard') }}">
+                                <input type="hidden" name="search" value="{{ search }}">
+                                <div class="filter-panel-head"><span class="filter-panel-title">Filters</span><a class="filter-clear-link" href="{{ url_for('admin_withdraw_dashboard', search=search) if search else url_for('admin_withdraw_dashboard') }}">Clear</a></div>
+                                <div class="filter-field">
+                                    <label for="fStatus-awd">Status</label>
+                                    <div class="fx21-field"><select id="fStatus-awd" name="status_filter" class="effect-21">
+                                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All</option>
+                                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                                        <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
+                                    </select><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="btn-modal-cancel" data-filter-cancel>Cancel</button>
+                                    <button type="submit" class="btn-modal-save btn-confirm-go">Apply Filters</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                     <button type="button" class="btn-add-primary" onclick="openWithdrawModal()">+ New Withdrawal</button>
                 </div>
             </div>
@@ -277,6 +299,8 @@
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin_withdraw_logic.js') }}"></script>
 
 </body>

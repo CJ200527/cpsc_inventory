@@ -35,17 +35,23 @@
                 </div>
             </div>
                         <div class="nav-menu">
-                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn"><span class="icon">💻</span><span>Dashboard</span></a>
-                <a href="{{ url_for('pr_management') }}" class="nav-btn"><span class="icon">📋</span><span>Submit PR</span></a>
-                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn active"><span class="icon">🚚</span><span>Receive IAR</span></a>
-                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn"><span class="icon">📦</span><span>Stock Inventory</span></a>
-                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn"><span class="icon">📤</span><span>Withdraw</span></a>
-                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn"><span class="icon">🔄</span><span>Return</span></a>
-                <a href="{{ url_for('staff_products') }}" class="nav-btn"><span class="icon">🏷️</span><span>Product</span></a>
+                <div class="nav-group-label">Dashboard</div>
+                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn nav-sec-admin"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-dashboard"/></svg></span><span>Dashboard</span></a>
+                <div class="nav-group-label">Procurement</div>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-pr"/></svg></span><span>Submit PR</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn nav-sec-procurement active"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-iar"/></svg></span><span>Receive IAR</span></a>
+                <div class="nav-group-label">Operations</div>
+                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-withdraw"/></svg></span><span>Withdraw</span></a>
+                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-return"/></svg></span><span>Return</span></a>
+                <div class="nav-group-label">Stocks</div>
+                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('staff_products') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-product"/></svg></span><span>Product</span></a>
+                <div class="nav-group-label">Others</div>
+                <a href="{{ url_for('reports_hub') }}" class="nav-btn nav-sec-others"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-reports"/></svg></span><span>Reports</span></a>
             </div>
         </div>
         <div>
-            <a href="/logout" class="nav-btn logout-btn"><span class="icon">🚩</span><span>Log Out</span></a>
+            <a href="/logout" class="nav-btn logout-btn"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-logout"/></svg></span><span>Log Out</span></a>
             <div class="sidebar-footer">@ CPSC Production Office 2026</div>
         </div>
     </div>
@@ -78,16 +84,43 @@
                     <a href="{{ url_for('delivery_dashboard') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
                 </form>
                 <div class="filter-controls">
-                    <div class="fx21-field"><select name="status_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
-                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
-                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
-                        <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
-                    </select><span class="focus-border"><i></i></span></div>
-                    <div class="fx21-field"><select name="date_filter" form="filter-form" class="filter-select effect-21" onchange="document.getElementById('filter-form').submit()">
-                        <option value="All" {% if date_filter == 'All' %}selected{% endif %}>All Dates</option>
-                        <option value="Today" {% if date_filter == 'Today' %}selected{% endif %}>Today</option>
-                        <option value="Last Month" {% if date_filter == 'Last Month' %}selected{% endif %}>Last Month</option>
-                    </select><span class="focus-border"><i></i></span></div>
+                    <div class="filter-wrap">
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <div class="filter-panel">
+                            <form method="GET" action="{{ url_for('delivery_dashboard') }}">
+                                <input type="hidden" name="search" value="{{ search }}">
+                                <div class="filter-panel-head"><span class="filter-panel-title">Filters</span><a class="filter-clear-link" href="{{ url_for('delivery_dashboard', search=search) if search else url_for('delivery_dashboard') }}">Clear</a></div>
+                                <div class="filter-field">
+                                    <label for="fStart-sdelivery">Start Date</label>
+                                    <div class="fx21-field"><input type="date" id="fStart-sdelivery" name="date_from" class="effect-21" value="{{ date_from }}" max="{{ current_date }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="fEnd-sdelivery">End Date</label>
+                                    <div class="fx21-field"><input type="date" id="fEnd-sdelivery" name="date_to" class="effect-21" value="{{ date_to }}" max="{{ current_date }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="fStatus-sdelivery">Status</label>
+                                    <div class="fx21-field"><select id="fStatus-sdelivery" name="status_filter" class="effect-21">
+                                        <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All</option>
+                                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                                        <option value="Received" {% if status_filter == 'Received' %}selected{% endif %}>Received</option>
+                                    </select><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="fPartial-sdelivery">Completion</label>
+                                    <div class="fx21-field"><select id="fPartial-sdelivery" name="partial_filter" class="effect-21">
+                                        <option value="All" {% if partial_filter == 'All' %}selected{% endif %}>All</option>
+                                        <option value="Partial" {% if partial_filter == 'Partial' %}selected{% endif %}>Partial</option>
+                                        <option value="Complete" {% if partial_filter == 'Complete' %}selected{% endif %}>Complete</option>
+                                    </select><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="btn-modal-cancel" data-filter-cancel>Cancel</button>
+                                    <button type="submit" class="btn-modal-save btn-confirm-go">Apply Filters</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
                     <button type="button" class="btn-add-primary" onclick="openReceiveModal()">+ Receive IAR</button>
                     <a id="merge-print-btn" href="#" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ Received IARs to merge">🖨 Print Merged (0)</a>
                 </div>
@@ -388,6 +421,8 @@
     
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
     <script src="{{ url_for('static', filename='js/delivery_logic.js') }}"></script>
 
 </body>

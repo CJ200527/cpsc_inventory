@@ -16,3 +16,26 @@
     flex-shrink: 0;
     vertical-align: -3px;
 }
+
+/* nav-icon — sizing for the sidebar navigation sprite (nav-icons.js).
+   Same currentColor contract as act-icon, so nav buttons recolor on
+   rest, hover, and active with zero extra code. Fits the 22px .icon slot. */
+.nav-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+/* nav section hues (shared default, all dashboards): fixed per-section rest
+   color, shifting to theme sky on hover/active. Dark tones stay readable on
+   both white buttons and the sky-tint hover/active fill. */
+.nav-btn.nav-sec-admin .nav-icon { color: #0d47a1; }
+.nav-btn.nav-sec-procurement .nav-icon { color: #0277bd; }
+.nav-btn.nav-sec-operations .nav-icon { color: #b26a00; }
+.nav-btn.nav-sec-stocks .nav-icon { color: #6a1b9a; }
+.nav-btn.nav-sec-others .nav-icon { color: #54677a; }
+.nav-btn.logout-btn .nav-icon { color: #d9534f; }
+.nav-btn:hover .nav-icon,
+.nav-btn.active .nav-icon { color: #0277bd; }
+.nav-btn.logout-btn:hover .nav-icon,
+.nav-btn.logout-btn.active .nav-icon { color: #ffffff; }

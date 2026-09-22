@@ -573,7 +573,8 @@ def create_completion_delivery(original_delivery_id, user_id, iar_number,
 # ============================================================
 # 3. READ — all IARs (PR-direct, no PO/Supplier joins)
 # ============================================================
-def get_all_deliveries(search_query="", status_filter="All", date_filter="All", custom_date="", user_id=None):
+def get_all_deliveries(search_query="", status_filter="All", date_filter="All", custom_date="", user_id=None,
+                       date_from="", date_to="", partial_filter="All"):
     conn = None
     cursor = None
     try:
@@ -602,6 +603,10 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
         if status_filter != "All":
             sql += " AND d.status = %s"
             params.append(status_filter)
+        if partial_filter == "Partial":
+            sql += " AND d.is_partial = 1"
+        elif partial_filter == "Complete":
+            sql += " AND d.is_partial = 0"
         if search_query:
             pat = f"%{search_query}%"
             sql += """ AND (
@@ -610,7 +615,10 @@ def get_all_deliveries(search_query="", status_filter="All", date_filter="All", 
                 pr.pr_number LIKE %s OR u.Firstname LIKE %s OR u.Lastname LIKE %s
             )"""
             params.extend([pat]*7)
-        if date_filter == "Today":
+        if date_from and date_to:
+            sql += " AND DATE(d.iar_date) BETWEEN %s AND %s"
+            params.extend([date_from, date_to])
+        elif date_filter == "Today":
             sql += " AND DATE(d.iar_date) = CURDATE()"
         elif date_filter == "Last Month":
             sql += " AND d.iar_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)"

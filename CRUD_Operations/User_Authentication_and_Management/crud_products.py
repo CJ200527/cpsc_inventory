@@ -6,7 +6,8 @@ deliveries.supplier_name). No DDL in this module.
 from db import get_db_connection
 
 
-def get_all_products_filtered(search_query="", date_filter="All", custom_date=""):
+def get_all_products_filtered(search_query="", date_filter="All", custom_date="", date_from="", date_to="",
+                              category_filter="All"):
     conn = None
     cursor = None
     try:
@@ -27,6 +28,12 @@ def get_all_products_filtered(search_query="", date_filter="All", custom_date=""
                 OR p.details LIKE %s OR p.unit LIKE %s OR p.size LIKE %s
             )"""
             params.extend([pat] * 6)
+        if date_from and date_to:
+            sql += " AND DATE(p.created_at) BETWEEN %s AND %s"
+            params.extend([date_from, date_to])
+        if category_filter and category_filter != "All":
+            sql += " AND p.category = %s"
+            params.append(category_filter)
         if date_filter == "Today":
             sql += " AND DATE(p.created_at) = CURDATE()"
         elif date_filter == "Last Month":
@@ -68,6 +75,28 @@ def get_distinct_units():
         return [row[0] for row in cursor.fetchall()]
     except Exception as err:
         print(f"[get_distinct_units] DB error: {err}")
+        return []
+    finally:
+        if cursor is not None:
+            try: cursor.close()
+            except: pass
+        if conn is not None:
+            try: conn.close()
+            except: pass
+
+
+def get_distinct_categories():
+    """Unique non-empty product categories for the catalog filter (no
+    is_active gate — the catalog lists drafts too)."""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT category FROM products WHERE category IS NOT NULL AND category != '' ORDER BY category ASC")
+        return [row[0] for row in cursor.fetchall()]
+    except Exception as err:
+        print(f"[get_distinct_categories] DB error: {err}")
         return []
     finally:
         if cursor is not None:

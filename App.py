@@ -1,4 +1,4 @@
-"""
+﻿"""
 Web-Based CPSC Production & Inventory Management System - Prototype 2
 ================================================================
 Migrated from MS Access to Flask + MySQL. Handles Procurement (PR),
@@ -51,6 +51,7 @@ from crud_products import (
     get_all_products_filtered,
     get_products_for_pr_picker,
     get_distinct_units,
+    get_distinct_categories,
     add_product,
     update_product,
     delete_product,
@@ -826,6 +827,17 @@ def staff_dashboard():
         approved_prs_ready=approved_prs_ready, withdrawals_ready=withdrawals_ready,
     )
 
+# --- ROUTE: Reports Hub — STUB (Comparative Report spec lands here) ---
+@app.route("/reports")
+def reports_hub():
+    if "user_id" not in session:
+        flash("Please log in to access Reports.", "error")
+        return redirect(url_for("login"))
+    flash("Comparative Report coming soon.", "info")
+    if session.get("role") == "Admin":
+        return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("staff_dashboard"))
+
 # --- ROUTE: Admin User Management View & Filters ---
 @app.route("/admin/users")
 def admin_users():
@@ -835,13 +847,41 @@ def admin_users():
     search = request.args.get("search", "").strip()
     date_filter = request.args.get("date_filter", "All")
     custom_date = request.args.get("custom_date", "")
+    # Explicit range (filter panel); validated, never future, from <= to.
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
     try:
-        users = get_all_users_filtered(search_query=search, date_filter=date_filter, custom_date=custom_date)
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
+    approval_filter = request.args.get("approval_filter", "All")
+    if approval_filter not in ("All", "Approved", "Pending"):
+        approval_filter = "All"
+    role_filter = request.args.get("role_filter", "All")
+    if role_filter not in ("All", "Admin", "Staff"):
+        role_filter = "All"
+    try:
+        users = get_all_users_filtered(search_query=search, date_filter=date_filter, custom_date=custom_date,
+                                       date_from=date_from, date_to=date_to,
+                                       approval_filter=approval_filter, role_filter=role_filter)
     except Exception as err:
         print(f"[admin_users] DB error: {err}")
         flash("Database error while loading users.", "error")
         users = []
-    return safe_render_template("Admin Dashboards/user_management.html", user=session, users=users, search=search, date_filter=date_filter, custom_date=custom_date)
+    return safe_render_template("Admin Dashboards/user_management.html", user=session, users=users, search=search, date_filter=date_filter, custom_date=custom_date,
+                                date_from=date_from, date_to=date_to,
+                                approval_filter=approval_filter, role_filter=role_filter,
+                                active_filter_count=(2 if date_from and date_to else 0) + (1 if approval_filter != "All" else 0) + (1 if role_filter != "All" else 0),
+                                current_date=datetime.now().strftime("%Y-%m-%d"))
 
 # --- ACTION ROUTES: Approve, Reject, Delete ---
 @app.route("/admin/users/approve/<int:target_id>", methods=["POST"])
@@ -982,8 +1022,33 @@ def admin_products():
     search = request.args.get("search", "").strip()
     date_filter = request.args.get("date_filter", "All")
     custom_date = request.args.get("custom_date", "")
+    # Explicit range (filter panel); validated, never future, from <= to.
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
     try:
-        products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date)
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
+    category_filter = request.args.get("category", "All")
+    try:
+        categories = get_distinct_categories()
+    except Exception:
+        categories = []
+    if category_filter != "All" and category_filter not in categories and category_filter not in ("Consumables", "Tools", "Equipment"):
+        category_filter = "All"
+    try:
+        products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date,
+                                    date_from=date_from, date_to=date_to,
+                                    category_filter=category_filter)
         suppliers_list = []
     except Exception as err:
         print(f"[admin_products] DB error: {err}")
@@ -991,7 +1056,11 @@ def admin_products():
         products = []; suppliers_list = []
     # One-shot flag for the delete-blocked warning modal (set by delete route).
     blocked_product = session.pop("delete_blocked", None)
-    return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date, blocked_product=blocked_product)
+    return safe_render_template("Admin Dashboards/product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date, blocked_product=blocked_product,
+                                date_from=date_from, date_to=date_to,
+                                category_filter=category_filter, categories=categories,
+                                active_filter_count=(2 if date_from and date_to else 0) + (1 if category_filter != "All" else 0),
+                                current_date=datetime.now().strftime("%Y-%m-%d"))
 
 # --- ROUTE: Staff Product Catalog View (Staff + Admin) ---
 @app.route("/staff/products")
@@ -1005,14 +1074,43 @@ def staff_products():
     search = request.args.get("search", "").strip()
     date_filter = request.args.get("date_filter", "All")
     custom_date = request.args.get("custom_date", "")
+    # Explicit range (filter panel); validated, never future, from <= to.
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
     try:
-        products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date)
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
+    category_filter = request.args.get("category", "All")
+    try:
+        categories = get_distinct_categories()
+    except Exception:
+        categories = []
+    if category_filter != "All" and category_filter not in categories and category_filter not in ("Consumables", "Tools", "Equipment"):
+        category_filter = "All"
+    try:
+        products = get_all_products(search_query=search, date_filter=date_filter, custom_date=custom_date,
+                                    date_from=date_from, date_to=date_to,
+                                    category_filter=category_filter)
         suppliers_list = []
     except Exception as err:
         print(f"[staff_products] DB error: {err}")
         flash("Database error while loading products.", "error")
         products = []; suppliers_list = []
-    return safe_render_template("Staff Dashboards/staff_product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date)
+    return safe_render_template("Staff Dashboards/staff_product_management.html", user=session, products=products, suppliers_list=suppliers_list, search=search, date_filter=date_filter, custom_date=custom_date,
+                                date_from=date_from, date_to=date_to,
+                                category_filter=category_filter, categories=categories,
+                                active_filter_count=(2 if date_from and date_to else 0) + (1 if category_filter != "All" else 0),
+                                current_date=datetime.now().strftime("%Y-%m-%d"))
 
 @app.route("/admin/products/add", methods=["POST"])
 @app.route("/products/add", methods=["POST"])
@@ -1101,8 +1199,27 @@ def pr_management():
 
     search = request.args.get("search", "").strip()
     status_filter = request.args.get("status_filter", "All")
+    po_status_filter = request.args.get("po_status_filter", "All")
+    if po_status_filter not in ("All", "Pending", "Approved", "Rejected"):
+        po_status_filter = "All"
     date_filter = request.args.get("date_filter", "All")
     custom_date = request.args.get("custom_date", "")
+    # Explicit range (filter panel); validated, never future, from <= to.
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
+    try:
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
 
     user_role = session.get("role")
     # Staff now sees ALL records (not just own) to avoid confusion with Admin
@@ -1115,7 +1232,10 @@ def pr_management():
             status_filter=status_filter,
             date_filter=date_filter,
             custom_date=custom_date,
-            user_id=user_id_scope
+            user_id=user_id_scope,
+            date_from=date_from,
+            date_to=date_to,
+            po_status_filter=po_status_filter
         )
         products_list = get_all_products()
         existing_units = get_distinct_units()
@@ -1137,7 +1257,12 @@ def pr_management():
         search=search,
         status_filter=status_filter,
         date_filter=date_filter,
-        custom_date=custom_date
+        custom_date=custom_date,
+        date_from=date_from,
+        date_to=date_to,
+        po_status_filter=po_status_filter,
+        active_filter_count=(1 if status_filter != "All" else 0) + (2 if date_from and date_to else 0) + (1 if po_status_filter != "All" else 0),
+        current_date=datetime.now().strftime("%Y-%m-%d")
     )
 
 # --- ACTION ROUTE: Submit New PR — Master-Detail (Header + typed Line Items, JIT product creation) ---
@@ -1692,6 +1817,25 @@ def delivery_dashboard():
     status_filter = request.args.get("status_filter", "All")
     date_filter = request.args.get("date_filter", "All")
     custom_date = request.args.get("custom_date", "")
+    # Explicit range (filter panel); validated, never future, from <= to.
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
+    try:
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
+    partial_filter = request.args.get("partial_filter", "All")
+    if partial_filter not in ("All", "Partial", "Complete"):
+        partial_filter = "All"
 
     user_role = session.get("role")
     # Staff and Admin both see ALL IARs to keep records in sync
@@ -1703,7 +1847,10 @@ def delivery_dashboard():
             status_filter=status_filter,
             date_filter=date_filter,
             custom_date=custom_date,
-            user_id=user_id_scope
+            user_id=user_id_scope,
+            date_from=date_from,
+            date_to=date_to,
+            partial_filter=partial_filter
         )
         # Deliverable PRs: dual-approved PRs ready for direct receiving — visible to all roles
         deliverable_pos = get_deliverable_prs(
@@ -1734,6 +1881,10 @@ def delivery_dashboard():
         status_filter=status_filter,
         date_filter=date_filter,
         custom_date=custom_date,
+        date_from=date_from,
+        date_to=date_to,
+        partial_filter=partial_filter,
+        active_filter_count=(1 if status_filter != "All" else 0) + (2 if date_from and date_to else 0) + (1 if partial_filter != "All" else 0),
         current_date=datetime.now().strftime("%Y-%m-%d")
     )
 
@@ -2073,7 +2224,8 @@ def admin_inventory_dashboard():
         categories=categories,
         search=search,
         category_filter=category_filter,
-        stock_filter=stock_filter
+        stock_filter=stock_filter,
+        active_filter_count=(1 if category_filter != "All" else 0) + (1 if stock_filter != "All" else 0)
     )
 
 @app.route("/inventory")
@@ -2099,7 +2251,8 @@ def staff_inventory_dashboard():
         categories=categories,
         search=search,
         category_filter=category_filter,
-        stock_filter=stock_filter
+        stock_filter=stock_filter,
+        active_filter_count=(1 if category_filter != "All" else 0) + (1 if stock_filter != "All" else 0)
     )
 
 # --- PRINT ROUTE: Inventory List of Items (filter-aware live ledger) ---
@@ -2176,7 +2329,8 @@ def admin_withdraw_dashboard():
         withdrawals=withdrawals,
         available_products=available,
         search=search,
-        status_filter=status_filter
+        status_filter=status_filter,
+        active_filter_count=(1 if status_filter != "All" else 0)
     )
 
 @app.route("/withdraw")
@@ -2201,7 +2355,8 @@ def staff_withdraw_dashboard():
         withdrawals=withdrawals,
         available_products=available,
         search=search,
-        status_filter=status_filter
+        status_filter=status_filter,
+        active_filter_count=(1 if status_filter != "All" else 0)
     )
 
 # --- API ROUTE: Next available withdraw number (for live display in Withdraw modal) ---
@@ -2389,7 +2544,8 @@ def admin_return_dashboard():
         issued_withdrawals=issued,
         available_products=products,
         search=search,
-        status_filter=status_filter
+        status_filter=status_filter,
+        active_filter_count=(1 if status_filter != "All" else 0)
     )
 
 @app.route("/returns")
@@ -2417,7 +2573,8 @@ def staff_return_dashboard():
         issued_withdrawals=issued,
         available_products=products,
         search=search,
-        status_filter=status_filter
+        status_filter=status_filter,
+        active_filter_count=(1 if status_filter != "All" else 0)
     )
 
 @app.route("/returns/create", methods=["POST"])
