@@ -85,8 +85,31 @@
   (`body .cascade-unveil` fill release) — never remove it. Proven pattern:
   filter panel = relative wrap + absolute card + `.open` toggle + native
   mini-form, with Cancel (discard) + Apply (green) + Clear link.
-- **Icons:** single inline-SVG sprite (`action-icons.js`, `currentColor`,
-  arcs-free). Nav emoji → minimalist SVG sprite is queued, same system.
+- **Icons:** three inline-SVG sprites (`action-icons.js`, `nav-icons.js`,
+  `kpi-icons.js`; all `currentColor`, arcs-free). Reuse across families
+  (`i-view` magnifier for search boxes, `n-inventory` for stock states) —
+  never draw a duplicate. KPI badges: 44px, 8px radius, 1px bordered box,
+  section tint; centered icon + label-over-count + sub.
+- **Nav:** resting buttons borderless/transparent; hover + active = header
+  sky `#aae0f7`, borderless. Logout keeps red text + red-fill hover.
+- **Toasts:** server flashes + client `showToast()` twin (same card markup,
+  category → `i-check`/`i-x`/`i-bell` + circled tint); flash text is
+  emoji-free. One `#toast-container`-scoped block in `modals.css` beats all
+  per-page duplicates. Interactive layer: GET-only interceptor, ~850ms
+  delayed submit/nav for filter/search/refresh (POSTs never intercepted).
+- **Form submits + flashes (hard-won):** NEVER `fetch`-POST a flash +
+  redirect form — fetch follows the redirect internally and consumes the
+  flash queue, so the visible navigation shows no toast (killed PR saves
+  twice). Use native submit; keep the disabled ⏳ button for double-guard.
+- **Pending-only edits:** PR/User/Withdraw/Return all edit Pending records
+  only (server re-checks status in-transaction). V1 = header + qty/condition
+  on the same line set (no add/remove); identity fields frozen (numbers,
+  links). Return revalidation excludes the edited record from the
+  already-returned SUM; withdraw qty can't drop below already-returned.
+  Unserviceable auto-approve preserved on edit. RBAC: only User edit is
+  admin-only. Picker lists returnable-only (issued − already > 0).
+- **Filters:** anchored panel = relative wrap + absolute card + `.open` toggle + native mini-form; Start/End dates where applicable; Cancel + green Apply + Clear link; count badge = result rows (dot when empty); dashboard chart exception (no rows → active-count). Backend ranges validated (never future, from ≤ to).
+- **Bell:** `crud_notifications` single source; rows link filtered; own-voice labels; no Welcome (username + role pill + avatar).
 - **Print family:** standalone sheet, `@page` portrait, screen toolbar hidden
   on paper, repeating `thead`, same-tab + `history.back()` Close (no
   `target="_blank"` anywhere). PR (meta-free official doc, fixed VIOS

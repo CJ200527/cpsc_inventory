@@ -5,6 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Dashboard KPIs, Toasts, Borderless Nav, Withdraw/Return Edits (2026-09-27)
+
+> Admin 5-queue KPI revamp + Inventory 4-card KPIs on both roles; toast system cleaned and made interactive; nav borderless everywhere; Pending-only withdraw/return edits; PR native submits; returnable-only withdraw picker.
+
+#### Added
+- **Admin KPI revamp** — 5 pending-queue cards in one line (Low Stock Alert, Pending PR/IAR/Withdraw/Returns), centered 44px badge layout, all linked to filtered queues; Total Asset Value removed (now lives on Inventory).
+- **`kpi-icons.js` sprite family** — same system as action/nav sprites (`currentColor`, arcs-free): k-alert/pr/iar/withdraw/return/asset/products; nav-stock glyph reused for inventory stock states.
+- **Inventory KPIs (admin + staff)** — Total Asset (blue), Total Products (purple), Low Stock (bright orange), Out of Stock (red); all 4 link (full ledger / Low / Out filters); zero backend change (`summary` was already passed).
+- **Search magnifier** — 🔍 emoji → `i-view` sprite + shared `.search-ico` rule on all 13 dashboards.
+- **Interactive toasts** — save wording (`PR/IAR/Withdrawal/Return … saved. Waiting for approval…`, PR/User edits included); client `showToast()` twin + GET-only ~850ms interceptor for filter/search/refresh (approvals/POSTs never delayed).
+- **Withdraw/Return Pending-only edits (v1)** — header + qty/condition, same line set, native POST, revalidation (live stock, issued-minus-returned with self-exclusion, already-returned floor); edit buttons both roles, purple hover parity free; Unserviceable auto-approve preserved.
+- **Returnable-only withdraw picker** — `EXISTS` requires issued−already>0 per Tools/Equipment line (both roles, no JS change).
+- **PR create/edit native submits** — shared `pr_logic.js`, both roles.
+
+#### Fixed
+- **PR edit-save toast missing** — `fetch` followed the redirect internally and consumed the flash queue; native submit restores it (same latent bug on create, plus swallowed error flashes).
+- **Toast emoji purge** — 6 auth flash strings de-emojied; login pages now load the sprite so their toasts render icons.
+- **Inventory Low orange deepened** (`#bf360c` on `#ffe3d3`) after wash-out verdict; dead `k-out` symbol removed.
+
+#### Pending (in order)
+1. **PO Date required** on IAR Receive/Complete (planned: `required` inputs + backend gate) → 2. **Comparative Report spec** (archived, user decides shape + placement) → 3. **Settings polish** (archived, incl. Import-to-Settings move) → 4. Staff dashboard KPIs.
+
+---
+
+## [Unreleased] — Filters Done, Bell + Headers Finalized (2026-09-26)
+
+> Anchored filter panels everywhere incl. dashboard chart revamp; trap defused; bell deep-links, count badges, own-voice rows; Welcome removed.
+
+#### Added
+- **Dashboard chart filter revamp** — funnel + panel (Start/End, full Period select, Year), count badge, active label; retired custom dropdown, gear, and 3 droplet modals; deleted `admin_dashboard_logic.js`.
+- **Date ranges** — `date_from`/`date_to` on PR/IAR/Product/Users (validated, never future, from ≤ to, preset-compatible).
+- **New filters** — PR PO-status, Product Category (guaranteed 3), IAR Completion, Users approval + role.
+- **Bell** — deep-links land filtered, badge = result count (dot when empty), 7 rows in own voice, all 16 headers; Welcome removed (username + role pill + avatar stay).
+
+#### Fixed
+- **Cascade-unveil overlay trap** — shared guard; Overlay Law in `AGENTS.md`.
+- Panel Apply hover unified; focus glow deleted (fx21 only).
+
+#### Pending
+1. **Comparative Report spec** → 2. **Settings polish**.
+
+---
+
 ## [Unreleased] — Filter Refinement: Buttons, Glow, Category, IAR, Users (2026-09-25)
 
 > Shared green Apply hover wins everywhere, focus glow deleted, guaranteed Product categories, new IAR Completion + Users approval/role filters.

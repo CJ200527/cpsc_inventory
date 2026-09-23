@@ -231,4 +231,52 @@
             });
         }
         function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); }
+        /* ===== PENDING-EDIT (v1): header fields + per-line qty/condition, native POST ===== */
+        function escEditHtml(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+        function openEditReturnModal(id){
+            const tbody=document.getElementById('return-edit-items-body');
+            tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">Loading...</td></tr>';
+            document.getElementById('edit-return-modal').classList.remove('hidden');
+            document.getElementById('return-edit-form').action='/returns/update/'+id;
+            fetch('/returns/details/'+id).then(r=>r.json()).then(data=>{
+                if(data.error){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">'+data.error+'</td></tr>'; return; }
+                if(data.header.status!=='Pending'){
+                    alert('Return is '+data.header.status+' and locked as an immutable record. Only Pending returns can be edited.');
+                    closeEditReturnModal();
+                    return;
+                }
+                const h=data.header;
+                const setVal=(id2,v)=>{ const el=document.getElementById(id2); if(el){ el.value=v||''; el.classList.toggle('has-content',!!(v||'')); } };
+                setVal('edit-return-number', h.return_number);
+                setVal('edit-return-withdraw', h.ris_number || 'Direct');
+                setVal('edit-return-department', h.department);
+                setVal('edit-return-reason', h.reason);
+                setVal('edit-return-date', String(h.date_returned||'').slice(0,10));
+                tbody.innerHTML='';
+                (data.items||[]).forEach(i=>{
+                    const tr=document.createElement('tr');
+                    const cond=i.condition_status||'Serviceable';
+                    tr.innerHTML=`<td><strong>${escEditHtml(i.item_name)}</strong><input type="hidden" name="product_id[]" value="${i.product_id}"></td>`
+                        +`<td>${escEditHtml(i.return_details||i.details||'—')}</td>`
+                        +`<td>${escEditHtml(i.unit||'pcs')}</td>`
+                        +`<td><div class="fx21-field"><select name="condition_status[]" class="effect-21" required style="width:100%;padding:6px;font-size:12px;border:1px solid #ccc;border-radius:4px;background:#ffffff;"><option value="Serviceable"${cond==='Serviceable'?' selected':''}>Serviceable</option><option value="Unserviceable"${cond==='Unserviceable'?' selected':''}>Unserviceable</option></select><span class="focus-border"><i></i></span></div></td>`
+                        +`<td><div class="fx21-field" style="display:inline-block;"><input type="number" name="returned_quantity[]" class="effect-21" min="1" value="${i.returned_quantity}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required><span class="focus-border"><i></i></span></div></td>`;
+                    tbody.appendChild(tr);
+                });
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">Failed to load return.</td></tr>'; });
+        }
+        function closeEditReturnModal(){ document.getElementById('edit-return-modal').classList.add('hidden'); }
+        function validateEditReturnForm(){
+            const rows=document.querySelectorAll('#return-edit-items-body tr');
+            if(rows.length===0){ alert('Keep at least one item.'); return false; }
+            for(const tr of rows){
+                const qtyInput=tr.querySelector('input[name="returned_quantity[]"]');
+                const condSel=tr.querySelector('select[name="condition_status[]"]');
+                if(!qtyInput) continue;
+                const qty=parseInt(qtyInput.value||0);
+                if(!(qty>0)){ alert('Quantity must be >0.'); return false; }
+                if(condSel && condSel.value!=='Serviceable' && condSel.value!=='Unserviceable'){ alert('Invalid condition.'); return false; }
+            }
+            return true;
+        }
     

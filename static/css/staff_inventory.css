@@ -32,10 +32,10 @@
     width: 100%;
     height: 42px;
     padding: 0 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
-    border: 1px solid #d2d2d2;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    box-shadow: none;
     font-size: 13px;
     font-weight: 600;
     color: #333333;
@@ -54,18 +54,18 @@
     flex-shrink: 0;
 }
         .nav-btn:hover {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
 }
         .nav-btn.active {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
 }
-        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
+        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: transparent; border-color: transparent; justify-content: center; }
         .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; }
         .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
         .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }
@@ -77,6 +77,23 @@
         .user-profile-box .user-name { font-size: 14px; font-weight: 700; color: #0d233a; }
         .user-profile-box .user-role { font-size: 11px; color: #0277bd; font-weight: 600; }
         .dashboard-container { padding: 22px 28px; overflow: visible; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+        /* ROW 0: Inventory KPI Cards (4-column grid, badge design echoes admin dashboard) */
+        .inv-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+        .inv-kpi-grid .metric-card { background-color: #ffffff; border-radius: 12px; padding: 20px 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #e0e0e0; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-height: 140px; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .inv-kpi-grid .metric-card:hover { transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,0.08); }
+        .inv-kpi-grid .metric-main { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 6px; text-align: center; }
+        .inv-kpi-grid .metric-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; align-items: center; }
+        .inv-kpi-grid .metric-title { font-size: 11.5px; font-weight: 700; text-transform: uppercase; text-align: center; color: #333333; letter-spacing: 0.5px; }
+        .inv-kpi-grid .metric-value { font-size: 28px; font-style: italic; font-weight: 700; color: #2c3e50; }
+        .inv-kpi-grid .metric-value.asset-value { font-size: 20px; }
+        .inv-kpi-grid .metric-sub { font-size: 11.5px; color: #888888; text-align: center; margin-top: 10px; }
+        .inv-kpi-grid .metric-icon-box { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .inv-kpi-grid .metric-badge { width: 44px; height: 44px; border-radius: 8px; border: 1px solid #d0dbe5; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .inv-kpi-grid .metric-badge .kpi-icon { width: 24px; height: 24px; }
+        .inv-kpi-grid .metric-badge.badge-blue { background: #e1f3fe; border-color: #b6dcf5; color: #0277bd; }
+        .inv-kpi-grid .metric-badge.badge-purple { background: #f3e5f5; border-color: #ce93d8; color: #6a1b9a; }
+        .inv-kpi-grid .metric-badge.badge-orange { background: #ffe3d3; border-color: #ffab91; color: #bf360c; }
+        .inv-kpi-grid .metric-badge.badge-red { background: #fdecea; border-color: #f5c6cb; color: #c62828; }
         /* ROW 1: Toolbelt (Search & Filters) */
         .toolbelt-container { background-color: #ffffff; border-radius: 12px; padding: 16px 22px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; gap: 14px; flex-wrap: wrap; }
         .search-form { display: flex; align-items: center; gap: 10px; flex: 1; max-width: 460px; }
@@ -96,9 +113,13 @@
         .table-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; margin-bottom: 6px; border-bottom: 1px solid #eef2f5; }
         .table-card-header h3 { font-size: 15px; font-weight: 700; color: #0d233a; margin: 0; }
         .count-pill { font-size: 12px; font-weight: 500; color: #666666; background: #f4f7f9; border: 1px solid #e0e0e0; border-radius: 20px; padding: 3px 12px; white-space: nowrap; }
+        @media (max-width: 1100px) {
+            .inv-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+        }
         @media (max-width: 640px) {
             .toolbelt-container { flex-direction: column; align-items: stretch; }
             .search-form { max-width: none; }
+            .inv-kpi-grid { grid-template-columns: 1fr; }
         }
         table { width: 100%; border-collapse: collapse; min-width: 900px; }
         th { background-color: #53c5f1; color: #ffffff; font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 12px 14px; text-align: left; white-space: nowrap; }

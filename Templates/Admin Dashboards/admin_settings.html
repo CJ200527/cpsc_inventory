@@ -75,8 +75,25 @@
                     <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
                 </div>
                 <div class="user-profile-box">
-                    <div class="user-name">{{ session.get('username', '') }}</div>
-                    <div class="user-role">{{ session.get('role', '') }}</div>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ session.get('username', '') }}</div>
+                            <span class="user-pill">{{ session.get('role', '') }}</span>
+                        </div>
+                        <div class="user-avatar">{{ session.get('username', '')|initial }}</div>
+                    </div>
                 </div>
             </div>
             <div class="content-area">

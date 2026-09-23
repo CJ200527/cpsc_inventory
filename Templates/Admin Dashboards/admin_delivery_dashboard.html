@@ -15,7 +15,7 @@
             {% for category, message in messages %}
                 <div class="toast-card toast-{{ category }}">
                     <span class="toast-icon">
-                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
                     </span>
                     <span class="toast-message">{{ message }}</span>
                     <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
@@ -66,9 +66,26 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
-                <div class="user-name">{{ user.full_name }}</div>
-                <div class="user-role">{{ user.role }}</div>
-            </div>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ user.full_name }}</div>
+                            <span class="user-pill">{{ user.role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ user.full_name|initial }}</div>
+                    </div>
+                </div>
         </div>
 
         <div class="dashboard-container">
@@ -77,7 +94,7 @@
             <div class="control-card">
                 <form method="GET" action="{{ url_for('delivery_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
-                        <span style="margin-right:8px;">🔍</span>
+                        <span class="search-ico"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></span>
                         <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search IAR Number, PR Number, PO Ref Number, Supplier..." autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
@@ -86,7 +103,7 @@
                 </form>
                 <div class="filter-controls">
                     <div class="filter-wrap">
-                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}{% if deliveries|length %}<span class="filter-count">{{ deliveries|length }}</span>{% else %}<span class="filter-dot"></span>{% endif %}{% endif %}</button>
                         <div class="filter-panel">
                             <form method="GET" action="{{ url_for('delivery_dashboard') }}">
                                 <input type="hidden" name="search" value="{{ search }}">
@@ -227,7 +244,7 @@
                     <div class="fx21-field fx21-inline">
                         <label for="receive-po-date">P.O. Date:</label>
                         <div class="fx21-box">
-                        <input type="date" name="po_date" id="receive-po-date" class="effect-21 has-content" max="{{ current_date }}" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <input type="date" name="po_date" id="receive-po-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>
@@ -331,7 +348,7 @@
                     <div class="fx21-field fx21-inline">
                         <label for="complete-po-date">P.O. Date:</label>
                         <div class="fx21-box">
-                        <input type="date" name="po_date" id="complete-po-date" class="effect-21 has-content" max="{{ current_date }}" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                        <input type="date" name="po_date" id="complete-po-date" class="effect-21 has-content" max="{{ current_date }}" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
                         <span class="focus-border"><i></i></span>
                         </div>
                     </div>

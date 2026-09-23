@@ -318,3 +318,107 @@ def reject_withdrawal(withdraw_id, admin_user_id):
         if conn:
             try: conn.close()
             except: pass
+
+def update_withdrawal(withdraw_id, department, purpose, received_by, date_requested, items_list):
+    """Edit a Pending withdrawal (v1: header fields + per-line quantities only).
+
+    items_list: [{'product_id':1,'quantity':5}, ...] — must cover exactly the
+    existing lines (no add/remove in v1). Revalidates qty <= live stock and
+    qty >= already-returned via linked returns. Returns (True, withdraw_id)
+    or (False, msg). No stock movement — Pending deducts nothing.
+    """
+    conn=None; cur=None
+    try:
+        conn=get_db_connection()
+        cur=conn.cursor(dictionary=True)
+        try:
+            cur.execute("SELECT * FROM `withdraw` WHERE withdraw_id=%s FOR UPDATE", (withdraw_id,))
+        except Exception:
+            cur.execute("SELECT * FROM `withdraw` WHERE withdraw_id=%s", (withdraw_id,))
+        header=cur.fetchone()
+        if not header:
+            return False, "Withdrawal not found."
+        if header['status'] != 'Pending':
+            return False, f"Only Pending withdrawals can be edited. Current: {header['status']}"
+        if not department or not purpose:
+            return False, "Department and Purpose are required."
+        if not items_list:
+            return False, "Keep at least one item."
+        cur.execute("SELECT product_id FROM `withdraw_items` WHERE withdraw_id=%s", (withdraw_id,))
+        existing={int(r['product_id']) for r in (cur.fetchall() or [])}
+        if not existing:
+            return False, "No items to edit."
+        seen=set()
+        for it in items_list:
+            try:
+                pid=int(it['product_id']); qty=int(it['quantity'])
+            except:
+                return False, "Invalid item data."
+            if pid in seen:
+                return False, "Duplicate item in edit."
+            seen.add(pid)
+            if pid not in existing:
+                return False, "Adding or removing items is not supported in edit."
+            if qty <= 0:
+                return False, "Quantity must be >0."
+            cur.execute(f"SELECT product_name, {STOCK_COL} AS cur_stock, price, unit, details FROM products WHERE product_id=%s", (pid,))
+            prod=cur.fetchone()
+            if not prod:
+                return False, f"Product ID {pid} not found."
+            if qty > int(prod['cur_stock'] or 0):
+                return False, f"Insufficient stock for '{prod['product_name']}': requested {qty} > available {int(prod['cur_stock'] or 0)}."
+            cur.execute("""
+                SELECT COALESCE(SUM(ri.returned_quantity),0) AS already_ret
+                FROM return_items ri
+                JOIN `return` r ON r.return_id = ri.return_id
+                WHERE r.withdraw_id = %s AND ri.product_id = %s AND r.status IN ('Pending','Approved')
+            """, (withdraw_id, pid))
+            already=int((cur.fetchone() or {}).get('already_ret') or 0)
+            if qty < already:
+                return False, f"Cannot lower '{prod['product_name']}' below already-returned {already}."
+        if seen != existing:
+            return False, "Adding or removing items is not supported in edit."
+        if not date_requested:
+            date_requested = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elif len(str(date_requested))==10:
+            date_requested = str(date_requested) + " 00:00:00"
+        cur.execute("""
+            UPDATE `withdraw` SET department=%s, purpose=%s, received_by=%s, date_requested=%s
+            WHERE withdraw_id=%s
+        """, (department, purpose, received_by or "", date_requested, withdraw_id))
+        cur.execute("DELETE FROM `withdraw_items` WHERE withdraw_id=%s", (withdraw_id,))
+        use_details = _withdraw_items_has_details(cur)
+        for it in items_list:
+            pid=int(it['product_id']); qty=int(it['quantity'])
+            cur.execute("SELECT product_name, unit, price, details FROM products WHERE product_id=%s", (pid,))
+            prod=cur.fetchone()
+            iname=prod['product_name']
+            unit=prod['unit'] or 'pcs'
+            specs=(prod.get('details') or '')
+            price=float(prod['price'] or 0)
+            total=qty*price
+            if use_details:
+                cur.execute("""
+                    INSERT INTO `withdraw_items` (withdraw_id, product_id, item_name, quantity, unit, unit_price, total_price, details)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (withdraw_id, pid, iname, qty, unit, price, total, specs or None))
+            else:
+                cur.execute("""
+                    INSERT INTO `withdraw_items` (withdraw_id, product_id, item_name, quantity, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s)
+                """, (withdraw_id, pid, iname, qty, unit, price, total))
+        conn.commit()
+        return True, withdraw_id
+    except Exception as e:
+        if conn:
+            try: conn.rollback()
+            except: pass
+        print(f"[update_withdrawal] {e}")
+        return False, str(e)
+    finally:
+        if cur:
+            try: cur.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass

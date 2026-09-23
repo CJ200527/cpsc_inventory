@@ -59,6 +59,14 @@ def get_issued_withdrawals():
                   LEFT JOIN products p ON wi.product_id = p.product_id
                   WHERE wi.withdraw_id = w.withdraw_id
                     AND p.category IN ('Tools','Equipment')
+                    AND wi.quantity > COALESCE((
+                        SELECT SUM(ri.returned_quantity)
+                        FROM return_items ri
+                        JOIN `return` r ON r.return_id = ri.return_id
+                        WHERE r.withdraw_id = w.withdraw_id
+                          AND ri.product_id = wi.product_id
+                          AND r.status IN ('Pending','Approved')
+                    ), 0)
               )
             ORDER BY w.withdraw_id DESC
         """)
@@ -387,6 +395,144 @@ def reject_return(return_id, admin_user_id):
         if conn:
             try: conn.rollback()
             except: pass
+        return False, str(e)
+    finally:
+        if cur:
+            try: cur.close()
+            except: pass
+        if conn:
+            try: conn.close()
+            except: pass
+
+def update_return(return_id, department, reason, date_returned, items_list, user_id=None):
+    """Edit a Pending return (v1: header fields + per-line qty/condition only).
+
+    items_list: [{'product_id':1,'returned_quantity':2,'condition_status':'Serviceable'}, ...]
+    Must cover exactly the existing lines (no add/remove in v1). The linked
+    withdraw_id stays frozen. Validation mirrors create_return, except the
+    already-returned SUM excludes this very record. All-Unserviceable edits
+    auto-approve like create. Returns (True, return_id, auto_approved) or
+    (False, msg).
+    """
+    conn=None; cur=None
+    try:
+        conn=get_db_connection()
+        cur=conn.cursor(dictionary=True)
+        try:
+            cur.execute("SELECT * FROM `return` WHERE return_id=%s FOR UPDATE", (return_id,))
+        except Exception:
+            cur.execute("SELECT * FROM `return` WHERE return_id=%s", (return_id,))
+        header=cur.fetchone()
+        if not header:
+            return False, "Return not found."
+        if header['status'] != 'Pending':
+            return False, f"Only Pending returns can be edited. Current: {header['status']}"
+        if not department or not reason:
+            return False, "Department and Reason are required."
+        if not items_list:
+            return False, "Keep at least one item."
+        wid = header.get('withdraw_id')
+        cur.execute("SELECT product_id FROM return_items WHERE return_id=%s", (return_id,))
+        existing={int(r['product_id']) for r in (cur.fetchall() or [])}
+        if not existing:
+            return False, "No items to edit."
+        seen=set()
+        for it in items_list:
+            try:
+                pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
+            except:
+                return False, "Invalid item data."
+            if pid in seen:
+                return False, "Duplicate item in edit."
+            seen.add(pid)
+            if pid not in existing:
+                return False, "Adding or removing items is not supported in edit."
+            if qty <= 0:
+                return False, "Returned quantity must be >0."
+            if cond not in ('Serviceable','Unserviceable'):
+                return False, "Invalid condition."
+            cur.execute("SELECT product_name, COALESCE(current_stock, quantity, 0) AS cur_stock FROM products WHERE product_id=%s", (pid,))
+            prod = cur.fetchone()
+            if not prod:
+                return False, f"Product {pid} not found."
+            if cond == 'Unserviceable':
+                continue
+            cur_stock = int(prod['cur_stock'] or 0)
+            if wid:
+                cur.execute("SELECT quantity AS issued_quantity FROM withdraw_items WHERE withdraw_id=%s AND product_id=%s LIMIT 1", (wid, pid))
+                wi = cur.fetchone()
+                issued = int((wi or {}).get('issued_quantity') or 0)
+                cur.execute("""
+                    SELECT COALESCE(SUM(ri.returned_quantity),0) AS already_ret
+                    FROM return_items ri
+                    JOIN `return` r ON r.return_id = ri.return_id
+                    WHERE r.withdraw_id = %s AND ri.product_id = %s AND r.status IN ('Pending','Approved') AND r.return_id != %s
+                """, (wid, pid, return_id))
+                already = int((cur.fetchone() or {}).get('already_ret') or 0)
+                max_ret = issued - already
+                if qty > max_ret:
+                    return False, f"Insufficient returnable qty for '{prod['product_name']}': issued {issued}, already returned {already}, trying to return {qty}."
+            else:
+                if qty > cur_stock:
+                    return False, f"Insufficient stock for '{prod['product_name']}': trying to return {qty} but only {cur_stock} available in inventory."
+        if seen != existing:
+            return False, "Adding or removing items is not supported in edit."
+        if not date_returned:
+            date_returned=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elif len(str(date_returned))==10:
+            date_returned=str(date_returned)+" 00:00:00"
+        cur.execute("""
+            UPDATE `return` SET department=%s, reason=%s, date_returned=%s WHERE return_id=%s
+        """, (department, reason, date_returned, return_id))
+        cur.execute("DELETE FROM return_items WHERE return_id=%s", (return_id,))
+        use_details = _return_items_has_details(cur)
+        for it in items_list:
+            pid=int(it['product_id']); qty=int(it['returned_quantity']); cond=it.get('condition_status','Serviceable')
+            cur.execute("SELECT product_name, unit, price, details FROM products WHERE product_id=%s", (pid,))
+            prod=cur.fetchone()
+            iname=prod['product_name']; unit=prod['unit'] or 'pcs'; price=float(prod['price'] or 0)
+            total=qty*price
+            specs = ''
+            if use_details:
+                if wid:
+                    try:
+                        cur.execute("SELECT details FROM withdraw_items WHERE withdraw_id=%s AND product_id=%s LIMIT 1", (wid, pid))
+                        wrow = cur.fetchone()
+                        specs = (wrow.get('details') or '') if wrow else ''
+                    except Exception:
+                        specs = ''
+                if not specs:
+                    specs = (prod.get('details') or '')
+            if use_details:
+                cur.execute("""
+                    INSERT INTO return_items (return_id, product_id, item_name, returned_quantity, condition_status, unit, unit_price, total_price, details)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (return_id, pid, iname, qty, cond, unit, price, total, specs or None))
+            else:
+                cur.execute("""
+                    INSERT INTO return_items (return_id, product_id, item_name, returned_quantity, condition_status, unit, unit_price, total_price)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (return_id, pid, iname, qty, cond, unit, price, total))
+        conn.commit()
+        all_unserv = all(it.get('condition_status','Serviceable')=='Unserviceable' for it in items_list)
+        if all_unserv:
+            approver = user_id or header.get('user_id')
+            cur.execute("UPDATE `return` SET status='Approved', approved_by=%s WHERE return_id=%s", (approver, return_id))
+            for it in items_list:
+                pid=int(it['product_id']); qty=int(it['returned_quantity'])
+                cur.execute(f"SELECT COALESCE({STOCK_COL},0) AS bal FROM products WHERE product_id=%s", (pid,))
+                bal=int((cur.fetchone() or {}).get('bal') or 0)
+                cur.execute("""
+                    INSERT INTO stock_movements (product_id, reference_type, reference_id, quantity_change, balance_after, user_id)
+                    VALUES (%s,'Return-Unserviceable',%s,0,%s,%s)
+                """, (pid, return_id, bal, approver))
+            conn.commit()
+        return True, return_id, all_unserv
+    except Exception as e:
+        if conn:
+            try: conn.rollback()
+            except: pass
+        print(f"[update_return] {e}")
         return False, str(e)
     finally:
         if cur:

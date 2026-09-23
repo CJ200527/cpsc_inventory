@@ -14,7 +14,7 @@
             {% for category, message in messages %}
                 <div class="toast-card toast-{{ category }}">
                     <span class="toast-icon">
-                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
                     </span>
                     <span class="toast-message">{{ message }}</span>
                     <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
@@ -65,19 +65,83 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
-                <div class="user-name">{{ user.full_name }}</div>
-                <div class="user-role">{{ user.role }}</div>
-            </div>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ user.full_name }}</div>
+                            <span class="user-pill">{{ user.role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ user.full_name|initial }}</div>
+                    </div>
+                </div>
         </div>
 
         <div class="dashboard-container">
+
+            <!-- ROW 0: Inventory KPI Cards (4-column grid) -->
+            <section class="inv-kpi-grid">
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View full stock ledger">
+                    <div class="metric-main">
+                        <div class="metric-icon-box"><span class="metric-badge badge-blue"><svg class="kpi-icon" aria-hidden="true"><use href="#k-asset"/></svg></span></div>
+                        <div class="metric-text">
+                            <div class="metric-title">Total Asset</div>
+                            <div class="metric-value asset-value">₱ {{ "{:,.2f}".format(summary.total_asset_value or 0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-sub">Live stock × unit price</div>
+                </a>
+
+                <a href="{{ url_for('admin_inventory_dashboard') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View all products">
+                    <div class="metric-main">
+                        <div class="metric-icon-box"><span class="metric-badge badge-purple"><svg class="kpi-icon" aria-hidden="true"><use href="#k-products"/></svg></span></div>
+                        <div class="metric-text">
+                            <div class="metric-title">Total Products</div>
+                            <div class="metric-value">{{ summary.total_unique | default(0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-sub">Distinct items in catalog</div>
+                </a>
+
+                <a href="{{ url_for('admin_inventory_dashboard', stock_status='Low Stock') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View low-stock items">
+                    <div class="metric-main">
+                        <div class="metric-icon-box"><span class="metric-badge badge-orange"><svg class="kpi-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span></div>
+                        <div class="metric-text">
+                            <div class="metric-title">Low Stock</div>
+                            <div class="metric-value">{{ summary.low_stock_count | default(0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-sub">At or below reorder level</div>
+                </a>
+
+                <a href="{{ url_for('admin_inventory_dashboard', stock_status='Out of Stock') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View out-of-stock items">
+                    <div class="metric-main">
+                        <div class="metric-icon-box"><span class="metric-badge badge-red"><svg class="kpi-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span></div>
+                        <div class="metric-text">
+                            <div class="metric-title">Out of Stock</div>
+                            <div class="metric-value">{{ summary.out_of_stock_count | default(0) }}</div>
+                        </div>
+                    </div>
+                    <div class="metric-sub">Zero stock on hand</div>
+                </a>
+            </section>
 
             <!-- ROW 1: Toolbelt (Search & Filters) -->
             <!-- ===== TOOLBELT (Search + Category/Status Filters + Refresh) ===== -->
             <div class="toolbelt-container">
                 <form method="GET" action="{{ url_for('admin_inventory_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
-                        <span style="margin-right:8px;">🔍</span>
+                        <span class="search-ico"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></span>
                         <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search Product Code, Name, Category, Supplier..." autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
@@ -86,7 +150,7 @@
                 </form>
                 <div class="filter-controls">
                     <div class="filter-wrap">
-                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}{% if items|length %}<span class="filter-count">{{ items|length }}</span>{% else %}<span class="filter-dot"></span>{% endif %}{% endif %}</button>
                         <div class="filter-panel">
                             <form method="GET" action="{{ url_for('admin_inventory_dashboard') }}">
                                 <input type="hidden" name="search" value="{{ search }}">
@@ -180,6 +244,7 @@
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/kpi-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
 
 </body>

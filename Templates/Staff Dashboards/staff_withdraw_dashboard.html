@@ -15,7 +15,7 @@
             {% for category, message in messages %}
                 <div class="toast-card toast-{{ category }}">
                     <span class="toast-icon">
-                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
                     </span>
                     <span class="toast-message">{{ message }}</span>
                     <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
@@ -58,9 +58,26 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
-                <div class="user-name">{{ user.full_name }}</div>
-                <div class="user-role">{{ user.role }}</div>
-            </div>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ user.full_name }}</div>
+                            <span class="user-pill">{{ user.role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ user.full_name|initial }}</div>
+                    </div>
+                </div>
         </div>
 
         <div class="dashboard-container">
@@ -69,7 +86,7 @@
             <div class="control-card">
                 <form method="GET" action="{{ url_for('staff_withdraw_dashboard') }}" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
-                        <span style="margin-right:8px;">🔍</span>
+                        <span class="search-ico"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></span>
                         <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search RIS #, Department, Purpose..." autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
@@ -78,7 +95,7 @@
                 </form>
                 <div class="filter-controls">
                     <div class="filter-wrap">
-                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}{% if withdrawals|length %}<span class="filter-count">{{ withdrawals|length }}</span>{% else %}<span class="filter-dot"></span>{% endif %}{% endif %}</button>
                         <div class="filter-panel">
                             <form method="GET" action="{{ url_for('staff_withdraw_dashboard') }}">
                                 <input type="hidden" name="search" value="{{ search }}">
@@ -132,6 +149,9 @@
                                 <td>
                                     <button type="button" class="btn-action btn-view" title="View Details" onclick="openViewModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></button>
                                     <a href="/withdraw/print/{{ w.withdraw_id }}" class="btn-action btn-print" title="Print Slip"><svg class="act-icon" aria-hidden="true"><use href="#i-print"/></svg></a>
+                                    {% if w.status == 'Pending' %}
+                                    <button type="button" class="btn-action btn-edit" title="Edit Withdrawal (Pending only)" onclick="openEditWithdrawModal({{ w.withdraw_id }})"><svg class="act-icon" aria-hidden="true"><use href="#i-edit"/></svg></button>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
@@ -220,6 +240,80 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-modal-cancel" onclick="closeWithdrawModal()">Cancel</button>
                     <button type="submit" class="btn-modal-save">Submit (Pending)</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT WITHDRAWAL MODAL (Pending only: header fields + per-line quantities, native POST) -->
+    <div id="edit-withdraw-modal" class="modal-overlay hidden pr-modal">
+        <div class="modal-box pr-modal-large">
+            <form method="POST" action="#" id="withdraw-edit-form" onsubmit="return validateEditWithdrawForm()">
+                <div class="modal-header">
+                    <div>
+                        <h3>Edit Withdrawal (Pending only)</h3>
+                    </div>
+                </div>
+                <div class="pr-modal-header">
+                <div class="form-section-card section-1" style="margin-bottom:0;">
+                    <h4>Section 1: Withdrawal Details</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="edit-withdraw-number">Withdraw Number:</label>
+                                <div class="fx21-box">
+                                <input type="text" id="edit-withdraw-number" class="effect-21 has-content" readonly tabindex="-1" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background-color:#e9ecef;cursor:not-allowed;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="edit-withdraw-department">Department / Office:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="department" id="edit-withdraw-department" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="edit-withdraw-received-by">Received By:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="received_by" id="edit-withdraw-received-by" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                            <div class="fx21-field fx21-inline">
+                                <label for="edit-withdraw-purpose">Purpose of Request:</label>
+                                <div class="fx21-box">
+                                <input type="text" name="purpose" id="edit-withdraw-purpose" class="effect-21" required autocomplete="off" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:14px;">
+                            <div class="fx21-field fx21-inline">
+                                <label for="edit-withdraw-date">Date Withdrawn:</label>
+                                <div class="fx21-box">
+                                <input type="date" name="date_requested" id="edit-withdraw-date" class="effect-21 has-content" required oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')" style="width:100%;padding:8px 10px;border:1.5px solid #d0dbe5;border-radius:6px;font-size:12px;background:#f8fcff;">
+                                <span class="focus-border"><i></i></span>
+                                </div>
+                            </div>
+                    </div>
+                    </div>
+                </div>
+                </div>
+                <div class="modal-body">
+                <div class="form-section-card section-2">
+                    <h4>Section 2: Withdraw Items (quantities only)</h4>
+                <table class="item-table">
+                    <thead><tr><th>Item Name</th><th>Specification</th><th>Unit</th><th>Available</th><th>Requested Qty *</th></tr></thead>
+                    <tbody id="withdraw-edit-items-body"></tbody>
+                </table>
+                </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-modal-cancel" onclick="closeEditWithdrawModal()">Cancel</button>
+                    <button type="submit" class="btn-modal-save">Save Changes</button>
                 </div>
             </form>
         </div>

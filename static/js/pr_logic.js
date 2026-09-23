@@ -344,27 +344,17 @@
             return true;
         }
 
-        /* Collects Header + Item array and submits via Fetch to the PR creation route. */
-        async function submitPrForm(e) {
-            e.preventDefault();
-            if (!validatePrRows('pr-items-body')) return false;
+        /* Collects Header + Item array and submits natively to the PR creation route
+           (fetch would swallow the flash + redirect result — native submit displays it). */
+        function submitPrForm(e) {
+            if (!validatePrRows('pr-items-body')) { e.preventDefault(); return false; }
             unlockCategoriesFor('pr-form');
             // Strip display commas — backend float() takes clean decimals.
             document.querySelectorAll('#pr-items-body input[name="price[]"]').forEach(inp => { inp.value = (inp.value || '').replace(/,/g, ''); });
             const btn = document.getElementById('pr-submit-btn');
             btn.disabled = true;
-            const orig = btn.innerHTML;
             btn.innerHTML = '⏳ Submitting...';
-            try {
-                // /pr/add follows the app flash + redirect pattern; reload to display the result.
-                await fetch('/pr/add', { method: 'POST', body: new FormData(document.getElementById('pr-form')) });
-                window.location.href = '/pr';
-            } catch (err) {
-                alert('Submit failed (network error). Your entries are kept — please try again.');
-                btn.disabled = false;
-                btn.innerHTML = orig;
-            }
-            return false;
+            return true;
         }
 
         /* ===== PENDING-EDIT: prefill the edit modal (Approved PRs stay locked) ===== */
@@ -411,26 +401,19 @@
             document.getElementById('edit-modal').classList.add('hidden');
             editingPrId = null;
         }
-        async function submitPrEditForm(e) {
-            e.preventDefault();
+        /* PENDING-EDIT submit: native POST so the flash + redirect result displays
+           (fetch would swallow it — same bug class as create had). */
+        function submitPrEditForm(e) {
             if (!editingPrId) return false;
-            if (!validatePrRows('pr-edit-items-body')) return false;
+            if (!validatePrRows('pr-edit-items-body')) { e.preventDefault(); return false; }
             unlockCategoriesFor('pr-edit-form');
             // Strip display commas — backend float() takes clean decimals.
             document.querySelectorAll('#pr-edit-items-body input[name="price[]"]').forEach(inp => { inp.value = (inp.value || '').replace(/,/g, ''); });
             const btn = document.getElementById('pr-edit-submit-btn');
             btn.disabled = true;
-            const orig = btn.innerHTML;
             btn.innerHTML = '⏳ Saving...';
-            try {
-                await fetch('/pr/update/' + editingPrId, { method: 'POST', body: new FormData(document.getElementById('pr-edit-form')) });
-                window.location.href = '/pr';
-            } catch (err) {
-                alert('Save failed (network error). Your entries are kept — please try again.');
-                btn.disabled = false;
-                btn.innerHTML = orig;
-            }
-            return false;
+            document.getElementById('pr-edit-form').action = '/pr/update/' + editingPrId;
+            return true;
         }
 
         function fmtPeso(n){ return Number(n||0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }

@@ -77,10 +77,10 @@
     width: 100%;
     height: 42px;
     padding: 0 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
-    border: 1px solid #d2d2d2;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    box-shadow: none;
     font-size: 13px;
     font-weight: 600;
     color: #333333;
@@ -100,10 +100,10 @@
     flex-shrink: 0;
 }
 
-        /* Button Hover & Active States */
+        /* Button Hover & Active States (header-sky fill, border appears on hover/active) */
         .nav-btn:hover {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
 }
@@ -114,19 +114,20 @@
 }
 
         .nav-btn.active {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
 }
 
-        /* Logout Button Accent */
+        /* Logout Button Accent (borderless resting, red danger kept) */
         .nav-btn.logout-btn {
             margin-top: 14px;
             color: #d9534f;
-            background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%);
-            border-color: #f5c6cb;
+            background: transparent;
+            border-color: transparent;
             justify-content: center;
+            box-shadow: none;
         }
 
         .nav-btn.logout-btn:hover {
@@ -265,7 +266,7 @@
         .card-count {
             font-size: 12px;
             font-weight: 500;
-            color: #666666;
+            color: #000000;
             background: #f4f7f9;
             border: 1px solid #e0e0e0;
             border-radius: 20px;
@@ -283,30 +284,47 @@
 
         .card-link:hover { text-decoration: underline; }
 
-        /* ROW 1: Global KPI Cards (4-column grid) */
+        /* ROW 1: Pending-queue KPI Cards (5-column grid, icon-left layout) */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 18px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
         }
 
         .metric-card {
             background-color: #ffffff;
             border-radius: 12px;
-            padding: 18px 20px;
+            padding: 20px 18px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
             border: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 6px;
-            min-height: 125px;
+            gap: 8px;
+            min-height: 140px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .metric-card:hover {
             transform: translateY(-3px);
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+        }
+
+        .metric-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        .metric-text {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+            align-items: center;
         }
 
         .metric-title {
@@ -326,14 +344,33 @@
         }
 
         .metric-icon-box {
-            font-size: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
+        /* KPI icon badge — echoes the 32px action-button language (8px radius,
+           1px bordered box), scaled up for dashboard presence. */
+        .metric-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            border: 1px solid #d0dbe5;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .metric-badge .kpi-icon { width: 24px; height: 24px; }
+        .metric-badge.badge-red { background: #fdecea; border-color: #f5c6cb; color: #c62828; }
+        .metric-badge.badge-blue { background: #e1f3fe; border-color: #b6dcf5; color: #0277bd; }
+        .metric-badge.badge-amber { background: #fef6e0; border-color: #ffe082; color: #b26a00; }
+
+        .metric-warning .metric-icon-box { color: #b26a00; }
+
         .metric-value {
-            font-size: 24px;
+            font-size: 28px;
             font-style: italic;
             font-weight: 700;
             color: #2c3e50;
@@ -347,7 +384,7 @@
             font-size: 11.5px;
             color: #888888;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 10px;
         }
 
         /* ROW 2: The Admin Toolbelt (single horizontal card box) */
@@ -373,28 +410,16 @@
             color: #0d233a;
         }
 
-        .btn-import {
-            display: inline-flex;
+        /* Header chart-filter cluster (beside the bell, admin only) */
+        .header-filter {
+            display: flex;
             align-items: center;
-            gap: 8px;
-            background: linear-gradient(180deg, #53c5f1 0%, #3bb2e0 100%);
-            border: none;
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 12.5px;
-            font-weight: 600;
-            font-family: sans-serif;
-            color: #ffffff;
-            cursor: pointer;
-            box-shadow: 0 3px 8px rgba(83, 197, 241, 0.4);
-            transition: all 0.2s ease;
+            gap: 10px;
         }
-
-        .btn-import:hover {
-            background: #2ea3d1;
-            transform: translateY(-1px);
-            box-shadow: 0 5px 12px rgba(83, 197, 241, 0.5);
-        }
+        .header-filter .filter-active-label { color: #000000; }
+        /* Bell-style buttons: white bg + border like the bell; icon colors
+           and the blue hover stay exactly as they are. */
+        .header-filter .btn-action { background: #ffffff; border-color: #d0dbe5; }
 
         .filter-select {
             padding: 7px 12px;
@@ -462,11 +487,17 @@
         }
         a.btn-action { text-decoration: none; }
 
-        /* ROW 3: Visual Analytics (2-column grid) */
+        /* ROW 3: Withdraw + Return Analytics (4-in-line test above 1400px) */
         .analytics-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 18px;
+        }
+        @media (min-width: 1400px) {
+            .analytics-grid.analytics-quad {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 14px;
+            }
         }
 
         .chart-box {
@@ -664,6 +695,7 @@
         }
         @media (max-width: 640px) {
             .cards-grid { grid-template-columns: 1fr; }
+            .metric-main { gap: 10px; }
             .card-header { flex-direction: column; align-items: flex-start; }
             .toolbelt { flex-direction: column; align-items: stretch; }
         }

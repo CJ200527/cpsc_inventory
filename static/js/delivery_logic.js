@@ -39,9 +39,9 @@
             if(input.value && input.value > todayLocal()){ alert('IAR Date cannot be in the future.'); input.focus(); return false; }
             return true;
         }
-        /* P.O. Date guard: staff-typed historical date — future dates blocked. */
+        /* P.O. Date guard: required staff-typed historical date — future dates blocked. */
         function validatePODate(input){
-            if(!input || !input.value) return true;
+            if(!input || !input.value){ alert('P.O. Date is required.'); if(input) input.focus(); return false; }
             if(!input.max) input.max=todayLocal();
             if(input.value > todayLocal()){ alert('P.O. Date cannot be in the future.'); input.focus(); return false; }
             return true;

@@ -59,7 +59,7 @@
             {% for category, message in messages %}
                 <div class="toast-card toast-{{ category }}">
                     <span class="toast-icon">
-                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
                     </span>
                     <span class="toast-message">{{ message }}</span>
                     <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
@@ -130,120 +130,148 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
-                <div class="user-name">{{ full_name }}</div>
-                <div class="user-role">{{ role }}</div>
-            </div>
+                    <form id="chart-filter-form" method="GET" action="{{ url_for('admin_dashboard') }}" class="header-filter">
+                        <span class="filter-active-label" id="filter-active-label">{{ active_filter_label | default('All Time') }}</span>
+                        <button type="submit" class="btn-action btn-view btn-refresh-icon" title="Refresh Data"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+                        <div class="filter-wrap">
+                            <button type="button" class="btn-action btn-view filter-btn" title="Chart Filters" aria-expanded="false" aria-label="Chart Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                            <div class="filter-panel">
+                                <div class="filter-panel-head"><span class="filter-panel-title">Chart Filters</span><a class="filter-clear-link" href="{{ url_for('admin_dashboard') }}">Clear</a></div>
+                                <div class="filter-field">
+                                    <label for="chart_filter_input">Period</label>
+                                    <div class="fx21-field"><select id="chart_filter_input" name="chart_filter" class="effect-21">
+                                        <optgroup label="Range">
+                                            <option value="All Time" {% if chart_filter == 'All Time' %}selected{% endif %}>All Time</option>
+                                            <option value="This Month" {% if chart_filter == 'This Month' %}selected{% endif %}>This Month</option>
+                                            <option value="This Year" {% if chart_filter == 'This Year' %}selected{% endif %}>This Year</option>
+                                            <option value="Last Year" {% if chart_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
+                                        </optgroup>
+                                        <optgroup label="Quarter">
+                                            <option value="Q1" {% if chart_filter == 'Q1' %}selected{% endif %}>Q1 · Jan – Mar</option>
+                                            <option value="Q2" {% if chart_filter == 'Q2' %}selected{% endif %}>Q2 · Apr – Jun</option>
+                                            <option value="Q3" {% if chart_filter == 'Q3' %}selected{% endif %}>Q3 · Jul – Sep</option>
+                                            <option value="Q4" {% if chart_filter == 'Q4' %}selected{% endif %}>Q4 · Oct – Dec</option>
+                                        </optgroup>
+                                        <optgroup label="Month">
+                                            {% for m in ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+                                            <option value="{{ m }}" {% if chart_filter == m %}selected{% endif %}>{{ m }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <optgroup label="Custom">
+                                            <option value="Custom" {% if chart_filter == 'Custom' %}selected{% endif %}>Custom Range</option>
+                                        </optgroup>
+                                    </select><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="filter_year_input">Year (for Month view)</label>
+                                    <div class="fx21-field"><input type="number" id="filter_year_input" name="filter_year" class="effect-21" min="2000" max="2100" placeholder="e.g. 2025" value="{{ filter_year | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="date_from_input">Start Date (for Custom Range)</label>
+                                    <div class="fx21-field"><input type="date" id="date_from_input" name="date_from" class="effect-21" value="{{ date_from | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="date_to_input">End Date (for Custom Range)</label>
+                                    <div class="fx21-field"><input type="date" id="date_to_input" name="date_to" class="effect-21" value="{{ date_to | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="btn-modal-cancel" data-filter-cancel>Cancel</button>
+                                    <button type="submit" class="btn-modal-save btn-confirm-go">Apply Filters</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ full_name }}</div>
+                            <span class="user-pill">{{ role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ full_name|initial }}</div>
+                    </div>
+                </div>
         </div>
 
         <!-- Dashboard Content Grid (4-tier 360-degree control center) -->
         <div class="dashboard-container">
 
-            <!-- ROW 1: Global KPI Cards (4-Column Grid) -->
+            <!-- ROW 1: Pending-queue KPI Cards (5-Column Grid) -->
             <section class="dashboard-card-container transparent-section">
                 <div class="cards-grid">
-                    <div class="metric-card">
-                        <div class="metric-title">Total Asset Value</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">💰</div>
-                            <div class="metric-value asset-value">{{ admin_kpi.total_asset_value | default('₱ 0.00') }}</div>
-                        </div>
-                        <div class="metric-sub">Stock × Price</div>
-                    </div>
-
                     <a href="{{ url_for('admin_inventory_dashboard', stock_status='Needs Attention') }}" class="metric-card metric-warning" style="text-decoration:none;color:inherit;cursor:pointer;" title="View low and out-of-stock items">
-                        <div class="metric-title">Low Stock Alerts</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">⚠️</div>
-                            <div class="metric-value">{{ admin_kpi.low_stock_alerts | default(0) }}</div>
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-red"><svg class="kpi-icon" aria-hidden="true"><use href="#k-alert"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Low Stock Alert</div>
+                                <div class="metric-value">{{ admin_kpi.low_stock_alerts | default(0) }}</div>
+                            </div>
                         </div>
-                        <div class="metric-sub">Needs replenishment</div>
+                        <div class="metric-sub">Items at or below reorder</div>
                     </a>
 
                     <a href="{{ url_for('pr_management', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending purchase requests">
-                        <div class="metric-title">Pending PRs for Approval</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">📋</div>
-                            <div class="metric-value">{{ admin_kpi.pending_prs | default(0) }}</div>
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-blue"><svg class="kpi-icon" aria-hidden="true"><use href="#k-pr"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending PR</div>
+                                <div class="metric-value">{{ admin_kpi.pending_prs | default(0) }}</div>
+                            </div>
                         </div>
-                        <div class="metric-sub">Awaiting admin action</div>
+                        <div class="metric-sub">Awaiting director + procurement</div>
                     </a>
 
-                    <div class="metric-card">
-                        <div class="metric-title">Active Users</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">👥</div>
-                            <div class="metric-value">{{ admin_kpi.active_users | default(0) }}</div>
+                    <a href="{{ url_for('delivery_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending inspection and acceptance reports">
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-blue"><svg class="kpi-icon" aria-hidden="true"><use href="#k-iar"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending IAR</div>
+                                <div class="metric-value">{{ admin_kpi.pending_iar | default(0) }}</div>
+                            </div>
                         </div>
-                        <div class="metric-sub">Approved accounts</div>
-                    </div>
+                        <div class="metric-sub">Deliveries awaiting approval</div>
+                    </a>
+
+                    <a href="{{ url_for('admin_withdraw_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending requisition and issue slips">
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-amber"><svg class="kpi-icon" aria-hidden="true"><use href="#k-withdraw"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending Withdraw</div>
+                                <div class="metric-value">{{ admin_kpi.pending_withdraw | default(0) }}</div>
+                            </div>
+                        </div>
+                        <div class="metric-sub">RIS slips awaiting issuance</div>
+                    </a>
+
+                    <a href="{{ url_for('admin_return_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending return slips">
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-amber"><svg class="kpi-icon" aria-hidden="true"><use href="#k-return"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending Returns</div>
+                                <div class="metric-value">{{ admin_kpi.pending_returns | default(0) }}</div>
+                            </div>
+                        </div>
+                        <div class="metric-sub">Return slips awaiting action</div>
+                    </a>
                 </div>
             </section>
 
-<!-- ROW 2: The Admin Toolbelt (Single Horizontal Card Box) -->
-            <section class="dashboard-card-container toolbelt">
-                <div class="toolbelt-left">
-                    <button type="button" class="btn-import" title="Import Inventory — functionality to be added later">
-                        <span>📥</span> Import Inventory
-                    </button>
-                    <button type="submit" form="chart-filter-form" class="btn-action btn-view btn-refresh-icon" title="Refresh Data"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
-                </div>
-                <form id="chart-filter-form" method="GET" action="{{ url_for('admin_dashboard') }}" class="toolbelt-right">
-                    <label id="filter-dropdown-label">Chart Filters:</label>
-                    <div class="custom-dropdown-wrap filter-dropdown-wrap" id="filter-dropdown">
-                        <button type="button" class="filter-dropdown-btn" id="filter-dropdown-btn"
-                                aria-haspopup="listbox" aria-expanded="false" aria-labelledby="filter-dropdown-label">
-                            <span class="filter-selected" id="filter-selected">{{ active_filter_label | default('All Time') }}</span>
-                            <span class="filter-chevron" aria-hidden="true">▾</span>
-                        </button>
-                        <ul class="custom-dropdown-list filter-dropdown-list hidden" id="filter-dropdown-list" role="listbox">
-                            <li class="filter-group-label">Range</li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="All Time" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">All Time</span><span class="cd-specs">Last 6 months overview</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="This Month" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">This Month</span><span class="cd-specs">Daily breakdown · current month</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="This Year" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">This Year</span><span class="cd-specs">Jan – Dec · current year</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Last Year" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">Last Year</span><span class="cd-specs">Jan – Dec · previous year</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="filter-group-label">Quarter</li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q1" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">Q1</span><span class="cd-specs">January – March</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q2" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">Q2</span><span class="cd-specs">April – June</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q3" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">Q3</span><span class="cd-specs">July – September</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="Q4" data-kind="preset">
-                                <span class="cd-text"><span class="cd-name">Q4</span><span class="cd-specs">October – December</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            <li class="filter-group-label">Month</li>
-                            {% for m in ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
-                            <li class="custom-dropdown-item filter-dropdown-item" role="option" data-value="{{ m }}" data-kind="month">
-                                <span class="cd-text"><span class="cd-name">{{ m }}</span><span class="cd-specs">Monthly view · year auto-resolved</span></span><span class="cd-tick">✔</span>
-                            </li>
-                            {% endfor %}
-                        </ul>
-                    </div>
-                    <button type="button" class="btn-gear" id="btn-custom-range" title="Custom Date Range">⚙️</button>
-                    <input type="hidden" name="chart_filter" id="chart_filter_input" value="{{ chart_filter | default('All Time') }}">
-                    <input type="hidden" name="filter_year" id="filter_year_input" value="{{ filter_year | default('') }}">
-                    <input type="hidden" name="date_from" id="date_from_input" value="{{ date_from | default('') }}">
-                    <input type="hidden" name="date_to" id="date_to_input" value="{{ date_to | default('') }}">
-                </form>
-            </section>
-
-            <!-- ROW 3: Withdrawal Analytics (2-Column Grid) -->
+            <!-- ROW 3: Withdraw + Return Analytics (4-in-line test grid) -->
             <section class="dashboard-card-container transparent-section">
-                <div class="analytics-grid">
+                <div class="analytics-grid analytics-quad">
                     <div class="chart-box">
                         <div class="card-header">
-                            <h3>Monthly Withdrawals</h3>
+                            <h3>Withdrawn</h3>
                             <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
                         </div>
                         <div class="chart-canvas-wrap">
@@ -285,15 +313,10 @@
                         </div>
                         {% endif %}
                     </div>
-                </div>
-            </section>
 
-            <!-- ROW 4: Return Analytics (2-Column Grid) -->
-            <section class="dashboard-card-container transparent-section">
-                <div class="analytics-grid">
                     <div class="chart-box">
                         <div class="card-header">
-                            <h3>Monthly Returned Items</h3>
+                            <h3>Returned</h3>
                             <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
                         </div>
                         <div class="chart-canvas-wrap">
@@ -379,89 +402,12 @@
     </div>
     </div> <!-- /#main-dashboard-content -->
 
-    <!-- Custom Date Range Modal (droplet entrance, no X — Cancel/Apply only) -->
-    <div id="custom-date-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box modal-small">
-            <div class="modal-header">
-                <div class="modal-title-wrap">
-                    <div class="modal-icon-circle">📅</div>
-                    <div>
-                        <h3>Custom Date Range</h3>
-                        <p class="modal-sub">Filter charts by a specific period</p>
-                    </div>
-                </div>
-            </div>
-            <div class="form-row-2">
-                <div class="form-field fx21-field">
-                    <input type="date" id="custom-from" class="modal-input effect-21" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')">
-                    <span class="focus-border"><i></i></span>
-                    <label for="custom-from">From</label>
-                </div>
-                <div class="form-field fx21-field">
-                    <input type="date" id="custom-to" class="modal-input effect-21" oninput="this.classList.toggle('has-content',this.value.trim()!=='')" onchange="this.classList.toggle('has-content',this.value.trim()!=='')">
-                    <span class="focus-border"><i></i></span>
-                    <label for="custom-to">To</label>
-                </div>
-            </div>
-            <p class="modal-error hidden" id="custom-date-error"></p>
-            <div class="modal-buttons">
-                <button type="button" class="btn-modal-cancel" id="custom-date-cancel">Cancel</button>
-                <button type="button" class="btn-modal-save" id="custom-date-apply">Apply Range</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Specify Year Modal (future-month guard, no X — Cancel/Confirm only) -->
-    <div id="specify-year-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box modal-small">
-            <div class="modal-header">
-                <div class="modal-title-wrap">
-                    <div class="modal-icon-circle">🗓️</div>
-                    <div>
-                        <h3>Specify Year</h3>
-                        <p class="modal-sub"><span id="specify-year-month">This month</span> has not occurred yet this year — which year do you mean?</p>
-                    </div>
-                </div>
-            </div>
-            <div class="form-field fx21-field">
-                <input type="number" id="specify-year-input" class="modal-input effect-21" min="2000" oninput="this.classList.toggle('has-content',this.value.trim()!=='')">
-                <span class="focus-border"><i></i></span>
-                <label for="specify-year-input">Year (YYYY)</label>
-            </div>
-            <p class="modal-error hidden" id="specify-year-error"></p>
-            <div class="modal-buttons">
-                <button type="button" class="btn-modal-cancel" id="specify-year-cancel">Cancel</button>
-                <button type="button" class="btn-modal-save" id="specify-year-confirm">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Future Date Error Modal (no X — Confirm re-opens Specify Year) -->
-    <div id="future-date-modal" class="modal-overlay hidden" data-bs-backdrop="static" data-bs-keyboard="false">
-        <div class="modal-box modal-small">
-            <div class="modal-header">
-                <div class="modal-title-wrap">
-                    <div class="modal-icon-circle modal-icon-error">⛔</div>
-                    <div>
-                        <h3>Invalid Date</h3>
-                        <p class="modal-sub">That period cannot be reported on</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-error-box">
-                That is the future. There is no data available for that period yet.
-            </div>
-            <div class="modal-buttons modal-buttons-single">
-                <button type="button" class="btn-modal-save" id="future-date-confirm">Confirm</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Skeleton Screen Transition (Modular - disable via SKELETON_ENABLED=false) + Progressive Cascade Unveil -->
 
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/kpi-icons.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
     (function () {
@@ -502,7 +448,7 @@
             'Returns', 'rgba(46, 125, 50, 0.55)', '#2e7d32');
     })();
     </script>
-    <script src="{{ url_for('static', filename='js/admin_dashboard_logic.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
 
 
 </body>

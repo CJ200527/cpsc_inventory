@@ -401,6 +401,13 @@ a.btn-action {
 .search-input-box.fx21-field:focus-within {
     box-shadow: none;
 }
+/* Search-box magnifier: minimalist sprite icon replacing the emoji. */
+.search-input-box .search-ico {
+    display: inline-flex;
+    margin-right: 8px;
+    color: #54677a;
+    flex-shrink: 0;
+}
 
 /* --- Permanent action glyph colors (resting state): X red, check green.
    Scoped past the per-page slate base; per-page :hover rules still win. --- */
@@ -660,6 +667,13 @@ textarea:focus {
     min-width: 20px; height: 20px; border-radius: 10px;
     display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
 }
+/* Active-but-empty signal: filters on, zero matching records. */
+.filter-dot {
+    position: absolute; top: -4px; right: -4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #2e7d32; border: 2px solid #fff;
+    display: inline-block; pointer-events: none;
+}
 .filter-panel {
     display: none; position: absolute; right: 0; top: calc(100% + 10px);
     width: 300px; background: #fff; border: 1px solid #d0dbe5; border-radius: 12px;
@@ -695,6 +709,89 @@ textarea:focus {
     text-transform: none; letter-spacing: 0; text-decoration: underline;
 }
 .filter-clear-link:hover { color: #01579b; }
+
+/* --- Notification bell + profile (shared default, all dashboards) ---
+   Circular bell with red count badge; click toggles an anchored card of
+   pending-item rows (accent dot + label + bold count, linked). Profile:
+   Welcome line + role pill + initial avatar. Theme palette throughout. */
+.notif-wrap { position: relative; display: inline-flex; }
+.notif-bell {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 1px solid #d0dbe5; background: #fff; color: #333;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+}
+.notif-bell svg { width: 20px; height: 20px; }
+.notif-bell:hover, .notif-bell.open { border-color: #53c5f1; color: #0277bd; }
+.notif-badge {
+    position: absolute; top: -5px; right: -5px;
+    background: #dc3545; color: #fff;
+    font-size: 11px; font-weight: 700;
+    min-width: 20px; height: 20px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0 5px;
+}
+.notif-panel {
+    display: none; position: absolute; right: 0; top: calc(100% + 10px);
+    width: 300px; background: #fff; border: 1px solid #d0dbe5; border-radius: 12px;
+    box-shadow: 0 18px 50px rgba(13, 35, 58, 0.18);
+    padding: 8px; z-index: 60;
+}
+.notif-panel.open { display: block; animation: filterPopIn 0.18s ease both; }
+/* --- Toast notification system (shared default, all pages) ---
+   Clean white card, colored left accent per category, circled tinted
+   action icon (no emoji). ID-scoped so this single block wins over every
+   per-page .toast-card duplicate regardless of load order. */
+#toast-container .toast-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-left: 4px solid #53c5f1;
+}
+#toast-container .toast-card.toast-success { border-left-color: #4caf50; }
+#toast-container .toast-card.toast-error,
+#toast-container .toast-card.toast-danger { border-left-color: #c62828; }
+#toast-container .toast-card.toast-info { border-left-color: #53c5f1; }
+#toast-container .toast-icon { display: inline-flex; flex-shrink: 0; }
+#toast-container svg.toast-ico {
+    width: 16px; height: 16px; padding: 6px;
+    border-radius: 50%; box-sizing: content-box;
+}
+#toast-container svg.toast-ico-success { background: #e8f5e9; color: #2e7d32; }
+#toast-container svg.toast-ico-error { background: #fdecea; color: #c62828; }
+#toast-container svg.toast-ico-info { background: #e1f3fe; color: #0277bd; }
+.notif-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    text-decoration: none; color: #333; font-size: 13px;
+}
+.notif-row:hover { background: #e8f4fd; }
+.notif-dot { width: 8px; height: 8px; border-radius: 50%; background: #53c5f1; flex: 0 0 8px; }
+.notif-label { flex: 1; }
+.notif-row strong { color: #0277bd; }
+.notif-empty { padding: 18px; text-align: center; color: #666; font-size: 13px; }
+.user-block { display: flex; align-items: center; gap: 10px; }
+.user-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #0277bd; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+}
+/* Header cluster: bell + welcome + avatar in one flex row (shared; page
+   sheets only set text-align, so no conflicts). */
+.user-profile-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.user-welcome { font-size: 14px; font-weight: 700; color: #0d233a; white-space: nowrap; }
+.user-pill {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    background: #e1f3fe; color: #0277bd; border: 1px solid #b6dcf5;
+    border-radius: 10px; padding: 2px 8px; white-space: nowrap;
+}
+.filter-active-label {
+    font-size: 12px; font-weight: 600; color: #0d233a;
+    white-space: nowrap;
+}
 .filter-actions { display: flex; gap: 10px; margin-top: 4px; }
 .filter-actions .btn-modal-save, .filter-actions .btn-modal-cancel { flex: 1; justify-content: center; }
 /* Panel Apply: Create-PR-exact green hover. Scoped to .filter-panel

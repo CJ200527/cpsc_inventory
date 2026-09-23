@@ -100,6 +100,7 @@ from crud_inventory import get_inventory_summary, get_inventory_items, get_inven
 from crud_withdrawal import (
     get_available_products as get_withdraw_products,
     create_withdrawal,
+    update_withdrawal,
     get_all_withdrawals,
     get_withdrawal_details,
     approve_withdrawal,
@@ -112,6 +113,7 @@ from crud_returns import (
     get_issued_withdrawals,
     get_return_products,
     create_return,
+    update_return,
     get_all_returns,
     get_return_details,
     approve_return,
@@ -182,6 +184,40 @@ def short_pr(value):
     return f"{prefix}-{tail}"
 
 
+@app.template_filter("initial")
+def initial(value):
+    """First uppercase letter for the avatar circle (never crashes)."""
+    try:
+        s = str(value or "").strip()
+        return s[0].upper() if s else "?"
+    except Exception:
+        return "?"
+
+
+def _notif_context():
+    """Header bell data for the current session role (safe defaults)."""
+    try:
+        from crud_notifications import get_notification_counts
+        return get_notification_counts(session.get("role"))
+    except Exception as err:
+        print(f"[notifications] {err}")
+        return [], 0
+
+
+@app.context_processor
+def _inject_notif():
+    """Bell + profile vars on every render (zero / zeros when logged out).
+
+    Injected globally so all 14 dashboards — and any future page — get the
+    header data with no per-route wiring. Six indexed COUNT(*) queries only
+    run for authenticated renders.
+    """
+    if "user_id" not in session:
+        return {"notif_items": [], "notif_total": 0}
+    items, total = _notif_context()
+    return {"notif_items": items, "notif_total": total}
+
+
 # --- ROUTE 1: Home Redirect ---
 @app.route("/")
 def index():
@@ -212,7 +248,7 @@ def login():
             session["full_name"] = f"{user['Firstname']} {user['Lastname']}"
             session["role"] = user["Role"]
 
-            flash(f"Log In Successfully! Welcome {user['username']} 😊", "success")
+            flash(f"Log In Successfully! Welcome {user['username']}", "success")
             
             # Redirect based on user role
             if user["Role"] == "Admin":
@@ -248,10 +284,10 @@ def forgot_password():
             flash("Database error. Is MySQL running?", "error")
             return safe_render_template("LogIn and Registration/forgot_password.html")
         if success:
-            flash("Password updated successfully! Please log in with your new password 😊", "success")
+            flash("Password updated successfully! Please log in with your new password", "success")
             return redirect(url_for("login"))
         else:
-            flash("Verification failed! Username and Contact Number do not match our records ⚠️", "error")
+            flash("Verification failed! Username and Contact Number do not match our records", "error")
     return safe_render_template("LogIn and Registration/forgot_password.html")
 
 
@@ -307,7 +343,7 @@ def register():
         return redirect(url_for("login"))
 
     if success:
-        flash("Sign Up Successful! Please wait for Admin approval 😊😊😊", "success")
+        flash("Sign Up Successful! Please wait for Admin approval", "success")
         return redirect(url_for("login"))
     else:
         flash("Registration failed. Username or Contact Number may already be taken.", "error")
@@ -320,9 +356,9 @@ def logout():
     username = session.get("username", "")
     session.clear()
     if username:
-        flash(f"Successfully logged out {username} 😢", "info")
+        flash(f"Successfully logged out {username}", "info")
     else:
-        flash("Successfully logged out 😢", "info")
+        flash("Successfully logged out", "info")
     return redirect(url_for("login"))
 
 # --- Helpers: Admin Dashboard advanced reporting periods ---
@@ -482,8 +518,8 @@ def admin_dashboard():
     # --- Cleared defaults: empty analytics until live DB data fills them ---
     summary = {"total_unique": 0, "total_asset_value": 0, "low_stock_count": 0,
                "out_of_stock_count": 0, "in_stock_count": 0}
-    admin_kpi = {"total_asset_value": "₱ 0.00", "low_stock_alerts": 0,
-                 "pending_prs": 0, "active_users": 0}
+    admin_kpi = {"low_stock_alerts": 0, "pending_prs": 0, "pending_iar": 0,
+                 "pending_withdraw": 0, "pending_returns": 0}
     top_products, top_max = [], 1
     top_returned, top_returned_max = [], 1
     system_activity = []
@@ -500,7 +536,7 @@ def admin_dashboard():
         conn = get_db_connection()
         cur = conn.cursor(dictionary=True)
 
-        # --- Pending PRs for approval + active (approved) users ---
+        # --- Pending queues (shared workspace: all staff, no user_id filter) ---
         try:
             cur.execute("SELECT COUNT(*) AS c FROM purchase_requests WHERE status = 'Pending'")
             pending_prs = int((cur.fetchone() or {}).get("c", 0) or 0)
@@ -508,37 +544,30 @@ def admin_dashboard():
             print(f"[admin_dashboard] pending PRs error: {err}")
             pending_prs = 0
         try:
-            cur.execute("SELECT COUNT(*) AS c FROM users WHERE Approved_By = 1")
-            active_users = int((cur.fetchone() or {}).get("c", 0) or 0)
+            cur.execute("SELECT COUNT(*) AS c FROM iar WHERE status = 'Pending'")
+            pending_iar = int((cur.fetchone() or {}).get("c", 0) or 0)
         except Exception as err:
-            print(f"[admin_dashboard] active users error: {err}")
-            active_users = 0
-
-        # --- Total Asset Value: SUM(current_stock x unit_price) over the live
-        # inventory (products holds the delivery-updated true costs; the
-        # dedicated `inventory` table does not exist in this schema).
-        # Rounded to 2 decimals; falls back to the helper total on DB error.
+            print(f"[admin_dashboard] pending IAR error: {err}")
+            pending_iar = 0
         try:
-            cur.execute("""
-                SELECT ROUND(COALESCE(SUM(
-                    COALESCE(p.current_stock, p.quantity, 0) * COALESCE(p.price, 0)
-                ), 0), 2) AS asset_value
-                FROM products p
-                WHERE p.is_active = 1
-                  AND COALESCE(p.current_stock, p.quantity, 0) > 0
-            """)
-            asset_value = float((cur.fetchone() or {}).get("asset_value", 0) or 0)
+            cur.execute("SELECT COUNT(*) AS c FROM `withdraw` WHERE status = 'Pending'")
+            pending_withdraw = int((cur.fetchone() or {}).get("c", 0) or 0)
         except Exception as err:
-            print(f"[admin_dashboard] asset value error: {err}")
-            try:
-                asset_value = round(float(summary.get("total_asset_value", 0) or 0), 2)
-            except (TypeError, ValueError):
-                asset_value = 0.0
+            print(f"[admin_dashboard] pending withdraw error: {err}")
+            pending_withdraw = 0
+        try:
+            cur.execute("SELECT COUNT(*) AS c FROM `return` WHERE status = 'Pending'")
+            pending_returns = int((cur.fetchone() or {}).get("c", 0) or 0)
+        except Exception as err:
+            print(f"[admin_dashboard] pending returns error: {err}")
+            pending_returns = 0
+
         admin_kpi = {
-            "total_asset_value": f"₱ {asset_value:,.2f}",
             "low_stock_alerts": int(summary.get("low_stock_count", 0) or 0) + int(summary.get("out_of_stock_count", 0) or 0),
             "pending_prs": pending_prs,
-            "active_users": active_users,
+            "pending_iar": pending_iar,
+            "pending_withdraw": pending_withdraw,
+            "pending_returns": pending_returns,
         }
 
         # --- Resolve the reporting period once; both modules share it ---
@@ -643,6 +672,7 @@ def admin_dashboard():
         date_from=date_from.isoformat() if date_from else "",
         date_to=date_to.isoformat() if date_to else "",
         active_filter_label=active_filter_label,
+        active_filter_count=(1 if chart_filter != "All Time" else 0) + (1 if filter_year else 0) + (2 if date_from and date_to else 0),
     )
 
 # --- ROUTE 6: Staff Dashboard (data-driven analytics, no Quick Actions) ---
@@ -958,7 +988,7 @@ def admin_update_user_action(target_id):
                 success, msg = bool(result), None
 
             if success:
-                flash(f"User USR-{'%03d' % target_id} updated successfully!", "success")
+                flash(f"User USR-{'%03d' % target_id} saved.", "success")
             else:
                 if msg and ("Username" in msg or "Contact number" in msg):
                     flash(f"Failed to update user: {msg}", "error")
@@ -1337,7 +1367,7 @@ def add_pr_action():
                                               fund_source=fund_source,
                                               date_requested=date_requested or None)
     if success:
-        flash(f"Purchase Request {result} submitted successfully!", "success")
+        flash(f"PR {result} saved. Waiting for approval.", "success")
     else:
         flash(f"Failed to submit PR: {result}", "error")
 
@@ -1364,7 +1394,7 @@ def update_pr_action(pr_id):
                                               date_requested=date_requested or None,
                                               items_list=items_payload)
     if success:
-        flash(f"Purchase Request {result} updated successfully!", "success")
+        flash(f"PR {result} saved. Waiting for approval.", "success")
     else:
         flash(f"Failed to update PR: {result}", "error")
 
@@ -1909,8 +1939,8 @@ def create_delivery_action():
     remarks = request.form.get("remarks", "").strip()
     # is_partial AUTO-computed inside create_delivery — checkbox removed per new spec
 
-    if not all([pr_id, iar_number, supplier_name, inspected_by, supply_officer, iar_date]):
-        flash("Purchase Request, IAR Number, Supplier Name, Inspected By, Supply Officer, and IAR Date are required.", "error")
+    if not all([pr_id, iar_number, po_date, supplier_name, inspected_by, supply_officer, iar_date]):
+        flash("Purchase Request, IAR Number, P.O. Date, Supplier Name, Inspected By, Supply Officer, and IAR Date are required.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     # IAR Date guard: past/present only — future dates are rejected.
@@ -1978,7 +2008,7 @@ def create_delivery_action():
     )
 
     if success:
-        flash(f"IAR {iar_number} submitted! Pending approval. Partial auto-detected if any received != ordered.", "success")
+        flash(f"IAR {iar_number} received. Waiting for admin approval for stock ingestion.", "success")
     else:
         flash(f"Failed to submit IAR: {result}", "error")
 
@@ -2129,8 +2159,8 @@ def complete_delivery_action(delivery_id):
     iar_date = request.form.get("iar_date", "").strip() or request.form.get("delivery_date", "").strip()
     remarks = request.form.get("remarks", "").strip()
 
-    if not all([iar_number, inspected_by, supply_officer, iar_date]):
-        flash("IAR Number, Inspected By, Supply Officer, IAR Date required for completion.", "error")
+    if not all([iar_number, po_date, inspected_by, supply_officer, iar_date]):
+        flash("IAR Number, P.O. Date, Inspected By, Supply Officer, IAR Date required for completion.", "error")
         return redirect(url_for("delivery_dashboard"))
 
     # IAR Date guard: past/present only — future dates are rejected.
@@ -2183,7 +2213,7 @@ def complete_delivery_action(delivery_id):
         received_items=received_items
     )
     if success:
-        flash(f"Completion IAR {iar_number} created! Pending approval for remaining {sum(r['received_quantity'] for r in received_items)} units.", "success")
+        flash(f"Completion IAR {iar_number} received. Waiting for admin approval for stock ingestion.", "success")
     else:
         flash(f"Complete failed: {result}", "error")
     return redirect(url_for("delivery_dashboard"))
@@ -2406,13 +2436,52 @@ def create_withdrawal_action():
             return redirect(request.referrer or url_for("staff_withdraw_dashboard" if session.get("role")=="Staff" else "admin_withdraw_dashboard"))
     success, result = create_withdrawal(user_id, ris_number, department, purpose, received_by, date_requested, items)
     if success:
-        flash(f"Withdrawal {ris_number} submitted! Pending approval (stock not yet deducted).", "success")
+        flash(f"Withdrawal {ris_number} saved. Waiting for admin approval.", "success")
     else:
         flash(f"Failed: {result}", "error")
     # Redirect back to appropriate dashboard
     if session.get("role")=="Admin":
         return redirect(url_for("admin_withdraw_dashboard"))
     return redirect(url_for("staff_withdraw_dashboard"))
+
+@app.route("/withdraw/update/<int:withdraw_id>", methods=["POST"])
+def update_withdraw_action(withdraw_id):
+    """Edit a Pending withdrawal (v1: header fields + per-line quantities)."""
+    if "user_id" not in session:
+        flash("Please log in.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Admin", "Staff"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    _dash = "staff_withdraw_dashboard" if session.get("role") == "Staff" else "admin_withdraw_dashboard"
+    department = request.form.get("department", "").strip()
+    purpose = request.form.get("purpose", "").strip()
+    received_by = request.form.get("received_by", "").strip()
+    date_requested = request.form.get("date_requested", "").strip()
+    product_ids = request.form.getlist("product_id[]")
+    quantities = request.form.getlist("quantity[]")
+    if not all([department, purpose]):
+        flash("Department and Purpose are required.", "error")
+        return redirect(request.referrer or url_for(_dash))
+    if not product_ids:
+        flash("Keep at least one item.", "error")
+        return redirect(request.referrer or url_for(_dash))
+    items = []
+    for pid, qty in zip(product_ids, quantities):
+        try:
+            items.append({"product_id": int(pid), "quantity": int(qty)})
+        except (ValueError, TypeError):
+            flash("Invalid quantity row.", "error")
+            return redirect(request.referrer or url_for(_dash))
+    ok, res = update_withdrawal(withdraw_id, department, purpose, received_by,
+                                date_requested or None, items)
+    if ok:
+        header, _ = get_withdrawal_details(withdraw_id)
+        ris = (header or {}).get("ris_number") or f"WD-{withdraw_id:03d}"
+        flash(f"Withdrawal {ris} saved. Waiting for admin approval.", "success")
+    else:
+        flash(f"Failed to update withdrawal: {res}", "error")
+    return redirect(url_for(_dash))
 
 @app.route("/withdraw/details/<int:withdraw_id>")
 def get_withdrawal_details_api(withdraw_id):
@@ -2625,12 +2694,64 @@ def create_return_action():
         if auto_approved:
             flash(f"Return {return_number} saved. All items Unserviceable — no approval needed.", "success")
         else:
-            flash(f"Return {return_number} submitted! Pending approval (Serviceable items will be restocked, Unserviceable items recorded for history).", "success")
+            flash(f"Return {return_number} saved. Waiting for admin approval.", "success")
     else:
         flash(f"Failed: {result}", "error")
     if session.get("role")=="Admin":
         return redirect(url_for("admin_return_dashboard"))
     return redirect(url_for("staff_return_dashboard"))
+
+@app.route("/returns/update/<int:return_id>", methods=["POST"])
+def update_return_action(return_id):
+    """Edit a Pending return (v1: header fields + per-line qty/condition)."""
+    if "user_id" not in session:
+        flash("Please log in.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Admin", "Staff"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    _dash = "staff_return_dashboard" if session.get("role") == "Staff" else "admin_return_dashboard"
+    department = request.form.get("department", "").strip()
+    reason = request.form.get("reason", "").strip()
+    date_returned = request.form.get("date_returned", "").strip()
+    product_ids = request.form.getlist("product_id[]")
+    quantities = request.form.getlist("returned_quantity[]")
+    conditions = request.form.getlist("condition_status[]")
+    if not all([department, reason]):
+        flash("Department and Reason are required.", "error")
+        return redirect(request.referrer or url_for(_dash))
+    if not product_ids:
+        flash("Keep at least one item.", "error")
+        return redirect(request.referrer or url_for(_dash))
+    items = []
+    for i, pid in enumerate(product_ids):
+        try:
+            qty = int(quantities[i])
+        except (ValueError, TypeError, IndexError):
+            flash(f"Invalid quantity row {i+1}.", "error")
+            return redirect(request.referrer or url_for(_dash))
+        try:
+            cond = (conditions[i] if i < len(conditions) else "Serviceable").strip() or "Serviceable"
+        except (IndexError, AttributeError):
+            cond = "Serviceable"
+        try:
+            items.append({"product_id": int(pid), "returned_quantity": qty, "condition_status": cond})
+        except (ValueError, TypeError):
+            flash(f"Invalid item row {i+1}.", "error")
+            return redirect(request.referrer or url_for(_dash))
+    ret = update_return(return_id, department, reason, date_returned or None, items,
+                        user_id=session.get("user_id"))
+    if ret[0]:
+        header, _ = get_return_details(return_id)
+        rnum = (header or {}).get("return_number") or f"RET-{return_id:03d}"
+        auto = bool(ret[2]) if len(ret) > 2 else False
+        if auto:
+            flash(f"Return {rnum} saved. All items Unserviceable — no approval needed.", "success")
+        else:
+            flash(f"Return {rnum} saved. Waiting for admin approval.", "success")
+    else:
+        flash(f"Failed to update return: {ret[1]}", "error")
+    return redirect(url_for(_dash))
 
 # --- API ROUTE: Next available return number (for live display in Return modal) ---
 @app.route("/returns/get_next_number")

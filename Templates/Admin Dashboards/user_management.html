@@ -14,7 +14,7 @@
             {% for category, message in messages %}
                 <div class="toast-card toast-{{ category }}">
                     <span class="toast-icon">
-                        {% if category == 'success' %}😊{% elif category == 'error' or category == 'danger' %}⚠️{% else %}ℹ️{% endif %}
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
                     </span>
                     <span class="toast-message">{{ message }}</span>
                     <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
@@ -71,9 +71,26 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
-                <div class="user-name">{{ user.full_name }}</div>
-                <div class="user-role">{{ user.role }}</div>
-            </div>
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ user.full_name }}</div>
+                            <span class="user-pill">{{ user.role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ user.full_name|initial }}</div>
+                    </div>
+                </div>
         </div>
 
         <div class="dashboard-container">
@@ -86,7 +103,7 @@
             <div class="control-card">
                 <form method="GET" action="/admin/users" class="search-form" id="filter-form">
                     <div class="search-input-box fx21-field">
-                        <span style="margin-right: 8px;">🔍</span>
+                        <span class="search-ico"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></span>
                         <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search ID, Name, Username, Role, or Contact #" autocomplete="off">
                         <span class="focus-border"><i></i></span>
                     </div>
@@ -97,7 +114,7 @@
                 <div class="filter-controls">
                     <!-- Filter Panel -->
                     <div class="filter-wrap">
-                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}{% if users|length %}<span class="filter-count">{{ users|length }}</span>{% else %}<span class="filter-dot"></span>{% endif %}{% endif %}</button>
                         <div class="filter-panel">
                             <form method="GET" action="/admin/users">
                                 <input type="hidden" name="search" value="{{ search }}">

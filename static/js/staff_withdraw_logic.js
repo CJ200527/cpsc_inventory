@@ -222,4 +222,51 @@
             });
         }
         function closeViewModal(){ document.getElementById('view-modal').classList.add('hidden'); }
+        /* ===== PENDING-EDIT (v1): header fields + per-line quantities, native POST ===== */
+        function openEditWithdrawModal(id){
+            const tbody=document.getElementById('withdraw-edit-items-body');
+            tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">Loading...</td></tr>';
+            document.getElementById('edit-withdraw-modal').classList.remove('hidden');
+            document.getElementById('withdraw-edit-form').action='/withdraw/update/'+id;
+            fetch('/withdraw/details/'+id).then(r=>r.json()).then(data=>{
+                if(data.error){ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">'+data.error+'</td></tr>'; return; }
+                if(data.header.status!=='Pending'){
+                    alert('Withdrawal is '+data.header.status+' and locked as an immutable record. Only Pending withdrawals can be edited.');
+                    closeEditWithdrawModal();
+                    return;
+                }
+                const h=data.header;
+                const setVal=(id2,v)=>{ const el=document.getElementById(id2); if(el){ el.value=v||''; el.classList.toggle('has-content',!!(v||'')); } };
+                setVal('edit-withdraw-number', shortWdNum(h.ris_number));
+                setVal('edit-withdraw-department', h.department);
+                setVal('edit-withdraw-received-by', h.received_by);
+                setVal('edit-withdraw-purpose', h.purpose);
+                setVal('edit-withdraw-date', String(h.date_requested||'').slice(0,10));
+                tbody.innerHTML='';
+                (data.items||[]).forEach(i=>{
+                    const maxStock=parseInt(i.cur_stock||0);
+                    const tr=document.createElement('tr');
+                    tr.innerHTML=`<td><strong>${escHtml(i.item_name)}</strong><input type="hidden" name="product_id[]" value="${i.product_id}"></td>`
+                        +`<td>${escHtml(i.withdraw_details||i.details||'—')}</td>`
+                        +`<td>${escHtml(i.unit||'pcs')}</td>`
+                        +`<td><span class="stock-info">${maxStock}</span></td>`
+                        +`<td><div class="fx21-field" style="display:inline-block;"><input type="number" name="quantity[]" class="effect-21" min="1" max="${maxStock}" value="${i.quantity}" data-max="${maxStock}" style="width:90px; padding:6px; border:1.5px solid #d0dbe5; border-radius:6px;" required><span class="focus-border"><i></i></span></div></td>`;
+                    tbody.appendChild(tr);
+                });
+            }).catch(()=>{ tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#c62828;">Failed to load withdrawal.</td></tr>'; });
+        }
+        function closeEditWithdrawModal(){ document.getElementById('edit-withdraw-modal').classList.add('hidden'); }
+        function validateEditWithdrawForm(){
+            const rows=document.querySelectorAll('#withdraw-edit-items-body tr');
+            if(rows.length===0){ alert('Keep at least one item.'); return false; }
+            for(const tr of rows){
+                const qtyInput=tr.querySelector('input[name="quantity[]"]');
+                if(!qtyInput) continue;
+                const qty=parseInt(qtyInput.value||0);
+                const max=parseInt(qtyInput.dataset.max||0);
+                if(!(qty>0)){ alert('Quantity must be >0.'); return false; }
+                if(max && qty>max){ alert('Requested '+qty+' exceeds available stock '+max+'.'); return false; }
+            }
+            return true;
+        }
     

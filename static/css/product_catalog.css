@@ -32,10 +32,10 @@
     width: 100%;
     height: 42px;
     padding: 0 16px;
-    background: linear-gradient(180deg, #ffffff 0%, #f4f4f4 100%);
-    border: 1px solid #d2d2d2;
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: 10px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    box-shadow: none;
     font-size: 13px;
     font-weight: 600;
     color: #333333;
@@ -54,8 +54,8 @@
     flex-shrink: 0;
 }
         .nav-btn:hover {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: 0 4px 10px rgba(83, 197, 241, 0.25);
 }
@@ -64,12 +64,12 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
         .nav-btn.active {
-    background: linear-gradient(180deg, #e1f3fe 0%, #cbebfe 100%);
-    border-color: #53c5f1;
+    background: #aae0f7;
+    border-color: transparent;
     color: #0277bd;
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(83, 197, 241, 0.3);
 }
-        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: linear-gradient(180deg, #ffffff 0%, #fdf2f2 100%); border-color: #f5c6cb; justify-content: center; }
+        .nav-btn.logout-btn { margin-top: 14px; color: #d9534f; background: transparent; border-color: transparent; justify-content: center; }
         .nav-btn.logout-btn:hover { background: #dc3545; color: #ffffff; border-color: #dc3545; box-shadow: 0 4px 10px rgba(220,53,69,0.3); }
         .sidebar-footer { font-size: 10px; color: #888888; text-align: center; margin-top: 12px; font-style: italic; }
         .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; }

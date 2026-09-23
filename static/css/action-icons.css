@@ -39,3 +39,11 @@
 .nav-btn.active .nav-icon { color: #0277bd; }
 .nav-btn.logout-btn:hover .nav-icon,
 .nav-btn.logout-btn.active .nav-icon { color: #ffffff; }
+
+/* kpi-icon — sizing for the dashboard KPI sprite (kpi-icons.js).
+   Same currentColor contract as act-icon/nav-icon; cards set the color. */
+.kpi-icon {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+}
