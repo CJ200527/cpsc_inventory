@@ -155,3 +155,48 @@ def save_settings(settings_dict):
         if conn:
             try: conn.close()
             except: pass
+
+
+def _coerce_threshold(value, fallback):
+    """Safe int coercion for threshold settings (never raises, never negative)."""
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError, AttributeError):
+        return fallback
+    return max(0, n)
+
+
+def get_reorder_thresholds():
+    """Effective reorder thresholds: category-specific overrides global.
+
+    Rule (user-confirmed): Global Default applies to every category, but a
+    set category value wins for its own category only. Read-time only —
+    never writes to `products`. Safe defaults keep dashboards alive when
+    the settings table is missing.
+    Returns {global, consumables, tools, equipment} as ints.
+    """
+    settings = get_all_settings()
+    global_lvl = _coerce_threshold(settings.get("default_reorder_level", 10), 10)
+
+    def cat(key, fallback):
+        raw = settings.get(key, None)
+        if raw is None or str(raw).strip() == "":
+            return global_lvl
+        return _coerce_threshold(raw, fallback)
+
+    return {
+        "global": global_lvl,
+        "consumables": cat("cat_reorder_consumables", global_lvl),
+        "tools": cat("cat_reorder_tools", global_lvl),
+        "equipment": cat("cat_reorder_equipment", global_lvl),
+    }
+
+
+def effective_reorder_for(category, thresholds=None):
+    """Effective reorder level for one product category."""
+    try:
+        th = thresholds or get_reorder_thresholds()
+    except Exception:
+        th = {"global": 10, "consumables": 10, "tools": 5, "equipment": 5}
+    key = str(category or "").strip().lower()
+    return int(th.get(key, th.get("global", 10)))

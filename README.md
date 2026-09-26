@@ -62,8 +62,8 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 - **Modals:** strict 3-section Flexbox layout (sticky header, scrollable body, sticky footer), card-box sections with titles, auto-generated readonly numbers (daily `PR-`/`DEL-`/`IAR-`/`WD-`/`RET-YYYY-MM-DD-XXX` sequences via `/pr/get_next_number`, `/delivery/get_next_number`, `/delivery/get_next_iar`, `/withdraw/get_next_number`, `/returns/get_next_number`), no `X` buttons (explicit Cancel workflow only), droplet-animated Duplicate-Item warning modal, shared `.btn-modal-save` hover system (green `#2e7d32` hover scoped to its Understood button).
 
 ### 8. System Settings
-- **Admin-only** (`/admin/settings`) — 5-tab settings page (Branding, Theme, Business Rules, Stock Alerts, UI Preferences) with 28 configurable defaults stored in a key-value `admin_settings` table.
-- **Backend:** `crud_settings.py` — `ensure_settings_table()`, `init_default_settings()` (runs at startup), `get_all_settings()`, `get_setting(key)`, `save_settings(settings_dict)`.
+- **Admin-only** (`/admin/settings`) — Stock Alerts panel (Global Default + per-category Consumables/Tools/Equipment thresholds) stored in key-value `admin_settings` table. Thresholds are **read-time only**: `get_reorder_thresholds()` / `effective_reorder_for()` (category overrides global, unknown falls back to global) drive Inventory statuses, dashboard Low KPIs, bell counts, and picker snapshots — `products.reorder_level` is never rewritten.
+- **Backend:** `crud_settings.py` — `ensure_settings_table()`, `init_default_settings()` (runs at startup), `get_all_settings()`, `get_setting(key)`, `save_settings(settings_dict)`, `get_reorder_thresholds()`, `effective_reorder_for(category)`.
 - **Accessible from** all admin dashboard sidebars via a Settings button above Log Out.
 
 ---
@@ -142,4 +142,4 @@ The **Web-Based CPSC Production & Inventory Management System (Prototype 2)** is
 
 **Capstone Team — BSIT 3A, CPSC | Prototype 2 (2026) | Tip: Demo the variant flow (same name, changed size → new product), the PR duplicate block (droplet modal), an invoice-price override flowing into weighted-average valuation, and the double-click approval guard live.**
 
-> **Status 2026-09-27:** Dashboard KPI pass — admin 5 pending-queue cards (badged, centered, linked) + Inventory 4-card KPIs both roles (asset lives there now) + new `kpi-icons.js` family; search 🔍 → sprite magnifier on all 13 dashboards; toasts cleaned (category icons, all pages) and interactive (save wording + filter/search/refresh feedback); nav borderless everywhere with sky hover/active; Withdraw/Return Pending-only edits v1; PR native submits (edit-toast bug killed); returnable-only withdraw picker. **Next →** PO Date required → Comparative Report spec → Settings polish (incl. Import move).
+> **Status 2026-09-26 (nightcap):** Import stub buttons live on PR + Inventory toolbelts (both roles, flash + redirect; modal + openpyxl backend next). Settings fully working (thresholds + cascade, user-verified). **Next →** Import backend → merged-compare test → Settings right-side block → Product edit flash → nav-toggle (user sourcing).

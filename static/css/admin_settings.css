@@ -1,0 +1,82 @@
+/* admin_settings.css — System Settings page rules (theme-exact).
+   --------------------------------------------------------------------------
+   Layout: header → .dashboard-container → one white .dashboard-card-container
+   holding the Stock Alerts panel and the save bar pinned at the card
+   bottom. fx21 fields use parked labels with 26px row rhythm; placeholders
+   stay as hint text only. (Single panel — no tab chrome remains.)
+   -------------------------------------------------------------------------- */
+
+/* Panels */
+.settings-panel { padding-top: 6px; }
+/* Left card only: the white card ends after the reorder column so the right
+   side of the page stays open for a future settings block (Withdrawn/Returned
+   analytics pattern — two cards, not one wide card). */
+.settings-wrap.dashboard-card-container { max-width: 520px; }
+.settings-group { margin-bottom: 24px; }
+.settings-group:last-child { margin-bottom: 0; }
+.settings-group-title { font-size: 14px; font-weight: 700; color: #0d47a1; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 1px solid #e3f2fd; }
+
+/* Single-column shell inside the left card (right-side block will mount as
+   its own card later; the reserved div stays in HTML as its anchor). */
+.settings-two-col { display: grid; grid-template-columns: 1fr; gap: 0; align-items: start; }
+.settings-left { min-width: 0; }
+/* Reserved right-hand block — hidden until its card is designed; div kept. */
+.settings-reserved { display: none; min-height: 1px; }
+/* Vertical stack: Global → Consumables → Tools → Equipment, 26px rhythm. */
+.settings-stack { display: flex; flex-direction: column; gap: 26px; }
+.settings-field { min-width: 0; }
+
+/* fx21 rows: parked label above the box, 26px row rhythm */
+.settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 0 0 26px 0; }
+.settings-row.full { grid-template-columns: 1fr; }
+.settings-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.settings-row:last-child { margin-bottom: 0; }
+.settings-field-label { display: block; font-size: 12px; font-weight: 600; color: #333333; margin-bottom: 6px; }
+.settings-wrap .effect-21 { width: min(240px, 100%); padding: 8px 10px; border: 1.5px solid #d0dbe5; border-radius: 6px; font-size: 12px; background: #f8fcff; box-sizing: border-box; font-family: sans-serif; }
+.settings-wrap .fx21-field { max-width: 240px; }
+.settings-wrap select.effect-21 { cursor: pointer; }
+
+/* Color picker + toggle switch */
+.color-picker-wrap { display: flex; align-items: center; gap: 8px; }
+.color-picker-wrap input[type="color"] { width: 40px; height: 32px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer; padding: 2px; }
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 24px; transition: .3s; }
+.toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; }
+.toggle-switch input:checked + .toggle-slider { background: #53c5f1; }
+.toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+.toggle-row { display: flex; align-items: center; gap: 10px; }
+.toggle-row-label { font-size: 12px; font-weight: 600; color: #333333; }
+
+/* Save bar pinned at the card bottom — right-aligned like the PR modal footer
+   (Cancel + Save docked right), hidden until a textbox goes dirty
+   (settings_logic.js toggles .show). */
+.settings-save-bar { display: none; justify-content: flex-end; gap: 10px; padding-top: 14px; margin-top: 6px; border-top: 1px solid #eef2f5; }
+.settings-save-bar.show { display: flex; }
+/* Cancel is an anchor — kill the link underline so it reads as a button. */
+.settings-save-bar .btn-modal-cancel { text-decoration: none; }
+/* Save = Create-PR-exact green hover (default standard). Scoped to the settings
+   save bar so it beats the generic blue .btn-modal-save:hover in modals.css
+   regardless of stylesheet load order. */
+.settings-save-bar .btn-confirm-go { transition: all 0.2s ease-in-out; }
+.settings-save-bar .btn-confirm-go:hover {
+    background: linear-gradient(135deg, #81c784, #4caf50);
+    color: #ffffff;
+    border-color: #4caf50;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+}
+.settings-save-bar .btn-confirm-go:active {
+    background: #66bb6a;
+    color: #ffffff;
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.4);
+}
+
+/* Narrow screens: single column rows */
+@media (max-width: 640px) {
+    .settings-row { grid-template-columns: 1fr; }
+    .settings-row.cols-3 { grid-template-columns: 1fr; }
+    .settings-two-col { grid-template-columns: 1fr; }
+    .settings-wrap.dashboard-card-container { max-width: none; }
+}

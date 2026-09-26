@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+{% set donut_pct = totals.fulfillment_pct if totals and totals.fulfillment_pct else 0 %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comparative Report — Merged PR vs IAR - Print</title>
+    <style>
+        /* Merged Comparative print sheet — director's requested-vs-received view:
+           college header block, two-column body (left = requested per item
+           with fund tags, right = received per item), grand totals, CSS donut
+           (received vs outstanding) + footer legend. Screen toolbar hidden
+           on paper. */
+        @page { size: A4 portrait; margin: 10mm 9mm 12mm 9mm; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; color: #000; background: #eee; margin: 0; padding: 16px; }
+        .screen-bar { max-width: 210mm; margin: 0 auto 12px auto; display: flex; gap: 8px; justify-content: flex-end; }
+        .screen-bar a, .screen-bar button { font-family: inherit; font-size: 12px; padding: 7px 14px; border-radius: 6px; border: 1px solid #999; background: #fff; cursor: pointer; text-decoration: none; color: #000; }
+        .screen-bar .do-print { background: #0d47a1; border-color: #0d47a1; color: #fff; font-weight: 700; }
+        .sheet { max-width: 210mm; margin: 0 auto; background: #fff; padding: 8mm 7mm; display: flex; flex-direction: column; min-height: 257mm; }
+        .doc-head { text-align: center; line-height: 1.35; margin-bottom: 5px; }
+        .doc-head .college { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+        .doc-head .addr { font-size: 11px; }
+        .doc-head .form-title { font-size: 12px; font-weight: 700; margin-top: 8px; }
+        .doc-sub { text-align: center; font-size: 10.5px; color: #333; margin-bottom: 5px; }
+        .duo { display: flex; gap: 4mm; align-items: flex-start; }
+        .duo .col { flex: 1; min-width: 0; }
+        .duo .col h4 { font-size: 11px; margin: 0 0 2mm 0; text-align: center; background: #eaf3f8; border: 1px solid #000; padding: 2px; }
+        table.cmp-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        table.cmp-table th, table.cmp-table td { border: 1px solid #000; padding: 3px 4px; vertical-align: top; word-wrap: break-word; }
+        table.cmp-table thead { display: table-header-group; }
+        table.cmp-table thead th { font-size: 10px; text-align: left; background: #fff; }
+        table.cmp-table tr { page-break-inside: avoid; }
+        table.cmp-table td.num, table.cmp-table th.num { text-align: center; }
+        table.cmp-table td.item { text-align: left; }
+        table.cmp-table tfoot td { font-weight: 700; background: #f2f2f2; }
+        .fund-tag { display: inline-block; border: 1px solid #000; border-radius: 3mm; padding: 0 2mm; margin: 0 1mm 1mm 0; font-size: 9.5px; white-space: nowrap; }
+        /* Donut: pure CSS ring (conic-gradient) — prints reliably with no JS/CDN. */
+        .donut-row { display: flex; align-items: center; gap: 6mm; margin: 6mm 0 4mm 0; page-break-inside: avoid; }
+        .donut { width: 32mm; height: 32mm; border-radius: 50%; flex-shrink: 0;
+            background: conic-gradient(#0d47a1 0 {{ donut_pct }}%, #d7e3ee {{ donut_pct }}% 100%);
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            display: flex; align-items: center; justify-content: center; }
+        .donut-hole { width: 18mm; height: 18mm; border-radius: 50%; background: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; }
+        .donut-cap { font-size: 11px; line-height: 1.6; }
+        .donut-cap .sw { display: inline-block; width: 3mm; height: 3mm; margin-right: 2mm; border: 1px solid #000; vertical-align: baseline; }
+        /* Footer legend explains the sheet to any reader. */
+        .legend { margin-top: auto; padding-top: 8mm; font-size: 10px; line-height: 1.6; border-top: 1px solid #000; }
+        .legend h5 { font-size: 10.5px; margin: 0 0 2mm 0; }
+        .legend dl { margin: 0; }
+        .legend dt { font-weight: 700; display: inline; }
+        .legend dd { display: inline; margin: 0 4mm 0 1mm; }
+        .merged-strip { max-width: 210mm; margin: 0 auto 8px auto; font-size: 11px; color: #333; background: #e8f4fd; border: 1px solid #b6dcf5; border-radius: 6px; padding: 7px 12px; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .screen-bar { display: none !important; }
+            .merged-strip { display: none !important; }
+            .sheet { max-width: none; margin: 0; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="screen-bar">
+        <button type="button" onclick="if (history.length > 1) { history.back(); } else { location.href='{{ url_for(back_endpoint) }}'; }">✕ Close</button>
+        <button type="button" class="do-print" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div class="merged-strip">Merged from: ({{ merged_numbers | join('), (') }}) ({{ merged_numbers | length }} record{{ 's' if merged_numbers | length != 1 else '' }})</div>
+    <div class="sheet">
+        <div class="doc-head">
+            <div class="college">CAMIGUIN POLYTECHNIC STATE COLLEGE</div>
+            <div class="addr">Balbagon, Mambajao, Camiguin</div>
+            <div class="form-title">Comparative Report — Merged PR vs IAR</div>
+        </div>
+        <div class="duo">
+            <div class="col">
+                <h4>REQUESTED (PR)</h4>
+                <table class="cmp-table">
+                    <colgroup><col style="width:9mm;"><col><col style="width:16mm;"></colgroup>
+                    <thead>
+                        <tr><th class="num">No.</th><th>Item (Fund)</th><th class="num">Qty</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for it in items %}
+                        <tr>
+                            <td class="num">{{ loop.index }}</td>
+                            <td class="item">{{ it.item_name }}{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}<br>{% for fund, qty in it.fund_list %}<span class="fund-tag">{{ fund }}: {{ qty }}</span>{% endfor %}</td>
+                            <td class="num">{{ it.requested_qty }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr><td colspan="2">TOTAL REQUESTED</td><td class="num">{{ totals.requested_qty }}</td></tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="col">
+                <h4>RECEIVED (IAR)</h4>
+                <table class="cmp-table">
+                    <colgroup><col style="width:9mm;"><col><col style="width:16mm;"></colgroup>
+                    <thead>
+                        <tr><th class="num">No.</th><th>Item</th><th class="num">Qty</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for it in items %}
+                        <tr>
+                            <td class="num">{{ loop.index }}</td>
+                            <td class="item">{{ it.item_name }}{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                            <td class="num">{{ it.delivered_qty }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr><td colspan="2">TOTAL RECEIVED</td><td class="num">{{ totals.delivered_qty }}</td></tr>
+                        <tr><td colspan="2">OUTSTANDING</td><td class="num">{{ totals.outstanding_qty }}</td></tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <div class="donut-row">
+            <div class="donut"><div class="donut-hole">{{ donut_pct }}%</div></div>
+            <div class="donut-cap">
+                <div><span class="sw" style="background:#0d47a1;"></span>Received: {{ totals.delivered_qty }} of {{ totals.requested_qty }} units ({{ donut_pct }}%)</div>
+                <div><span class="sw" style="background:#d7e3ee;"></span>Outstanding: {{ totals.outstanding_qty }} units</div>
+            </div>
+        </div>
+        <div class="legend">
+            <h5>Legend — how to read this sheet</h5>
+            <dl>
+                <dt>Requested (PR):</dt><dd>ordered quantities summed across the merged purchase requests; fund tags show which fund source each share came from.</dd>
+                <dt>Received (IAR):</dt><dd>actually delivered quantities summed across those PRs' inspection and acceptance reports.</dd>
+                <dt>Outstanding:</dt><dd>requested minus received — what the supplier still owes.</dd>
+                <dt>Fulfillment %:</dt><dd>received ÷ requested × 100, per item and overall (donut).</dd>
+            </dl>
+        </div>
+    </div>
+</body>
+</html>

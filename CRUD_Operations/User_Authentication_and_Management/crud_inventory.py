@@ -13,12 +13,20 @@ def get_inventory_summary():
     try:
         conn=get_db_connection()
         cur=conn.cursor(dictionary=True)
+        try:
+            from crud_settings import get_reorder_thresholds, effective_reorder_for
+            thresholds = get_reorder_thresholds()
+        except Exception:
+            thresholds = {"global": 10, "consumables": 10, "tools": 5, "equipment": 5}
+            def effective_reorder_for(category, thresholds=None):
+                return 10
         stock_expr = _stock_expr()
         cur.execute("SELECT COUNT(*) AS total FROM products WHERE is_active = 1")
         total_unique = cur.fetchone()['total'] or 0
         cur.execute(f"""
             SELECT
                 {stock_expr} AS cur_stock,
+                p.category AS category,
                 COALESCE(p.reorder_level, 10) AS reorder_lvl,
                 p.price AS price
             FROM products p
@@ -29,7 +37,10 @@ def get_inventory_summary():
         asset=0.0
         for r in rows:
             stock = int(r['cur_stock'] or 0)
-            reorder = int(r['reorder_lvl'] or 10)
+            try:
+                reorder = int(effective_reorder_for(r.get('category'), thresholds))
+            except Exception:
+                reorder = int(r['reorder_lvl'] or 10)
             price = float(r['price'] or 0)
             asset += stock * price
             if stock == 0:
@@ -91,12 +102,22 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
         sql += " ORDER BY p.product_id DESC"
         cur.execute(sql, tuple(params))
         rows=cur.fetchall()
+        try:
+            from crud_settings import get_reorder_thresholds, effective_reorder_for
+            thresholds = get_reorder_thresholds()
+        except Exception:
+            thresholds = {"global": 10, "consumables": 10, "tools": 5, "equipment": 5}
+            def effective_reorder_for(category, thresholds=None):
+                return 10
         # Apply stock_status filter in Python (safer, avoids complex HAVING)
         if stock_status != "All":
             filtered=[]
             for r in rows:
                 stock=int(r['current_stock'] or 0)
-                reorder=int(r['reorder_level'] or 10)
+                try:
+                    reorder=int(effective_reorder_for(r.get('category'), thresholds))
+                except Exception:
+                    reorder=int(r['reorder_level'] or 10)
                 if stock_status=="In Stock" and stock > reorder:
                     filtered.append(r)
                 elif stock_status=="Low Stock" and 0 < stock <= reorder:
@@ -106,12 +127,14 @@ def get_inventory_items(search_query="", category_filter="All", stock_status="Al
                 elif stock_status=="Needs Attention" and stock <= reorder:
                     filtered.append(r)
             rows=filtered
-        # Normalize types
+        # Normalize types (reorder_level surfaced = effective Settings threshold)
         for r in rows:
             try: r['current_stock']=int(r['current_stock'] or 0)
             except: r['current_stock']=0
-            try: r['reorder_level']=int(r['reorder_level'] or 10)
-            except: r['reorder_level']=10
+            try: r['reorder_level']=int(effective_reorder_for(r.get('category'), thresholds))
+            except:
+                try: r['reorder_level']=int(r['reorder_level'] or 10)
+                except: r['reorder_level']=10
             try: r['price']=float(r['price'] or 0)
             except: r['price']=0.0
             try: r['total_value']=float(r['total_value'] or 0)

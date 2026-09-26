@@ -93,6 +93,9 @@ from crud_delivery import (
     approve_iar,
 )
 
+# --- IMPORTS FOR COMPARATIVE REPORT (per-PR fulfillment ledger, read-only) ---
+from crud_reports import get_comparative_rows, get_merged_comparison
+
 # --- IMPORTS FOR INVENTORY MODULE (Live ledger) ---
 from crud_inventory import get_inventory_summary, get_inventory_items, get_inventory_categories
 
@@ -250,11 +253,12 @@ def login():
 
             flash(f"Log In Successfully! Welcome {user['username']}", "success")
             
-            # Redirect based on user role
+            # Redirect based on user role (welcome=1 plays the one-time login
+            # skeleton, server-rendered so there is no first-paint flash)
             if user["Role"] == "Admin":
-                return redirect(url_for("admin_dashboard"))
+                return redirect(url_for("admin_dashboard", welcome=1))
             elif user["Role"] == "Staff":
-                return redirect(url_for("staff_dashboard"))
+                return redirect(url_for("staff_dashboard", welcome=1))
             else:
                 flash("User role not recognized. Please contact Admin.", "error")
                 session.clear()
@@ -661,6 +665,7 @@ def admin_dashboard():
         username=session.get("username"),
         role=session.get("role"),
         full_name=session.get("full_name"),
+        show_skeleton=(request.args.get("welcome", "") == "1"),
         summary=summary,
         admin_kpi=admin_kpi,
         top_products=top_products, top_max=top_max,
@@ -687,6 +692,29 @@ def staff_dashboard():
 
     user_id = session.get("user_id")
 
+    # --- Chart filter params (validated; mirrors admin — invalid falls back safely) ---
+    chart_filter = (request.args.get("chart_filter", "All Time") or "All Time").strip()
+    if chart_filter not in _ADMIN_FILTERS:
+        chart_filter = "All Time"
+    today = datetime.now().date()
+    try:
+        filter_year = int((request.args.get("filter_year", "") or "").strip())
+        filter_year = filter_year if 2000 <= filter_year <= today.year else None
+    except (TypeError, ValueError):
+        filter_year = None
+    date_from = date_to = None
+    try:
+        raw_from = (request.args.get("date_from", "") or "").strip()
+        raw_to = (request.args.get("date_to", "") or "").strip()
+        if raw_from and raw_to:
+            date_from = datetime.strptime(raw_from, "%Y-%m-%d").date()
+            date_to = datetime.strptime(raw_to, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        date_from = date_to = None
+    if chart_filter == "Custom" and not (
+            date_from and date_to and date_from <= date_to and date_to <= today):
+        chart_filter, date_from, date_to = "All Time", None, None
+
     # Safe defaults — guarantee template never sees an UndefinedError
     kpi = {
         "available_items": 0,
@@ -694,11 +722,11 @@ def staff_dashboard():
         "my_pending_prs": 0, "pending_prs": 0,
         "my_pending_withdrawals": 0, "pending_withdrawals": 0,
     }
+    chart_labels, chart_values = [], []
+    return_labels, return_values = [], []
     actionable_alerts = []
     inventory_snapshot = []
     recent_activity = []
-    approved_prs_ready = 0
-    withdrawals_ready = 0
 
     try:
         # --- KPI 1 & 2: global inventory health (via db.py-backed helpers) ---
@@ -728,60 +756,68 @@ def staff_dashboard():
             print(f"[staff_dashboard] return fetch error: {err}")
             my_returns = []
 
-        pending_prs = sum(1 for r in my_prs if str(r.get("status", "")) == "Pending")
-        pending_withdrawals = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Pending")
-        approved_prs_ready = sum(1 for r in my_prs if str(r.get("status", "")) == "Approved" and str(r.get("po_status", "")) == "Approved")
-        withdrawals_ready = sum(1 for r in my_withdrawals if str(r.get("status", "")) == "Approved")
+        # --- Team KPI counts (shared workspace: all staff, no user_id filter).
+        # The my_* fetches above stay — My Recent Activity is truly personal.
+        team_prs = team_pending_prs = team_pending_wd = team_pending_rt = 0
+        try:
+            tconn = get_db_connection()
+            tcur = tconn.cursor(dictionary=True)
+            try:
+                tcur.execute("SELECT COUNT(*) AS c FROM purchase_requests WHERE status = 'Pending'")
+                team_pending_prs = int((tcur.fetchone() or {}).get("c", 0) or 0)
+            except Exception as err:
+                print(f"[staff_dashboard] team PRs error: {err}")
+            try:
+                tcur.execute("SELECT COUNT(*) AS c FROM `withdraw` WHERE status = 'Pending'")
+                team_pending_wd = int((tcur.fetchone() or {}).get("c", 0) or 0)
+            except Exception as err:
+                print(f"[staff_dashboard] team withdrawals error: {err}")
+            try:
+                tcur.execute("SELECT COUNT(*) AS c FROM `return` WHERE status = 'Pending'")
+                team_pending_rt = int((tcur.fetchone() or {}).get("c", 0) or 0)
+            except Exception as err:
+                print(f"[staff_dashboard] team returns error: {err}")
+            try:
+                tcur.close()
+                tconn.close()
+            except Exception:
+                pass
+        except Exception as err:
+            print(f"[staff_dashboard] team counts backend error: {err}")
 
-        # kpi carries BOTH key styles: template uses my_pending_* / low_stock_count,
-        # spec asks for pending_* / stock_alerts — keep them in sync.
         kpi = {
             "available_items": available_items,
             "low_stock_count": low_stock_count, "stock_alerts": low_stock_count,
-            "my_pending_prs": pending_prs, "pending_prs": pending_prs,
-            "my_pending_withdrawals": pending_withdrawals, "pending_withdrawals": pending_withdrawals,
+            "pending_prs": team_pending_prs,
+            "pending_withdrawals": team_pending_wd,
+            "pending_returns": team_pending_rt,
         }
 
-        # --- Row 2: Actionable Alerts & Pending Tasks ---
-        def _link(endpoint, fallback, **kwargs):
+        # --- Workspace graphs (shared counts, same helpers as admin) ---
+        try:
+            start, end, granularity, _bounded = _admin_period_range(
+                chart_filter, filter_year, date_from, date_to)
+            gconn = get_db_connection()
+            gcur = gconn.cursor(dictionary=True)
             try:
-                return url_for(endpoint, **kwargs)
+                chart_labels, chart_values = _admin_period_counts(
+                    gcur, "`withdraw`", "date_requested", start, end, granularity)
+            except Exception as err:
+                print(f"[staff_dashboard] withdrawal chart error: {err}")
+                chart_labels, chart_values = [], []
+            try:
+                return_labels, return_values = _admin_period_counts(
+                    gcur, "`return`", "date_returned", start, end, granularity)
+            except Exception as err:
+                print(f"[staff_dashboard] return chart error: {err}")
+                return_labels, return_values = [], []
+            try:
+                gcur.close()
+                gconn.close()
             except Exception:
-                return fallback
-
-        actionable_alerts = []
-        if approved_prs_ready:
-            actionable_alerts.append({
-                "icon": "✅",
-                "title": "Approved PRs ready for IAR",
-                "detail": f"{approved_prs_ready} dual-approved request(s) can now proceed to receiving.",
-                "severity": "success",
-                "link": _link("pr_management", "/pr"),
-            })
-        if withdrawals_ready:
-            actionable_alerts.append({
-                "icon": "📤",
-                "title": "Withdrawals ready for pickup",
-                "detail": f"{withdrawals_ready} approved withdrawal(s) waiting for release.",
-                "severity": "info",
-                "link": _link("staff_withdraw_dashboard", "/staff/withdraw"),
-            })
-        if low_stock_count:
-            actionable_alerts.append({
-                "icon": "⚠️",
-                "title": "Low stock items to monitor",
-                "detail": f"{low_stock_count} item(s) at or below reorder level (includes out-of-stock).",
-                "severity": "warning",
-                "link": _link("staff_inventory_dashboard", "/staff/inventory", stock_status="Needs Attention"),
-            })
-        if pending_prs:
-            actionable_alerts.append({
-                "icon": "📋",
-                "title": "PRs awaiting approval",
-                "detail": f"{pending_prs} purchase request(s) still pending.",
-                "severity": "info",
-                "link": _link("pr_management", "/pr", status_filter="Pending"),
-            })
+                pass
+        except Exception as err:
+            print(f"[staff_dashboard] graph backend error: {err}")
 
         # --- Row 3: Available Inventory Snapshot (top in-stock items) ---
         try:
@@ -848,25 +884,176 @@ def staff_dashboard():
 
     # `alerts` is the name the template iterates; `actionable_alerts` is the
     # spec-required alias — pass both (same list) plus the fallback counters.
+    # --- Human-readable label for the active filter pill ---
+    if chart_filter == "Custom" and date_from and date_to:
+        active_filter_label = f"Custom: {date_from} → {date_to}"
+    elif chart_filter in _ADMIN_MONTHS and filter_year:
+        active_filter_label = f"{chart_filter} {filter_year}"
+    else:
+        active_filter_label = chart_filter
+
     return safe_render_template(
         "Staff Dashboards/staff_dashboard.html",
         username=session.get("username"), role=session.get("role"), full_name=session.get("full_name"),
+        show_skeleton=(request.args.get("welcome", "") == "1"),
         kpi=kpi,
-        alerts=actionable_alerts, actionable_alerts=actionable_alerts,
         inventory_snapshot=inventory_snapshot, recent_activity=recent_activity,
-        approved_prs_ready=approved_prs_ready, withdrawals_ready=withdrawals_ready,
+        chart_labels=chart_labels, chart_values=chart_values,
+        return_labels=return_labels, return_values=return_values,
+        chart_filter=chart_filter, filter_year=filter_year or "",
+        date_from=date_from.isoformat() if date_from else "",
+        date_to=date_to.isoformat() if date_to else "",
+        active_filter_label=active_filter_label,
+        active_filter_count=(2 if date_from and date_to else 0),
     )
 
-# --- ROUTE: Reports Hub — STUB (Comparative Report spec lands here) ---
+# --- ROUTE: Reports Hub — role redirect to the Comparative Report pages ---
 @app.route("/reports")
 def reports_hub():
     if "user_id" not in session:
         flash("Please log in to access Reports.", "error")
         return redirect(url_for("login"))
-    flash("Comparative Report coming soon.", "info")
     if session.get("role") == "Admin":
-        return redirect(url_for("admin_dashboard"))
-    return redirect(url_for("staff_dashboard"))
+        return redirect(url_for("admin_comparative_report"))
+    return redirect(url_for("staff_comparative_report"))
+
+
+def _comparative_context():
+    """Shared filter parsing for both Comparative Report pages.
+
+    Dual-approved ledger: search + validated date range only (never future,
+    from <= to); invalid input falls back safely. Returns (rows, context).
+    """
+    search = request.args.get("search", "").strip()
+    date_from = (request.args.get("date_from", "") or "").strip()[:10]
+    date_to = (request.args.get("date_to", "") or "").strip()[:10]
+    try:
+        today_s = datetime.now().strftime("%Y-%m-%d")
+        for _d in (date_from, date_to):
+            if _d:
+                datetime.strptime(_d, "%Y-%m-%d")
+        if (date_from and date_from > today_s) or (date_to and date_to > today_s):
+            raise ValueError("future")
+        if date_from and date_to and date_from > date_to:
+            raise ValueError("order")
+    except Exception:
+        date_from = date_to = ""
+    if bool(date_from) != bool(date_to):
+        date_from = date_to = ""
+    try:
+        rows = get_comparative_rows(
+            search_query=search,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except Exception as err:
+        print(f"[comparative_report] DB error: {err}")
+        flash("Database error loading the Comparative Report.", "error")
+        rows = []
+    # --- Virtual merged compare (?ids=1,2,3): item-grouped requested vs
+    # received across the chosen PRs. Presentation only — nothing is written.
+    compared_items, compared_totals, compared_numbers = [], {}, []
+    raw_ids = (request.args.get("ids", "") or "").strip()
+    if raw_ids:
+        try:
+            compared_items, compared_totals, compared_numbers, skipped = get_merged_comparison(
+                [p for p in (part.strip() for part in raw_ids.split(",")) if p]
+            )
+            if skipped:
+                flash(f"Skipped: {', '.join(skipped)}.", "error")
+            if not compared_items and not skipped:
+                flash("Select at least 2 Purchase Requests to compare.", "error")
+        except Exception as err:
+            print(f"[comparative_compare] DB error: {err}")
+            flash("Database error loading the merged comparison.", "error")
+            compared_items, compared_totals, compared_numbers = [], {}, []
+    return rows, {
+        "search": search,
+        "date_from": date_from,
+        "date_to": date_to,
+        "active_filter_count": (2 if date_from and date_to else 0),
+        "current_date": datetime.now().strftime("%Y-%m-%d"),
+        "compared_items": compared_items,
+        "compared_totals": compared_totals,
+        "compared_numbers": compared_numbers,
+    }
+
+
+# --- ROUTE: Comparative Report (Admin — per-PR fulfillment ledger) ---
+@app.route("/admin/reports/comparative")
+def admin_comparative_report():
+    if "user_id" not in session:
+        flash("Please log in to access Reports.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") != "Admin":
+        flash("Admin access required.", "error")
+        return redirect(url_for("login"))
+    rows, ctx = _comparative_context()
+    return safe_render_template(
+        "Admin Dashboards/admin_reports_comparative.html",
+        user=session,
+        rows=rows,
+        **ctx,
+    )
+
+
+# --- ROUTE: Comparative Report (Staff — same team-wide ledger) ---
+@app.route("/reports/comparative")
+def staff_comparative_report():
+    if "user_id" not in session:
+        flash("Please log in to access Reports.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Admin", "Staff"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    rows, ctx = _comparative_context()
+    return safe_render_template(
+        "Staff Dashboards/staff_reports_comparative.html",
+        user=session,
+        rows=rows,
+        **ctx,
+    )
+
+
+# --- PRINT ROUTE: Merged Comparative sheet (?ids= — virtual merge print) ---
+@app.route("/reports/comparative/print")
+def comparative_print_view():
+    """Standalone A4 sheet for the current compare selection (Admin + Staff).
+
+    Left column = requested per item (with fund tags), right column =
+    received per item; grand totals + CSS donut + footer legend. Same
+    virtual merge as the screen section — nothing is written.
+    """
+    if "user_id" not in session:
+        flash("Please log in to access Reports.", "error")
+        return redirect(url_for("login"))
+    if session.get("role") not in ("Admin", "Staff"):
+        flash("Staff access required.", "error")
+        return redirect(url_for("login"))
+    raw_ids = (request.args.get("ids", "") or "").strip()
+    seen, pr_ids = set(), []
+    for part in raw_ids.split(","):
+        part = part.strip()
+        if part.isdigit():
+            pid = int(part)
+            if pid not in seen:
+                seen.add(pid)
+                pr_ids.append(pid)
+    if len(pr_ids) < 2:
+        flash("Select at least 2 Purchase Requests to print the comparison.", "error")
+        back = "admin_comparative_report" if session.get("role") == "Admin" else "staff_comparative_report"
+        return redirect(url_for(back))
+    compared_items, compared_totals, compared_numbers, skipped = get_merged_comparison(pr_ids)
+    if skipped:
+        flash(f"Skipped: {', '.join(skipped)}.", "error")
+    if not compared_items:
+        flash("No dual-approved PRs to compare.", "error")
+        back = "admin_comparative_report" if session.get("role") == "Admin" else "staff_comparative_report"
+        return redirect(url_for(back))
+    back = "admin_comparative_report" if session.get("role") == "Admin" else "staff_comparative_report"
+    return render_template("reports_compare_print.html",
+                           items=compared_items, totals=compared_totals,
+                           merged_numbers=compared_numbers, back_endpoint=back)
 
 # --- ROUTE: Admin User Management View & Filters ---
 @app.route("/admin/users")
@@ -2932,13 +3119,19 @@ def admin_settings():
         data = {}
         for key in request.form:
             data[key] = request.form[key]
+        # Unchecked checkboxes submit nothing — coerce the toggle explicitly
+        # so unchecking it actually persists instead of keeping stale `true`.
+        if "auto_approve_unserviceable" not in data:
+            data["auto_approve_unserviceable"] = "false"
         if save_settings(data):
             flash("Settings saved.", "success")
         else:
             flash("Failed to save settings.", "error")
         return redirect(url_for("admin_settings"))
     settings = get_all_settings()
-    return render_template("Admin Dashboards/admin_settings.html", settings=settings)
+    return render_template("Admin Dashboards/admin_settings.html", settings=settings,
+                           username=session.get("username"), role=session.get("role"),
+                           full_name=session.get("full_name"))
 
 @app.route("/api/settings")
 def api_settings():
@@ -2946,6 +3139,27 @@ def api_settings():
         return {"error": "Unauthorized"}, 401
     settings = get_all_settings()
     return settings
+
+
+# --- IMPORT STUBS (buttons land first; modal + openpyxl backend next session) ---
+@app.route("/pr/import")
+def pr_import():
+    if "user_id" not in session:
+        flash("Please log in to access Purchase Requests.", "error")
+        return redirect(url_for("login"))
+    flash("Excel PR import lands next session — button reserved.", "info")
+    return redirect(url_for("pr_management"))
+
+
+@app.route("/inventory/import")
+def inventory_import():
+    if "user_id" not in session:
+        flash("Please log in to access Inventory.", "error")
+        return redirect(url_for("login"))
+    flash("Excel inventory import lands next session — button reserved.", "info")
+    if session.get("role") == "Admin":
+        return redirect(url_for("admin_inventory_dashboard"))
+    return redirect(url_for("staff_inventory_dashboard"))
 
 
 if __name__ == "__main__":

@@ -5,6 +5,91 @@ Format follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Ver
 
 ---
 
+## [Unreleased] — Import Buttons (Stub) (2026-09-26 nightcap)
+
+> Import buttons land on PR + Inventory toolbelts (both roles) wired to flash-and-redirect stubs — modal + openpyxl backend next session.
+
+#### Added
+- **Import stub buttons** — `Import` text (`btn-add-primary`, free Create-PR-exact green hover) on both PR toolbelts; 32px `btn-action btn-import` icon (new `i-upload` tray glyph) after Print on both Inventory toolbelts (Filter, Print, Import) with green hover; `GET /pr/import` + `GET /inventory/import` flash "lands next session" and redirect role-aware. URLs are forward-compatible (same routes gain modal + POST next).
+
+---
+
+## [Unreleased] — Settings Thresholds Wired + Settings UI Fixes (2026-09-26)
+
+> Settings page was display-only (values saved but never read — every consumer hardcoded `10`). Thresholds now drive Inventory status, KPIs, bell, and picker snapshots at read-time; Settings UI fixed per user spec.
+
+#### Added
+- **`get_reorder_thresholds()` + `effective_reorder_for()`** (`crud_settings.py`) — category-specific overrides Global Default, unknown categories fall back to global, safe `10/10/5/5` defaults; read-time only, never writes `products`.
+- **Consumers wired** — `crud_inventory` summary/items (status + surfaced `reorder_level` now effective), `crud_notifications` low-stock bell (per-category Python count), `crud_products` picker snapshot; dashboards + snapshot inherit via helpers (zero `App.py` edits).
+- **Hide-until-dirty save bar + Global cascade** — `static/js/settings_logic.js` (no inline scripts); bar hidden until a box differs from `defaultValue`, Cancel discards in place, Save stays native POST (flash-safe). Typing in Global Default mirrors live into the 3 category boxes (category values win at read time, so the mirror makes Global visibly authoritative); editing one category afterwards diverges only it.
+- **Settings layout (final)** — left white card only (`max-width:520px`, full-width on mobile): Global Default on top, Category Thresholds label, vertical stack Consumables → Tools → Equipment; right page side left open for a future block (Withdrawn/Returned pattern; reserved anchor div kept in HTML, hidden by CSS). Number boxes capped `min(240px,100%)`; save bar right-aligned PR-footer style; Cancel anchor underline killed.
+- **Save green hover** — Save button gains `btn-confirm-go` + scoped `.settings-save-bar .btn-confirm-go:hover` Create-PR-exact gradient (`#81c784→#4caf50`, white, `scale(1.05)`).
+
+#### Fixed
+- **Settings values had no effect** — root cause: hardcoded `COALESCE(reorder_level,10)` in inventory/notifications/picker; verified `Global 50` moves all, `Tools 20` moves Tools only.
+
+#### Pending (in order)
+1. **Import backend** (modal + openpyxl templates + `source` backfill + badges; spec archived in session) → 2. Merged compare + print user test (carried) → 3. Settings right-side block (reserved) → 4. Product edit flash → 5. Nav-toggle (user sourcing).
+
+---
+
+## [Unreleased] — Logout Flash Fix (2026-09-30)
+
+> Intermittent white frame on logout handoffs, traced to a timing race (not a role bug).
+
+#### Fixed
+- **White flash on logout** — two changes: `::view-transition` backdrop painted app chrome (`#eaf3f8`) instead of browser white, so any handoff micro-gap never flashes white; logout link excluded from morph gating (`.nav-btn:not(.logout-btn)`) — an exit gets a plain instant swap, not a tab morph. Verified both roles (dashboards 200, correct logout toasts).
+
+#### Pending (in order)
+1. **Merged compare + print user test** → 2. **Settings polish** (incl. Import move) → 3. **Product edit flash** → 4. **Nav-toggle replacement** (user sourcing).
+
+---
+
+## [Unreleased] — Uniform Motion, Merged Compare + Print, Staff Restructure Tail (2026-09-29)
+
+> One motion language everywhere (morph + stagger + pre-hide on all 16 sheets); virtual merged PR-vs-IAR compare with print sheet; staff dashboard restructured with team KPIs; icon-rail experiment fully reversed. Merged compare + print built but NOT yet user-tested.
+
+#### Added
+- **Uniform motion system** — View-Transition morph (frozen sidebar, gliding main; sidebar-link + filter/search/refresh arrivals via one-shot flags, reloads/forms skip); runtime stagger (`0.1 + i×0.22`, will-change hygiene, reduced-motion respected); 16-sheet pre-hide (opacity-0 base, single JS-armed play, no flash-then-replay); single `body .cascade-unveil` settle source (`0.9s`); toast hold stays `850ms`; skeleton stays `1200ms` login-only (`?welcome=1`, sidebar outside animated wrapper).
+- **Merged PR-vs-IAR compare (virtual, no DDL)** — `get_merged_comparison()` (item-grouped requested vs received, per-fund tags, grand totals, skipped-with-flash); checkbox + `Compare Selected (N)` counter via shared `reports_compare.js` on both comparative pages; `GET /reports/comparative/print` standalone A4 sheet (college header, requested/received columns, CSS donut, footer legend, screen toolbar hidden).
+- **Comparative ledger hardened** — dual-approved rows only (other statuses + crafted `?status_filter=` safely ignored); dates-only filter panel (Start/End + search); count badge = result rows.
+- **Staff dashboard restructure** — Withdrawn/Returned graphs (global counts), header chart-filter cluster beside bell, snapshot + activity 3:2 duo, 5 team-wide KPI cards (Available, Low, Pending PR/Withdrawals/Returns; no "My"; cross-checked equal to admin); dead alerts/personal-counter code removed.
+- **PO Date required** — `required` on all 4 Receive/Complete inputs (both roles) + `validatePODate()` empty-guard + both backend `all([...])` gates (missing/future blocked live, zero writes).
+
+#### Fixed
+- **Overlay-trap regression on rows arrivals** — retained fills held stacking contexts open and buried bell/filter panels behind cards; timed release pass pins rows/header/blocks to natural state.
+- **PR edit-save toast missing** — `fetch` consumed the flash queue on redirect; native submit on create + edit (disabled ⏳ double-guard kept).
+- **Staff header identity blank** — template read bare `{{ full_name }}` the route never passes; aligned to `{{ user.* }}` like admin (no backend change).
+- **Staff header buttons undersized** — sheet lacked the canonical 32px `.btn-action` base; ported verbatim.
+- **Return picker listed exhausted withdrawals** — `EXISTS` requires issued−already>0 per Tools/Equipment line.
+- **Div-balance hunts** — duplicate closes found via stack parse (staff 107/107, reports 48/48, print 17/17, admin 129/129 + 131/131, PR 106/106 + 108/108).
+
+#### Removed
+- **Icon-rail/nav-toggle experiment** — fully reversed before rollout (hamburger buttons, rail CSS, nav JS block, `i-menu` glyph); zero references repo-wide; sidebar back to static full-width.
+
+#### Pending (in order — merged-compare test first)
+1. **Merged compare + print user test** (item grouping, fund tags, donut, legend — untested) → 2. **Settings polish** (archived, incl. Import-to-Settings move) → 3. **Product edit flash** (still old `updated!` wording) → 4. **Nav-toggle replacement** (user sourcing, old attempt deleted).
+
+---
+
+## [Unreleased] — Comparative Report, Staff Dashboard Restructure, PO Date Required (2026-09-28)
+
+> Per-PR fulfillment ledger on separate admin + staff pages; staff dashboard restructured (graphs, header filter, duo tables, team KPIs); PO Date now required on IAR flows. Report built but NOT yet user-tested — visual test scheduled next session.
+
+#### Added
+- **Comparative Report (per-PR fulfillment)** — new `crud_reports.py` (`get_comparative_rows`: requested vs delivered vs outstanding + %; shared workspace, no `user_id`); `GET /admin/reports/comparative` (admin-only) + `GET /reports/comparative` (Admin/Staff); `/reports` hub now redirects by role (zero nav edits); `admin/staff_reports_comparative.html` + `admin/staff_reports.css` cloned from PR shells (toolbelt + anchored dual-status/date filters + count badge + fulfillment bar + dual badges; read-only, no actions).
+- **Staff dashboard restructure** — alerts section replaced by Withdrawn/Returned graphs (global counts, same helpers/colors as admin); header chart-filter cluster beside bell; snapshot + activity side-by-side (3:2, stacked mobile); KPIs → 5 team-wide cards (Available, Low, Pending PR/Withdrawals/Returns; no "My"; counts cross-checked equal to admin); dead alerts/personal-counter code removed.
+- **PO Date required** — `required` on all 4 Receive/Complete inputs (both roles) + `validatePODate()` empty-guard + both backend `all([...])` gates; native submits confirmed (no fetch issue); missing/future blocked live with zero writes.
+
+#### Fixed
+- **Staff header buttons now match admin** — `staff_dashboard.css` never had the canonical 32px `.btn-action` base; ported verbatim (white bell-style override layers identically).
+- **Staff header div imbalance** — reorder had smuggled a duplicate close; caught via stack parse, 107/107.
+
+#### Pending (in order — report test first)
+1. **Comparative Report user test** (layout, columns, fulfillment bar, filters — untested) → 2. Report print sheet (deferred) → 3. **Settings polish** (archived, incl. Import move) → 4. Product edit flash family.
+
+---
+
 ## [Unreleased] — Dashboard KPIs, Toasts, Borderless Nav, Withdraw/Return Edits (2026-09-27)
 
 > Admin 5-queue KPI revamp + Inventory 4-card KPIs on both roles; toast system cleaned and made interactive; nav borderless everywhere; Pending-only withdraw/return edits; PR native submits; returnable-only withdraw picker.

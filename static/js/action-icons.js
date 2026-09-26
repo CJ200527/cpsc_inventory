@@ -8,7 +8,8 @@
    Geometry is arcs-free by design (lines, polylines, one circle element).
     Set: i-check (approve, thumbs-up) · i-disapprove (thumbs-down) ·
          i-x (delete/remove) · i-view (inspect) · i-edit · i-plus ·
-         i-refresh · i-print (printer, A4 reports) · i-filter (funnel).
+         i-refresh · i-print (printer, A4 reports) · i-filter (funnel) · i-bell ·
+         i-upload (import, tray with up-arrow).
    Loaded right after ui_helpers.js on every page that shows action buttons.
    -------------------------------------------------------------------------- */
 
@@ -40,6 +41,7 @@
         ['i-refresh', [['path', { d: 'M23 4v6h-6' }], ['path', { d: 'M1 20v-6h6' }], ['path', { d: 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10' }], ['path', { d: 'M1 14l4.64 4.36A9 9 0 0 0 20.49 15' }]]],
         ['i-print', [['path', { d: 'M6 9V3h12v6' }], ['path', { d: 'M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2' }], ['rect', { x: '6', y: '14', width: '12', height: '7' }]]],
         ['i-filter', [['path', { d: 'M22 3H2l8 9.5V19l4 2v-8.5z' }]]],
+        ['i-upload', [['path', { d: 'M12 15V3' }], ['path', { d: 'M7 8l5-5 5 5' }], ['path', { d: 'M4 13v7h16v-7' }]]],
         ['i-bell', [['path', { d: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9' }], ['path', { d: 'M13.73 21a2 2 0 0 1-3.46 0' }]]]
     ];
     defs.forEach(function (d) {

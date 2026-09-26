@@ -9,7 +9,7 @@
 </head>
 <body>
     <!-- Skeleton Loader Overlay (matches dashboard structure) -->
-    <div id="skeleton-overlay">
+    <div id="skeleton-overlay" class="{% if show_skeleton %}show{% endif %}">
         <div class="skeleton-sidebar">
             <div class="skeleton-block" style="height: 48px; width: 100%; margin-bottom: 10px;"></div>
             <div class="skeleton-block" style="height: 38px; width: 100%;"></div>
@@ -33,7 +33,8 @@
                 </div>
             </div>
             <div style="padding: 22px 28px; display: flex; flex-direction: column; gap: 20px; flex:1; overflow:hidden;">
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;">
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;">
+                    <div class="skeleton-block" style="height: 125px; border-radius: 12px;"></div>
                     <div class="skeleton-block" style="height: 125px; border-radius: 12px;"></div>
                     <div class="skeleton-block" style="height: 125px; border-radius: 12px;"></div>
                     <div class="skeleton-block" style="height: 125px; border-radius: 12px;"></div>
@@ -64,8 +65,8 @@
     {% endwith %}
 </div>
 
-    <div id="main-dashboard-content">
-    <!-- LEFT SIDEBAR (STAFF) -->
+    <!-- LEFT SIDEBAR (STAFF, outside the animated wrapper so it never
+       flickers or animates — paints on first paint like module pages) -->
     <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
     <div class="sidebar">
         <div>
@@ -107,6 +108,7 @@
         </div>
     </div>
 
+    <div id="main-dashboard-content">
     <!-- MAIN WORKSPACE -->
     <div class="main-wrapper">
         
@@ -117,6 +119,57 @@
                 <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
             </div>
             <div class="user-profile-box">
+                    <form id="chart-filter-form" method="GET" action="{{ url_for('staff_dashboard') }}" class="header-filter">
+                        <span class="filter-active-label" id="filter-active-label">{{ active_filter_label | default('All Time') }}</span>
+                        <button type="submit" class="btn-action btn-view btn-refresh-icon" title="Refresh Data"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+                        <div class="filter-wrap">
+                            <button type="button" class="btn-action btn-view filter-btn" title="Chart Filters" aria-expanded="false" aria-label="Chart Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}<span class="filter-count">{{ active_filter_count }}</span>{% endif %}</button>
+                            <div class="filter-panel">
+                                <div class="filter-panel-head"><span class="filter-panel-title">Chart Filters</span><a class="filter-clear-link" href="{{ url_for('staff_dashboard') }}">Clear</a></div>
+                                <div class="filter-field">
+                                    <label for="chart_filter_input">Period</label>
+                                    <div class="fx21-field"><select id="chart_filter_input" name="chart_filter" class="effect-21">
+                                        <optgroup label="Range">
+                                            <option value="All Time" {% if chart_filter == 'All Time' %}selected{% endif %}>All Time</option>
+                                            <option value="This Month" {% if chart_filter == 'This Month' %}selected{% endif %}>This Month</option>
+                                            <option value="This Year" {% if chart_filter == 'This Year' %}selected{% endif %}>This Year</option>
+                                            <option value="Last Year" {% if chart_filter == 'Last Year' %}selected{% endif %}>Last Year</option>
+                                        </optgroup>
+                                        <optgroup label="Quarter">
+                                            <option value="Q1" {% if chart_filter == 'Q1' %}selected{% endif %}>Q1 · Jan – Mar</option>
+                                            <option value="Q2" {% if chart_filter == 'Q2' %}selected{% endif %}>Q2 · Apr – Jun</option>
+                                            <option value="Q3" {% if chart_filter == 'Q3' %}selected{% endif %}>Q3 · Jul – Sep</option>
+                                            <option value="Q4" {% if chart_filter == 'Q4' %}selected{% endif %}>Q4 · Oct – Dec</option>
+                                        </optgroup>
+                                        <optgroup label="Month">
+                                            {% for m in ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+                                            <option value="{{ m }}" {% if chart_filter == m %}selected{% endif %}>{{ m }}</option>
+                                            {% endfor %}
+                                        </optgroup>
+                                        <optgroup label="Custom">
+                                            <option value="Custom" {% if chart_filter == 'Custom' %}selected{% endif %}>Custom Range</option>
+                                        </optgroup>
+                                    </select><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="filter_year_input">Year (for Month view)</label>
+                                    <div class="fx21-field"><input type="number" id="filter_year_input" name="filter_year" class="effect-21" min="2000" max="2100" placeholder="e.g. 2025" value="{{ filter_year | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="date_from_input">Start Date (for Custom Range)</label>
+                                    <div class="fx21-field"><input type="date" id="date_from_input" name="date_from" class="effect-21" value="{{ date_from | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="date_to_input">End Date (for Custom Range)</label>
+                                    <div class="fx21-field"><input type="date" id="date_to_input" name="date_to" class="effect-21" value="{{ date_to | default('') }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="btn-modal-cancel" data-filter-cancel>Cancel</button>
+                                    <button type="submit" class="btn-modal-save btn-confirm-go">Apply Filters</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                     <div class="notif-wrap">
                         <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
                         <div class="notif-panel">
@@ -141,95 +194,105 @@
 
         <div class="dashboard-container">
 
-            <!-- ROW 1: KPI Analytics Cards (4-Column Grid) -->
+            <!-- ROW 1: Team KPI Cards (5-Column Grid, shared workspace counts) -->
             <section class="dashboard-card-container kpi-section">
                 <div class="cards-grid">
-                    <div class="metric-card">
-                        <div class="metric-title">Available Items</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">📦</div>
-                            <div class="metric-value">{{ kpi.available_items | default(0) }}</div>
+                    <a href="{{ url_for('staff_inventory_dashboard') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View full stock ledger">
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-purple"><svg class="kpi-icon" aria-hidden="true"><use href="#k-products"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Available Items</div>
+                                <div class="metric-value">{{ kpi.available_items | default(0) }}</div>
+                            </div>
                         </div>
                         <div class="metric-sub">In-stock products</div>
-                    </div>
+                    </a>
 
                     <a href="{{ url_for('staff_inventory_dashboard', stock_status='Needs Attention') }}" class="metric-card metric-warning" style="text-decoration:none;color:inherit;cursor:pointer;" title="View low and out-of-stock items">
-                        <div class="metric-title">Low Stock Alerts</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">⚠️</div>
-                            <div class="metric-value">{{ kpi.low_stock_count | default(0) }}</div>
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-red"><svg class="kpi-icon" aria-hidden="true"><use href="#k-alert"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Low Stock Alerts</div>
+                                <div class="metric-value">{{ kpi.low_stock_count | default(0) }}</div>
+                            </div>
                         </div>
                         <div class="metric-sub">Needs replenishment</div>
                     </a>
 
                     <a href="{{ url_for('pr_management', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending purchase requests">
-                        <div class="metric-title">My Pending PRs</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">📋</div>
-                            <div class="metric-value">{{ kpi.my_pending_prs | default(0) }}</div>
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-blue"><svg class="kpi-icon" aria-hidden="true"><use href="#k-pr"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending PRs</div>
+                                <div class="metric-value">{{ kpi.pending_prs | default(0) }}</div>
+                            </div>
                         </div>
                         <div class="metric-sub">Awaiting approval</div>
                     </a>
 
                     <a href="{{ url_for('staff_withdraw_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending withdrawals">
-                        <div class="metric-title">My Pending Withdrawals</div>
-                        <div class="metric-body">
-                            <div class="metric-icon-box">📤</div>
-                            <div class="metric-value">{{ kpi.my_pending_withdrawals | default(0) }}</div>
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-amber"><svg class="kpi-icon" aria-hidden="true"><use href="#k-withdraw"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending Withdrawals</div>
+                                <div class="metric-value">{{ kpi.pending_withdrawals | default(0) }}</div>
+                            </div>
                         </div>
                         <div class="metric-sub">Awaiting release</div>
+                    </a>
+
+                    <a href="{{ url_for('staff_return_dashboard', status_filter='Pending') }}" class="metric-card" style="text-decoration:none;color:inherit;cursor:pointer;" title="View pending returns">
+                        <div class="metric-main">
+                            <div class="metric-icon-box"><span class="metric-badge badge-amber"><svg class="kpi-icon" aria-hidden="true"><use href="#k-return"/></svg></span></div>
+                            <div class="metric-text">
+                                <div class="metric-title">Pending Returns</div>
+                                <div class="metric-value">{{ kpi.pending_returns | default(0) }}</div>
+                            </div>
+                        </div>
+                        <div class="metric-sub">Awaiting action</div>
                     </a>
                 </div>
             </section>
 
-            <!-- ROW 2: Actionable Alerts & Pending Tasks (replaces Quick Actions) -->
-            <section class="dashboard-card-container">
-                <div class="card-header">
-                    <h3>Actionable Alerts &amp; Pending Tasks</h3>
-                    <span class="card-count">{{ alerts | length if alerts is defined else 0 }} needing attention</span>
+            <!-- ROW 2: Withdraw + Return Analytics -->
+            <section class="dashboard-card-container transparent-section">
+                <div class="analytics-grid staff-analytics">
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Withdrawn</h3>
+                            <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            {% if chart_labels is defined and chart_labels %}
+                            <canvas id="staffWithdrawalsChart" height="220"></canvas>
+                            {% else %}
+                            <div class="chart-empty">
+                                <p>No withdrawal data for this period yet.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="chart-box">
+                        <div class="card-header">
+                            <h3>Returned</h3>
+                            <span class="card-count">{{ active_filter_label | default('All Time') }}</span>
+                        </div>
+                        <div class="chart-canvas-wrap">
+                            {% if return_labels is defined and return_labels %}
+                            <canvas id="staffReturnsChart" height="220"></canvas>
+                            {% else %}
+                            <div class="chart-empty">
+                                <p>No return data for this period yet.</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                <ul class="alert-list">
-                    {% if alerts is defined and alerts %}
-                        {% for alert in alerts %}
-                        <li class="alert-item alert-{{ alert.severity | default('info') }}">
-                            <span class="alert-icon">{{ alert.icon | default('ℹ️') }}</span>
-                            <div class="alert-text">
-                                <strong>{{ alert.title }}</strong>
-                                <span>{{ alert.detail }}</span>
-                            </div>
-                            <a href="{{ alert.link | default('#') }}" class="alert-link">View →</a>
-                        </li>
-                        {% endfor %}
-                    {% else %}
-                        <!-- Placeholder alerts until backend queries are wired -->
-                        <li class="alert-item alert-success">
-                            <span class="alert-icon">✅</span>
-                            <div class="alert-text">
-                                <strong>Approved PRs ready for Delivery</strong>
-                                <span>{{ approved_prs_ready | default(0) }} approved request(s) can now proceed to delivery.</span>
-                            </div>
-                            <a href="{{ url_for('pr_management') }}" class="alert-link">View →</a>
-                        </li>
-                        <li class="alert-item alert-info">
-                            <span class="alert-icon">📤</span>
-                            <div class="alert-text">
-                                <strong>Withdrawals ready for pickup</strong>
-                                <span>{{ withdrawals_ready | default(0) }} approved withdrawal(s) waiting for release.</span>
-                            </div>
-                            <a href="{{ url_for('staff_withdraw_dashboard') }}" class="alert-link">View →</a>
-                        </li>
-                        <li class="alert-item alert-warning">
-                            <span class="alert-icon">⚠️</span>
-                            <div class="alert-text">
-                                <strong>Low stock items to monitor</strong>
-                                <span>{{ kpi.low_stock_count | default(0) }} item(s) at or below reorder level (includes out-of-stock).</span>
-                            </div>
-                            <a href="{{ url_for('staff_inventory_dashboard', stock_status='Needs Attention') }}" class="alert-link">View →</a>
-                        </li>
-                    {% endif %}
-                </ul>
             </section>
 
+            <!-- ROW 3 + 4: Snapshot (left) + Recent Activity (right) -->
+            <div class="staff-duo-grid">
             <!-- ROW 3: Live Inventory Summary -->
             <section class="dashboard-card-container">
                 <div class="card-header">
@@ -309,6 +372,7 @@
                     </table>
                 </div>
             </section>
+            </div><!-- /.staff-duo-grid -->
 
         </div>
 
@@ -320,6 +384,47 @@
     <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/kpi-icons.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        if (typeof Chart === 'undefined') return;
+        function makeChart(id, labels, values, label, bg, border) {
+            var el = document.getElementById(id);
+            if (!el || !labels || !labels.length) return;
+            new Chart(el, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        backgroundColor: bg,
+                        borderColor: border,
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+        makeChart('staffWithdrawalsChart',
+            {{ chart_labels | default([]) | tojson }},
+            {{ chart_values | default([]) | tojson }},
+            'Withdrawals', 'rgba(83, 197, 241, 0.65)', '#0277bd');
+        makeChart('staffReturnsChart',
+            {{ return_labels | default([]) | tojson }},
+            {{ return_values | default([]) | tojson }},
+            'Returns', 'rgba(46, 125, 50, 0.55)', '#2e7d32');
+    })();
+    </script>
     <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
 
 

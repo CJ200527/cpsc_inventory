@@ -56,6 +56,10 @@
   `stock_movements`). `reference_type='IAR'` for IAR movements.
 - **Return policy:** Unserviceable auto-approves (record only, no stock move);
   Serviceable needs admin approval → restock. Only Tools/Equipment returnable.
+- **Settings thresholds = read-time only.** `get_reorder_thresholds()` /
+  `effective_reorder_for()` (category overrides Global, unknown → Global).
+  Consumers: inventory summary/items, bell, picker snapshot. Never UPDATE
+  `products.reorder_level`; safe defaults keep dashboards alive.
 
 ## 4. Frozen UI Defaults (apply to every new page/modal/print)
 - **Header card (all 14 dashboard sheets):** sky `#aae0f7`, `margin:14px 28px 0`,
@@ -69,6 +73,8 @@
   (view sky / edit purple / approve green / reject red / print slate).
   Popups = exactly Confirm (`btn-modal-save btn-confirm-go`) + Cancel
   (`btn-modal-cancel`); green Create-PR-exact hover is the default standard.
+  Settings Save carries `btn-confirm-go` too (scoped green rule in
+  `admin_settings.css`); its bar is left-aligned + hidden until dirty.
   Popup header glyphs: 22px solid green/red (never white-on-pale).
 - **Modals:** 520px decision shells, droplet entrance, no X buttons (explicit
   Cancel/Close footers), hidden-POST-form + JS opener pattern (never native
@@ -88,10 +94,41 @@
 - **Icons:** three inline-SVG sprites (`action-icons.js`, `nav-icons.js`,
   `kpi-icons.js`; all `currentColor`, arcs-free). Reuse across families
   (`i-view` magnifier for search boxes, `n-inventory` for stock states) —
-  never draw a duplicate. KPI badges: 44px, 8px radius, 1px bordered box,
+  never draw a duplicate. New glyphs only for genuinely new actions
+  (`i-print` for print, `i-upload` tray for import). KPI badges: 44px, 8px radius, 1px bordered box,
   section tint; centered icon + label-over-count + sub.
 - **Nav:** resting buttons borderless/transparent; hover + active = header
   sky `#aae0f7`, borderless. Logout keeps red text + red-fill hover.
+- **Motion (timing law — single source, no per-page tuning):** morph `.3s`
+  out / `.5s` in (`tabOut`/`tabIn`), transition backdrop app chrome
+  (`#eaf3f8`, never browser white); logout is NOT morphed (exit = plain
+  swap — gating selector excludes `.logout-btn`); stagger `0.1 + i×0.22` (uniform `STEP`,
+  no gates), settle `0.9s` (one `body .cascade-unveil` rule in `modals.css`
+  beats all page shorthands). Sidebar snapshots frozen, main glides;
+  arrivals via one-shot flags (`cpscTabAnim` sidebar clicks,
+  `cpscRowsAnim` + scroll keys for filter/search/refresh); reloads/forms
+  skip. Pre-hide on all 16 sheets (opacity-0 base, single JS-armed play —
+  never auto-play CSS animation beside it, that double-plays). No
+  click-lock anywhere (motion is compositor-only). `prefers-reduced-motion`
+  respected. Prototype-2 pages only — login/forgot/print sheets have no
+  cascade.
+- **Hover additions:** Cancel = red gradient (`#e57373→#ef5350`, white,
+  `scale(1.05)`); header filter/refresh buttons = white bell-style
+  (`#ffffff` bg, `#d0dbe5` border, blue hover kept); merge/compare counter
+  buttons use the green Create-PR-exact hover, never blue.
+- **KPI doctrine:** admin = 5 pending queues (Low red, PR/IAR blue,
+  Withdraw/Return amber); staff = same team-wide 5 minus IAR plus Available
+  Products purple (no "My" — shared workspace; personal scoping lives only
+  in My Recent Activity); inventory = 4 (Asset blue, Products purple
+  `#6a1b9a`, Low orange `#bf360c`, Out red). Badge = 44px box, 8px radius,
+  1px bordered, section tint; 24px glyph; centered icon + label-over-count
+  + sub. Five-in-one-line grid (inventory: four); linked to filtered queues.
+- **Header filter cluster (both dashboards):** active-label + white refresh
+  + funnel beside the bell (not in the toolbelt); shared `filter-panel.js`
+  binds it with zero per-page code; label + pills render black.
+- **Skeleton contract:** `1200ms`, login-only via server `?welcome=1`
+  (`show` class first-paint, flag cleaned by `replaceState`); sidebar lives
+  outside `#main-dashboard-content` so nav never fades or animates.
 - **Toasts:** server flashes + client `showToast()` twin (same card markup,
   category → `i-check`/`i-x`/`i-bell` + circled tint); flash text is
   emoji-free. One `#toast-container`-scoped block in `modals.css` beats all
@@ -128,12 +165,20 @@
   display issues. Wipe policy: transactions only, keep `users` + `products`.
 
 ## 6. Key References
-- Routes: `/pr`, `/pr/print/<id>`, `/pr/print_merged`, `/delivery/*` (IAR),
+- Routes: `/pr`, `/pr/print/<id>`, `/pr/print_merged`, `/pr/import` (stub;
+  gains modal + POST next), `/delivery/*` (IAR),
   `/withdraw`, `/withdraw/print/<id>`, `/returns`, `/returns/print/<id>`,
-  `/inventory`, `/inventory/print`, `/admin/*`, `/api/settings`.
+  `/inventory`, `/inventory/print`, `/inventory/import` (stub; gains modal +
+  POST next), `/admin/*`, `/api/settings`,
+  `/reports` (role redirect), `/admin/reports/comparative`,
+  `/reports/comparative` (Admin + Staff).
+- Import (planned): openpyxl `.xlsx` templates, validate-all-first zero-writes,
+  `source` column backfill (`Encoded` default, `Imported` badge; workflow
+  ENUMs untouched), imported PRs land `Pending/Pending` for the normal flow.
 - Core CRUD: `crud_pr` (numbering, duplicates, `set_po_status`),
   `crud_delivery` (IAR-native + aliases), `crud_inventory`, `crud_withdrawal`,
-  `crud_returns`, `crud_products` (delete guards), `crud_users`, `crud_settings`.
+  `crud_returns`, `crud_products` (delete guards), `crud_users`, `crud_settings`,
+  `crud_reports` (per-PR requested/delivered/outstanding/%, read-only).
 - Palette: sidebar `#f7f0e8` · active `#e1f3fe→#cbebfe` · accent `#53c5f1` ·
   header `#aae0f7` · body `#eaf3f8` · navy `#0d47a1`.
 - Clean slate (phpMyAdmin, FK checks off): DELETE `pr_items`,

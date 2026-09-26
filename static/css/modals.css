@@ -821,6 +821,41 @@ textarea:focus {
    trap the moment the reveal ends. Higher specificity wins over all
    page-sheet shorthands regardless of load order. */
 body .cascade-unveil { opacity: 1; transform: none; clip-path: none; animation-fill-mode: backwards; }
+/* Uniform settle duration (see staggerUnveil STEP): higher specificity beats
+   every page shorthand regardless of load order — one source of truth. */
+body .cascade-unveil { animation-duration: 0.9s; }
+
+/* --- View-transition tab morph (shared default, all pages) ---
+   The browser holds the old sidebar pixels until the new page paints, so
+   the nav stays pixel-still across navigation while only the workspace
+   glides. Runs ONLY on sidebar-link clicks (gated in ui_helpers.js via a
+   one-shot session flag + pagereveal skip); every other arrival renders
+   statically. Unsupported browsers ignore all of this and keep the
+   staggered unveil above. */
+@view-transition { navigation: auto; }
+/* Backdrop behind snapshots: app chrome instead of browser white, so any
+   micro-gap in a cross-document handoff never flashes white. */
+::view-transition { background: #eaf3f8; }
+.sidebar { view-transition-name: sidebar; }
+.main-wrapper { view-transition-name: main; }
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+::view-transition-old(sidebar),
+::view-transition-new(sidebar) { animation: none; }
+::view-transition-old(main) { animation: .3s cubic-bezier(.4,0,.2,1) both tabOut; }
+::view-transition-new(main) { animation: .5s cubic-bezier(.22,.61,.21,1) both tabIn; }
+@keyframes tabOut {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: translate3d(0,14px,0); }
+}
+@keyframes tabIn {
+    from { opacity: 0; transform: translate3d(0,26px,0); }
+    to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-old(main),
+    ::view-transition-new(main) { animation: none; }
+}
 
 /* --- Sidebar nav grouping (shared default, all dashboards) ---
    Static small-caps section labels; buttons themselves untouched.

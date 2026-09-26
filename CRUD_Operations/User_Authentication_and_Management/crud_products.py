@@ -147,7 +147,20 @@ def get_products_for_pr_picker(available_only=False):
             {where}
             ORDER BY p.product_name ASC
         """)
-        return cursor.fetchall()
+        rows = cursor.fetchall()
+        # Surface the effective Settings threshold (category > global) as the
+        # picker reorder snapshot; legacy per-row value kept only as fallback.
+        try:
+            from crud_settings import get_reorder_thresholds, effective_reorder_for
+            thresholds = get_reorder_thresholds()
+            for prow in rows:
+                try:
+                    prow["reorder"] = int(effective_reorder_for(prow.get("category"), thresholds))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return rows
     except Exception as err:
         print(f"[get_products_for_pr_picker] DB error: {err}")
         return []

@@ -67,6 +67,10 @@ document.addEventListener('submit', function (e) {
         copy = 'Filters applied. Refreshing results.';
     }
     showToast(copy, 'info');
+    try {
+        sessionStorage.setItem('cpscRowsAnim', '1');
+        sessionStorage.setItem('cpscScrollY', String(window.scrollY || 0));
+    } catch (err) {}
     setTimeout(function () { form.submit(); }, INTERACTIVE_TOAST_DELAY);
 }, true);
 document.addEventListener('click', function (e) {
@@ -76,6 +80,10 @@ document.addEventListener('click', function (e) {
     e.preventDefault();
     showToast('Refreshing data.', 'info');
     var href = ref.getAttribute('href');
+    try {
+        sessionStorage.setItem('cpscRowsAnim', '1');
+        sessionStorage.setItem('cpscScrollY', String(window.scrollY || 0));
+    } catch (err) {}
     setTimeout(function () { window.location.href = href; }, INTERACTIVE_TOAST_DELAY);
 }, true);
 function updateClock(){
@@ -85,6 +93,114 @@ function updateClock(){
     clockEl.innerText = `${now.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'})} | ${now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true})}`;
 }
 setInterval(updateClock, 1000); updateClock();
+
+/* ---- staggered unveil (1-by-1 entrance) ----
+   Runtime delays replace the old fixed tiers: header first, then each
+   direct content block in order (0.1s + i x 0.12s). transform/opacity only
+   (compositor), will-change released on landing, reduced-motion respected.
+   No click lock anywhere — input stays live throughout the motion. */
+function staggerUnveil() {
+    if (window.__staggerDone) return;
+    window.__staggerDone = true;
+    try {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    } catch (e) {}
+    /* Uniform stagger spacing on every page — one calm settle everywhere,
+       no per-page gates, no drift. */
+    var STEP = 0.22, i = 0;
+    function skip(el) {
+        if (!el || !el.tagName) return true;
+        var tag = el.tagName.toLowerCase();
+        if (tag === 'script' || tag === 'template' || tag === 'style' || tag === 'link' || tag === 'datalist') return true;
+        try {
+            if (window.getComputedStyle(el).display === 'none') return true;
+        } catch (e) {}
+        return false;
+    }
+    function arm(el) {
+        el.classList.add('cascade-unveil');
+        el.style.animationDelay = (0.1 + (i++) * STEP).toFixed(2) + 's';
+        el.style.willChange = 'opacity, transform';
+        el.addEventListener('animationend', function h() {
+            el.style.willChange = 'auto';
+            el.removeEventListener('animationend', h);
+        });
+    }
+    var header = document.querySelector('.top-header');
+    if (header && !skip(header)) arm(header);
+    document.querySelectorAll('.dashboard-container > *').forEach(function (el) {
+        if (!skip(el)) arm(el);
+    });
+}
+
+/* ---- view-transition arrival gating ----
+   The cross-page morph runs on sidebar tab clicks (logout excluded — an
+   exit gets a plain swap) AND on filter/search/refresh arrivals
+   (same-origin GETs all glide identically): either click plants a one-shot
+   flag, and the pagereveal handler skips the transition for every other
+   arrival (reload, forms, POST-redirects). Sidebar snapshots are frozen by
+   CSS so the nav stays pixel-still. */
+document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('.sidebar .nav-btn:not(.logout-btn)') : null;
+    if (!a) return;
+    try { sessionStorage.setItem('cpscTabAnim', '1'); } catch (err) {}
+});
+window.addEventListener('pagereveal', function (e) {
+    var want = false;
+    try { want = sessionStorage.getItem('cpscTabAnim') === '1'; } catch (err) {}
+    if (!want) {
+        try { want = sessionStorage.getItem('cpscRowsAnim') === '1'; } catch (err) {}
+    }
+    if (want) {
+        try { sessionStorage.removeItem('cpscTabAnim'); } catch (err2) {}
+    } else if (e.viewTransition) {
+        try { e.viewTransition.skipTransition(); } catch (err3) {}
+    }
+});
+window.addEventListener('pageshow', function () {
+    try { sessionStorage.removeItem('cpscTabAnim'); } catch (e) {}
+});
+
+/* Show a toast planted by the previous page (retired pilot — kept as a
+   no-op-safe helper; nothing plants it anymore). */
+function showPendingToast() {
+    try { sessionStorage.removeItem('cpscPendingToast'); } catch (e) {}
+}
+try { showPendingToast(); } catch (e) {}
+
+/* Run the stagger synchronously at parse end (before first paint in the
+   common case) so content never paints un-animated and flashes. The
+   DOMContentLoaded calls below stay as a safety net (guarded, no-ops). */
+try {
+    // Filter/search/refresh arrivals morph exactly like sidebar clicks
+    // (pagereveal allows the transition while this flag is present), then
+    // run the same full stagger: every same-origin GET feels identical.
+    // Scroll position restores and the search box refocuses; the flag is
+    // consumed so plain arrivals and reloads render exactly as before.
+    var rowsArrival = false;
+    try { rowsArrival = sessionStorage.getItem('cpscRowsAnim') === '1'; } catch (e) {}
+    if (rowsArrival) {
+        try { sessionStorage.removeItem('cpscRowsAnim'); } catch (e) {}
+    }
+    staggerUnveil();
+    if (rowsArrival) {
+        (function () {
+            var y = 0;
+            try { y = parseInt(sessionStorage.getItem('cpscScrollY') || '0', 10) || 0; } catch (e) {}
+            try { sessionStorage.removeItem('cpscScrollY'); } catch (e) {}
+            function settle() {
+                if (y > 0) { try { window.scrollTo({ top: y, behavior: 'smooth' }); } catch (e) { try { window.scrollTo(0, y); } catch (e2) {} } }
+                var box = document.querySelector('.search-input-box input[type="text"]');
+                if (box && box.focus) { try { box.focus({ preventScroll: true }); } catch (e) { try { box.focus(); } catch (e2) {} } }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', settle);
+            } else {
+                settle();
+            }
+        })();
+    }
+} catch (e) {}
 
         document.addEventListener('DOMContentLoaded', function() {
             const toasts = document.querySelectorAll('.toast-card');
@@ -112,39 +228,11 @@ setInterval(updateClock, 1000); updateClock();
                     fallbackMain.style.opacity = '1';
                 }
             }
-            // Progressive cascade unveil - top to bottom, sidebar stays static
-            const header = document.querySelector('.top-header');
-            const cards = document.querySelector('.cards-grid');
-            const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .toolbelt-container, .content-card, .workspace-grid');
+            // Progressive 1-by-1 unveil - top to bottom, sidebar stays static.
+            // (No click lock: motion is compositor-only, input stays live.)
             // Only run cascade if internal navigation (not from login) OR if no skeleton present
             if (!isFromLogin || !skeleton) {
-                if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
-                if (cards) { cards.classList.add('cascade-unveil'); cards.style.animationDelay = '0.25s'; }
-                tables.forEach(el => { 
-                    // avoid double-animating the container if it contains cards/header
-                    if (el.classList.contains('dashboard-container') && el.querySelector('.cards-grid')) return;
-                    el.classList.add('cascade-unveil'); el.style.animationDelay = '0.5s'; 
-                });
-                // Click lock during transition
-                const lockTarget = document.getElementById('main-dashboard-content') || document.querySelector('.main-wrapper') || document.querySelector('.dashboard-container') || document.body;
-                if (lockTarget) {
-                    lockTarget.classList.add('cascade-lock');
-                    lockTarget.style.pointerEvents = 'none';
-                    lockTarget.style.userSelect = 'none';
-                    const lastEl = tables.length ? tables[tables.length - 1] : (cards || header);
-                    if (lastEl) {
-                        lastEl.addEventListener('animationend', () => {
-                            lockTarget.classList.remove('cascade-lock');
-                            lockTarget.style.pointerEvents = 'auto';
-                            lockTarget.style.userSelect = 'auto';
-                        }, { once: true });
-                    }
-                    setTimeout(() => {
-                        lockTarget.classList.remove('cascade-lock');
-                        lockTarget.style.pointerEvents = 'auto';
-                        lockTarget.style.userSelect = 'auto';
-                    }, 1800);
-                }
+                staggerUnveil();
             }
         });
     
@@ -157,33 +245,9 @@ setInterval(updateClock, 1000); updateClock();
             if (!isFromLogin) {
                 document.getElementById('skeleton-overlay')?.remove();
                 if (main) { main.style.opacity = '1'; main.classList.add('loaded'); }
-                // Progressive cascade unveil - top to bottom, sidebar stays static
-                const header = document.querySelector('.top-header');
-                const cards = document.querySelector('.cards-grid');
-                const tables = document.querySelectorAll('.action-bar-card, .table-card, .chart-card, .dashboard-container, .control-card, .toolbelt-container');
-                if (header) { header.classList.add('cascade-unveil'); header.style.animationDelay = '0s'; }
-                if (cards) { cards.classList.add('cascade-unveil'); cards.style.animationDelay = '0.25s'; }
-                tables.forEach(el => { el.classList.add('cascade-unveil'); el.style.animationDelay = '0.5s'; });
-                // Click lock during transition
-                const lockTarget = document.getElementById('main-dashboard-content') || document.querySelector('.main-wrapper') || document.body;
-                if (lockTarget) {
-                    lockTarget.classList.add('cascade-lock');
-                    lockTarget.style.pointerEvents = 'none';
-                    lockTarget.style.userSelect = 'none';
-                    const lastEl = tables[tables.length - 1] || cards || header;
-                    if (lastEl) {
-                        lastEl.addEventListener('animationend', () => {
-                            lockTarget.classList.remove('cascade-lock');
-                            lockTarget.style.pointerEvents = 'auto';
-                            lockTarget.style.userSelect = 'auto';
-                        }, { once: true });
-                    }
-                    setTimeout(() => {
-                        lockTarget.classList.remove('cascade-lock');
-                        lockTarget.style.pointerEvents = 'auto';
-                        lockTarget.style.userSelect = 'auto';
-                    }, 1800);
-                }
+            // Progressive 1-by-1 unveil - top to bottom, sidebar stays static.
+                // (No click lock: motion is compositor-only, input stays live.)
+                staggerUnveil();
                 return;
             }
             if (!SKELETON_ENABLED || !skeleton || !main) {
@@ -191,6 +255,17 @@ setInterval(updateClock, 1000); updateClock();
                 if (main) { main.style.opacity = '1'; main.classList.add('loaded'); }
                 return;
             }
+            // Overlay starts server-rendered (class="show" only on ?welcome=1
+            // landings) so there is never a first-paint pop-in. Clean the
+            // one-time flag so refresh never replays the shimmer.
+            try {
+                if (window.location.search.indexOf('welcome=1') !== -1 &&
+                        window.history.replaceState) {
+                    window.history.replaceState(
+                        null, '',
+                        window.location.pathname + window.location.hash);
+                }
+            } catch (e) {}
             setTimeout(() => {
                 skeleton.style.transition = 'opacity 0.4s ease';
                 skeleton.style.opacity = '0';

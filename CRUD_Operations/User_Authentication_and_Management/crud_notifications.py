@@ -54,8 +54,23 @@ def get_notification_counts(role="Staff"):
         if n > 0:
             items.append({"label": "Return slips pending processing", "count": n,
                           "url": "/returns?status_filter=Pending"})
-        n = one("SELECT COUNT(*) FROM products WHERE is_active = 1 "
-                "AND COALESCE(current_stock, quantity, 0) <= COALESCE(reorder_level, 10)")
+        try:
+            from crud_settings import get_reorder_thresholds, effective_reorder_for
+            thresholds = get_reorder_thresholds()
+            cursor.execute("SELECT category, COALESCE(current_stock, quantity, 0) AS stock "
+                           "FROM products WHERE is_active = 1")
+            n = 0
+            for prow in (cursor.fetchall() or []):
+                try:
+                    cat = prow[0] if not isinstance(prow, dict) else prow.get("category")
+                    stock = prow[1] if not isinstance(prow, dict) else prow.get("stock", 0)
+                    if int(stock or 0) <= int(effective_reorder_for(cat, thresholds)):
+                        n += 1
+                except Exception:
+                    continue
+        except Exception:
+            n = one("SELECT COUNT(*) FROM products WHERE is_active = 1 "
+                    "AND COALESCE(current_stock, quantity, 0) <= COALESCE(reorder_level, 10)")
         if n > 0:
             inv_url = ("/admin/inventory?stock_status=Needs+Attention"
                        if role == "Admin" else "/inventory?stock_status=Needs+Attention")

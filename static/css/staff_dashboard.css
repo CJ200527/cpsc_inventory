@@ -253,7 +253,7 @@
         .card-subtitle {
             font-size: 12px;
             font-weight: 500;
-            color: #666666;
+            color: #000000;
             background: #f4f7f9;
             border: 1px solid #e0e0e0;
             border-radius: 20px;
@@ -271,30 +271,47 @@
 
         .card-link:hover { text-decoration: underline; }
 
-        /* ROW 1: KPI Analytics Cards (4-column grid) */
+        /* ROW 1: Team KPI Cards (5-column grid, badge layout mirrors admin) */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 18px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 14px;
         }
 
         .metric-card {
             background-color: #ffffff;
             border-radius: 12px;
-            padding: 18px 20px;
+            padding: 20px 18px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
             border: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            gap: 6px;
-            min-height: 125px;
+            gap: 8px;
+            min-height: 140px;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
 
         .metric-card:hover {
             transform: translateY(-3px);
             box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+        }
+
+        .metric-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        .metric-text {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+            align-items: center;
         }
 
         .metric-title {
@@ -314,11 +331,31 @@
         }
 
         .metric-icon-box {
-            font-size: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
         }
 
+        /* KPI icon badge — same bordered-box language as admin dashboard. */
+        .metric-badge {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            border: 1px solid #d0dbe5;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .metric-badge .kpi-icon { width: 24px; height: 24px; }
+        .metric-badge.badge-red { background: #fdecea; border-color: #f5c6cb; color: #c62828; }
+        .metric-badge.badge-blue { background: #e1f3fe; border-color: #b6dcf5; color: #0277bd; }
+        .metric-badge.badge-amber { background: #fef6e0; border-color: #ffe082; color: #b26a00; }
+        .metric-badge.badge-purple { background: #f3e5f5; border-color: #ce93d8; color: #6a1b9a; }
+
         .metric-value {
-            font-size: 24px;
+            font-size: 28px;
             font-style: italic;
             font-weight: 700;
             color: #2c3e50;
@@ -330,7 +367,7 @@
             font-size: 11.5px;
             color: #888888;
             text-align: center;
-            margin-top: 4px;
+            margin-top: 10px;
         }
 
         /* ROW 2: Actionable Alerts & Pending Tasks */
@@ -359,7 +396,11 @@
         .alert-item.alert-warning { border-left-color: #ffc107; }
         .alert-item.alert-danger { border-left-color: #dc3545; }
 
-        .alert-icon { font-size: 20px; flex-shrink: 0; }
+        .alert-icon { display: inline-flex; flex-shrink: 0; color: #54677a; }
+        .alert-item.alert-success .alert-icon { color: #28a745; }
+        .alert-item.alert-info .alert-icon { color: #0277bd; }
+        .alert-item.alert-warning .alert-icon { color: #b26a00; }
+        .alert-item.alert-danger .alert-icon { color: #dc3545; }
 
         .alert-text {
             flex: 1;
@@ -533,9 +574,98 @@
             font-style: italic;
         }
 
-        /* Responsive: stack KPIs on narrow screens */
+        /* Header chart-filter cluster (beside the bell, mirrors admin) */
+        .header-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-filter .filter-active-label { color: #000000; }
+        /* Canonical 32px action square (mirrors admin_dashboard) + bell-style white. */
+        .btn-action {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid #d0dbe5;
+            background: transparent;
+            color: #54677a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 15px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
+        .btn-action.btn-view:hover,
+        .btn-refresh-icon:hover {
+            background: #e1f3fe;
+            border-color: #53c5f1;
+            color: #0277bd;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(83,197,241,0.25);
+        }
+        a.btn-action { text-decoration: none; }
+        /* Bell-style buttons: white bg + border like the bell; hover stays blue. */
+        .header-filter .btn-action { background: #ffffff; border-color: #d0dbe5; }
+
+        /* ROW 2: Withdraw + Return Analytics (2-column grid) */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 18px;
+        }
+        .chart-box {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px 22px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+            border: 1px solid #e0e0e0;
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            min-width: 0;
+        }
+        .chart-canvas-wrap {
+            position: relative;
+            flex: 1;
+            min-height: 220px;
+        }
+        .chart-canvas-wrap canvas {
+            position: absolute;
+            inset: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        .chart-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 40px 20px;
+            color: #888888;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        /* ROW 3 + 4: Snapshot (left) + Recent Activity (right) */
+        .staff-duo-grid {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 20px;
+            align-items: start;
+        }
+        .staff-duo-grid .dashboard-card-container { min-width: 0; }
+
+        /* Responsive: stack KPIs + analytics + duo on narrow screens */
         @media (max-width: 1100px) {
             .cards-grid { grid-template-columns: repeat(2, 1fr); }
+            .analytics-grid { grid-template-columns: 1fr; }
+            .staff-duo-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
             .cards-grid { grid-template-columns: 1fr; }
@@ -628,8 +758,13 @@
             height: 100%;
             background: #eaf3f8;
             z-index: 9998;
-            display: flex;
+            display: none;
             overflow: hidden;
+        }
+        /* Shown only when arriving from login (see ui_helpers.js) — nav
+           clicks paint the real page instantly like module pages. */
+        #skeleton-overlay.show {
+            display: flex;
         }
         .skeleton-sidebar {
             width: 260px;
@@ -672,6 +807,19 @@
             opacity: 0;
             transform: translateY(-20px);
             animation: progressiveReveal 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        /* Entrance pre-hide: header + content blocks start hidden so first
+           paint can never show un-animated content. The animation itself
+           comes only from the JS-armed .cascade-unveil class — one single
+           play per load, never a flash-then-replay. */
+        .top-header,
+        .dashboard-container > * {
+            opacity: 0;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .top-header,
+            .dashboard-container > *,
+            .cascade-unveil { animation: none; opacity: 1; transform: none; }
         }
         @keyframes progressiveReveal {
             0% {

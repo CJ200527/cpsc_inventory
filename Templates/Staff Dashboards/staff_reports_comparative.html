@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPSC Inventory - Comparative Report</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/input_box_enlargement.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/staff_reports.css') }}">
+</head>
+<body>
+    <div id="toast-container" class="toast-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="toast-card toast-{{ category }}">
+                    <span class="toast-icon">
+                        {% if category == 'success' %}<svg class="act-icon toast-ico toast-ico-success" aria-hidden="true"><use href="#i-check"/></svg>{% elif category == 'error' or category == 'danger' %}<svg class="act-icon toast-ico toast-ico-error" aria-hidden="true"><use href="#i-x"/></svg>{% else %}<svg class="act-icon toast-ico toast-ico-info" aria-hidden="true"><use href="#i-bell"/></svg>{% endif %}
+                    </span>
+                    <span class="toast-message">{{ message }}</span>
+                    <button type="button" class="toast-close" onclick="this.parentElement.remove()">✕</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
+    <!-- LEFT SIDEBAR (STAFF PORTAL) -->
+    <!-- ===== SIDEBAR NAVIGATION (RBAC: Admin vs Staff, 9-button, 42px no-shift) ===== -->
+    <div class="sidebar">
+        <div>
+            <div class="sidebar-header">
+                <img class="sidebar-logo"
+                     src="{{ url_for('static', filename='cpsc_logo.png') }}"
+                     alt="CPSC Seal"
+                     onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/e/ea/Camiguin_Polytechnic_State_College_logo.png'">
+                <div>
+                    <div class="school-title">Camiguin Polytechnic State College</div>
+                    <div class="school-subtitle">Balbagon, Mambajao, Camiguin</div>
+                </div>
+            </div>
+
+                        <div class="nav-menu">
+                <div class="nav-group-label">Dashboard</div>
+                <a href="{{ url_for('staff_dashboard') }}" class="nav-btn nav-sec-admin"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-dashboard"/></svg></span><span>Dashboard</span></a>
+                <div class="nav-group-label">Procurement</div>
+                <a href="{{ url_for('pr_management') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-pr"/></svg></span><span>Submit PR</span></a>
+                <a href="{{ url_for('delivery_dashboard') }}" class="nav-btn nav-sec-procurement"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-iar"/></svg></span><span>Receive IAR</span></a>
+                <div class="nav-group-label">Operations</div>
+                <a href="{{ url_for('staff_withdraw_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-withdraw"/></svg></span><span>Withdraw</span></a>
+                <a href="{{ url_for('staff_return_dashboard') }}" class="nav-btn nav-sec-operations"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-return"/></svg></span><span>Return</span></a>
+                <div class="nav-group-label">Stocks</div>
+                <a href="{{ url_for('staff_inventory_dashboard') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-inventory"/></svg></span><span>Stock Inventory</span></a>
+                <a href="{{ url_for('staff_products') }}" class="nav-btn nav-sec-stocks"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-product"/></svg></span><span>Product</span></a>
+                <div class="nav-group-label">Others</div>
+                <a href="{{ url_for('reports_hub') }}" class="nav-btn nav-sec-others active"><span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-reports"/></svg></span><span>Reports</span></a>
+            </div>
+        </div>
+
+        <div>
+            <a href="/logout" class="nav-btn logout-btn">
+                <span class="icon"><svg class="nav-icon" aria-hidden="true"><use href="#n-logout"/></svg></span>
+                <span>Log Out</span>
+            </a>
+            <div class="sidebar-footer">@ CPSC Production Office 2026</div>
+        </div>
+    </div>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="main-wrapper">
+        <!-- ===== TOP HEADER (Live clock #live-clock + session user profile) ===== -->
+        <div class="top-header">
+            <div class="header-title-box">
+                <h1>Comparative Report — PR Fulfillment</h1>
+                <div class="date-time-box" id="live-clock">Loading Date & Time...</div>
+            </div>
+            <div class="user-profile-box">
+                    <div class="notif-wrap">
+                        <button type="button" class="notif-bell" title="Notifications" aria-expanded="false" aria-label="Notifications"><svg class="act-icon" aria-hidden="true"><use href="#i-bell"/></svg>{% if notif_total|default(0) %}<span class="notif-badge">{{ notif_total if notif_total <= 99 else '99+' }}</span>{% endif %}</button>
+                        <div class="notif-panel">
+                            {% if notif_items|default([]) %}
+                            {% for n in notif_items %}
+                            <a class="notif-row" href="{{ n.url }}"><span class="notif-dot"></span><span class="notif-label">{{ n.label }}</span><strong>{{ n.count }}</strong></a>
+                            {% endfor %}
+                            {% else %}
+                            <div class="notif-empty">All caught up. Nothing needs attention.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="user-block">
+                        <div>
+                            <div class="user-welcome">{{ user.full_name }}</div>
+                            <span class="user-pill">{{ user.role }}</span>
+                        </div>
+                        <div class="user-avatar">{{ user.full_name|initial }}</div>
+                    </div>
+                </div>
+        </div>
+
+        <div class="dashboard-container">
+
+
+            <!-- CONTROL BAR -->
+            <!-- ===== CONTROL BAR (Search + Anchored Filters + Refresh) ===== -->
+            <div class="control-card">
+                <form method="GET" action="{{ url_for('staff_comparative_report') }}" class="search-form" id="filter-form">
+                    <div class="search-input-box fx21-field">
+                        <span class="search-ico"><svg class="act-icon" aria-hidden="true"><use href="#i-view"/></svg></span>
+                        <input type="text" name="search" class="effect-21" value="{{ search }}" placeholder="Search PR #, Requested By..." autocomplete="off">
+                        <span class="focus-border"><i></i></span>
+                    </div>
+                    <button type="submit" class="icon-btn">Search</button>
+                    <a href="{{ url_for('staff_comparative_report') }}" class="btn-action btn-view" title="Refresh"><svg class="act-icon" aria-hidden="true"><use href="#i-refresh"/></svg></a>
+                </form>
+
+                <div class="filter-controls">
+                    <div class="filter-wrap">
+                        <button type="button" class="btn-action btn-view filter-btn" title="Filters" aria-expanded="false" aria-label="Filters"><svg class="act-icon" aria-hidden="true"><use href="#i-filter"/></svg>{% if active_filter_count %}{% if rows|length %}<span class="filter-count">{{ rows|length }}</span>{% else %}<span class="filter-dot"></span>{% endif %}{% endif %}</button>
+                        <div class="filter-panel">
+                            <form method="GET" action="{{ url_for('staff_comparative_report') }}">
+                                <input type="hidden" name="search" value="{{ search }}">
+                                <div class="filter-panel-head"><span class="filter-panel-title">Filters</span><a class="filter-clear-link" href="{{ url_for('staff_comparative_report', search=search) if search else url_for('staff_comparative_report') }}">Clear</a></div>
+                                <div class="filter-field">
+                                    <label for="fStart-repstaff">Start Date</label>
+                                    <div class="fx21-field"><input type="date" id="fStart-repstaff" name="date_from" class="effect-21" value="{{ date_from }}" max="{{ current_date if current_date is defined else '' }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-field">
+                                    <label for="fEnd-repstaff">End Date</label>
+                                    <div class="fx21-field"><input type="date" id="fEnd-repstaff" name="date_to" class="effect-21" value="{{ date_to }}" max="{{ current_date if current_date is defined else '' }}"><span class="focus-border"><i></i></span></div>
+                                </div>
+                                <div class="filter-actions">
+                                    <button type="button" class="btn-modal-cancel" data-filter-cancel>Cancel</button>
+                                    <button type="submit" class="btn-modal-save btn-confirm-go">Apply Filters</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <a id="compare-btn" href="#" data-href-base="{{ url_for('staff_comparative_report') }}" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Select 2+ PRs to compare requested vs received">Compare Selected (0)</a>
+                    <a id="compare-print-btn" href="#" data-href-base="{{ url_for('comparative_print_view') }}" class="btn-add-primary is-disabled" style="text-decoration:none;" title="Print the merged comparison sheet">🖨 Print Compared (0)</a>
+                </div>
+            </div>
+
+            <!-- FULFILLMENT LEDGER (read-only: requested vs delivered per PR) -->
+            <!-- ===== DATA TABLE (Badges, hover, responsive) ===== -->
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="merge-col" style="width:34px;text-align:center;"><input type="checkbox" id="merge-check-all" title="Select all for merge compare"></th>
+                            <th>PR Number</th>
+                            <th>Requested By</th>
+                            <th>Date Requested</th>
+                            <th>Fund Source</th>
+                            <th>Requested Qty</th>
+                            <th>Delivered Qty</th>
+                            <th>Outstanding</th>
+                            <th>Fulfillment</th>
+                            <th>Director</th>
+                            <th>Procurement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rows %}
+                            {% for r in rows %}
+                            <tr>
+                                <td style="text-align:center;"><input type="checkbox" class="merge-check" value="{{ r.pr_id }}" title="Include in merged compare"></td>
+                                <td><strong>{{ r.pr_number | short_pr }}</strong></td>
+                                <td>{{ r.Lastname }} ({{ r.Role|lower }})</td>
+                                <td>{{ r.date_requested | ph_datetime }}</td>
+                                <td>{{ r.fund_source or '-' }}</td>
+                                <td style="text-align:center;">{{ r.requested_qty }}</td>
+                                <td style="text-align:center;">{{ r.delivered_qty }}</td>
+                                <td style="text-align:center; font-weight:700;">{{ r.outstanding_qty }}</td>
+                                <td>
+                                    <div class="fulfill-wrap" title="{{ r.fulfillment_pct }}% fulfilled">
+                                        <div class="fulfill-bar"><div class="fulfill-fill" style="width: {{ r.fulfillment_pct }}%;"></div></div>
+                                        <span class="fulfill-pct">{{ r.fulfillment_pct }}%</span>
+                                    </div>
+                                </td>
+                                <td><span class="badge badge-{{ r.status|lower }}">{{ r.status }}</span></td>
+                                <td><span class="badge badge-{{ (r.po_status or 'Pending')|lower }}">PO: {{ r.po_status or 'Pending' }}</span></td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="11" style="text-align:center; color:#888; padding:25px;">No purchase requests match these filters.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if compared_items is defined and compared_items %}
+            <!-- MERGED COMPARE (virtual: item-grouped requested vs received) -->
+            <div class="table-card compare-card">
+                <div class="table-card-header">
+                    <h3>Merged Compare — Requested vs Received</h3>
+                    <span class="count-pill">Merged from: ({{ compared_numbers | join('), (') }})</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Unit</th>
+                            <th>Requested per Fund</th>
+                            <th>Total Requested</th>
+                            <th>Total Received</th>
+                            <th>Outstanding</th>
+                            <th>Fulfillment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for it in compared_items %}
+                        <tr>
+                            <td><strong>{{ it.item_name }}</strong>{% if it.details %} {{ it.details }}{% endif %}{% if it.size and it.size != 'N/A' %} ({{ it.size }}){% endif %}</td>
+                            <td style="text-align:center;">{{ it.unit or '' }}</td>
+                            <td>{% for fund, qty in it.fund_list %}<span class="fund-tag">{{ fund }}: {{ qty }}</span>{% endfor %}</td>
+                            <td style="text-align:center;">{{ it.requested_qty }}</td>
+                            <td style="text-align:center;">{{ it.delivered_qty }}</td>
+                            <td style="text-align:center; font-weight:700;">{{ it.outstanding_qty }}</td>
+                            <td>
+                                <div class="fulfill-wrap" title="{{ it.fulfillment_pct }}% fulfilled">
+                                    <div class="fulfill-bar"><div class="fulfill-fill" style="width: {{ it.fulfillment_pct }}%;"></div></div>
+                                    <span class="fulfill-pct">{{ it.fulfillment_pct }}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align:right; font-weight:700;">GRAND TOTAL</td>
+                            <td style="text-align:center; font-weight:700;">{{ compared_totals.requested_qty }}</td>
+                            <td style="text-align:center; font-weight:700;">{{ compared_totals.delivered_qty }}</td>
+                            <td style="text-align:center; font-weight:700;">{{ compared_totals.outstanding_qty }}</td>
+                            <td><span class="fulfill-pct">{{ compared_totals.fulfillment_pct }}%</span></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+
+    <script src="{{ url_for('static', filename='js/ui_helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/action-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/nav-icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/filter-panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/reports_compare.js') }}"></script>
+
+</body>
+</html>
